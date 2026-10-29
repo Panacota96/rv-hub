@@ -1,0 +1,25 @@
+[package]
+name = "rv-hub-gui"
+description = "RV Hub desktop interface (Windows 10/11, also builds on Linux)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+
+[[bin]]
+name = "rv-hub-gui"
+path = "src/main.rs"
+
+[lib]
+name = "rv_hub_gui"
+path = "src/lib.rs"
+
+[dependencies]
+rv-hub-core.workspace = true
+eframe.workspace = true
+serde_json.workspace = true
+
+# Native file/folder pickers on Windows (no GTK/portal dependency elsewhere: a text field is used instead).
+[target.'cfg(windows)'.dependencies]
+rfd.workspace = true

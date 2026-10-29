@@ -1,0 +1,19 @@
+{
+  "forge_version": 1,
+  "profile": "rust",
+  "name": "rv-hub",
+  "module": "rv_hub",
+  "title": "RV Hub",
+  "run_command": "scan",
+  "planned_command": "verify",
+  "case_role": "analysis",
+  "created": "2026-10-29",
+  "cli_command": [
+    "cargo",
+    "run",
+    "-q",
+    "-p",
+    "rv-hub-cli",
+    "--"
+  ]
+}
