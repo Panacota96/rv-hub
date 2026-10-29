@@ -130,6 +130,51 @@ pub fn launch_with(
     verifier: &dyn SignatureVerifier,
     spawner: &dyn Spawner,
 ) -> Result<Launched, LaunchError> {
+    launch_impl(
+        session,
+        tool,
+        Some(case_dir),
+        confirm_untrusted,
+        verifier,
+        spawner,
+    )
+}
+
+/// Opens the tool's GUI with no case (no arguments): same rules as [`launch`] (executable present, unchanged,
+/// signature re-checked, untrusted confirmation audited) and the same `tool_launched` entry, with
+/// `case_dir: null`. [`Launched::case_dir`] is then empty. The front-end asks the user first.
+pub fn launch_without_case(
+    session: &mut Session,
+    tool: &ToolInfo,
+    confirm_untrusted: bool,
+) -> Result<Launched, LaunchError> {
+    launch_without_case_with(
+        session,
+        tool,
+        confirm_untrusted,
+        &OsVerifier,
+        &DetachedSpawner,
+    )
+}
+
+pub fn launch_without_case_with(
+    session: &mut Session,
+    tool: &ToolInfo,
+    confirm_untrusted: bool,
+    verifier: &dyn SignatureVerifier,
+    spawner: &dyn Spawner,
+) -> Result<Launched, LaunchError> {
+    launch_impl(session, tool, None, confirm_untrusted, verifier, spawner)
+}
+
+fn launch_impl(
+    session: &mut Session,
+    tool: &ToolInfo,
+    case_dir: Option<&Path>,
+    confirm_untrusted: bool,
+    verifier: &dyn SignatureVerifier,
+    spawner: &dyn Spawner,
+) -> Result<Launched, LaunchError> {
     let audit = |e: String| LaunchError::Audit(e);
     let Some(exe) = tool.gui_exe.clone() else {
         return Err(LaunchError::MissingExe(format!(
@@ -144,21 +189,24 @@ pub fn launch_with(
             exe.display()
         )));
     }
-    let case_dir = crate::case::normalize(case_dir);
-    if case_dir.is_file() {
-        return Err(LaunchError::NotACase(format!(
-            "{} is a file, not a folder",
-            case_dir.display()
-        )));
+    let case_dir = case_dir.map(crate::case::normalize);
+    if let Some(case_dir) = &case_dir {
+        if case_dir.is_file() {
+            return Err(LaunchError::NotACase(format!(
+                "{} is a file, not a folder",
+                case_dir.display()
+            )));
+        }
+        let has_case = case_dir.join(crate::case::CASE_FILE).is_file();
+        // Only the intake tool creates a case (case.json); the hub never does.
+        if !has_case && tool.describe.role != ToolRole::Intake {
+            return Err(LaunchError::NotACase(format!(
+                "{} is not a case folder yet (no case.json): open it with the intake tool first",
+                case_dir.display()
+            )));
+        }
     }
-    let has_case = case_dir.join(crate::case::CASE_FILE).is_file();
-    // Only the intake tool creates a case (case.json); the hub never does.
-    if !has_case && tool.describe.role != ToolRole::Intake {
-        return Err(LaunchError::NotACase(format!(
-            "{} is not a case folder yet (no case.json): open it with the intake tool first",
-            case_dir.display()
-        )));
-    }
+    let case_text = case_dir.as_ref().map(|d| d.display().to_string());
     let actual = crate::tools::sha256_of(&exe)
         .ok_or_else(|| LaunchError::MissingExe(format!("cannot read {}", exe.display())))?;
     if let Some(expected) = &tool.gui_sha256 {
@@ -172,7 +220,7 @@ pub fn launch_with(
     let signature = verifier.verify(&exe);
     let details = |extra: serde_json::Value| {
         let mut v = json!({"tool": tool.tool, "version": tool.version, "exe": exe.display().to_string(),
-                           "exe_sha256": actual, "signature": signature, "case_dir": case_dir.display().to_string()});
+                           "exe_sha256": actual, "signature": signature, "case_dir": case_text});
         if let (Some(o), Some(e)) = (v.as_object_mut(), extra.as_object()) {
             o.extend(e.clone());
         }
@@ -189,7 +237,10 @@ pub fn launch_with(
             )
             .map_err(audit)?;
     }
-    let args: Vec<OsString> = vec!["--case-dir".into(), case_dir.clone().into_os_string()];
+    let args: Vec<OsString> = match &case_dir {
+        Some(d) => vec!["--case-dir".into(), d.clone().into_os_string()],
+        None => vec![],
+    };
     let pid = match spawner.spawn_detached(&exe, &args) {
         Ok(p) => p,
         Err(e) => {
@@ -210,7 +261,7 @@ pub fn launch_with(
         .record(
             "tool_launched",
             details(
-                json!({"pid": pid, "args": ["--case-dir", case_dir.display().to_string()],
+                json!({"pid": pid, "args": args.iter().map(|a| a.to_string_lossy().into_owned()).collect::<Vec<_>>(),
                            "confirmed_untrusted": !signature.is_rakvor()}),
             ),
         )
@@ -221,7 +272,7 @@ pub fn launch_with(
         exe,
         exe_sha256: actual,
         signature,
-        case_dir,
+        case_dir: case_dir.unwrap_or_default(),
         pid,
         audit_seq,
     })
@@ -343,6 +394,26 @@ mod tests {
         let h = tool(d.path(), "rv-hashinv");
         let new_case = d.path().join("new-case");
         assert!(launch_with(&mut s, &h, &new_case, false, &rakvor, &rec).is_ok());
+    }
+
+    #[test]
+    fn launch_without_a_case_has_no_arguments() {
+        let d = tempfile::tempdir().unwrap();
+        let mut s = Session::start(&d.path().join("hub"), "Ana", "test", &[]).unwrap();
+        let t = tool(d.path(), "rv-pdfauth");
+        let rec = Recorder::default();
+        let unsigned = StaticVerifier::always(SignatureStatus::Unsigned);
+        assert_eq!(
+            launch_without_case_with(&mut s, &t, false, &unsigned, &rec),
+            Err(LaunchError::NeedsConfirmation(SignatureStatus::Unsigned))
+        );
+        let l = launch_without_case_with(&mut s, &t, true, &unsigned, &rec).unwrap();
+        assert_eq!(l.case_dir, PathBuf::new());
+        assert!(rec.0.borrow()[0].1.is_empty());
+        let last = entries(&s).last().unwrap().clone();
+        assert_eq!(last["action"], "tool_launched");
+        assert!(last["details"]["case_dir"].is_null());
+        assert_eq!(last["details"]["args"], serde_json::json!([]));
     }
 
     #[cfg(unix)]
