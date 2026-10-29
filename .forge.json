@@ -17,12 +17,12 @@
     "--"
   ],
   "sample_args": [
-    "--case-dir",
-    "examples/sample/case",
     "--rehash",
     "--evidence-dir",
     "examples/sample/evidence",
     "--crosscheck",
     "off"
-  ]
+  ],
+  "input_mode": "case",
+  "sample_case": "examples/sample/case"
 }
