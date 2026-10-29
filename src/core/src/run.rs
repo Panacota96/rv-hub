@@ -643,11 +643,23 @@ fn pipeline(
         // Digests: the case log as read at the start; other files streamed (progress + cancel per chunk).
         let algos: Vec<HashAlgo> = match p {
             Plan::Evidence(e) => {
-                let mut a: Vec<HashAlgo> = HashAlgo::ALL
-                    .into_iter()
-                    .filter(|a| e.hashes.contains_key(a.name()))
-                    .collect();
-                a.truncate(HashAlgo::MAX_SELECTED);
+                // At most two digests per read (product rule): first an algorithm the registry holds, so the
+                // comparison is always possible (one the examiner selected if there is one), then the examiner's
+                // other selections, so the hash register (hashes.csv) has the selected columns filled.
+                let in_registry = |a: &HashAlgo| e.hashes.contains_key(a.name());
+                let mut a: Vec<HashAlgo> = Vec::new();
+                if let Some(x) = cfg.algorithms.iter().find(|x| in_registry(x)) {
+                    a.push(*x);
+                } else if let Some(x) = HashAlgo::ALL.into_iter().find(|x| in_registry(x)) {
+                    a.push(x);
+                }
+                if !a.is_empty() {
+                    for x in &cfg.algorithms {
+                        if a.len() < HashAlgo::MAX_SELECTED && !a.contains(x) {
+                            a.push(*x);
+                        }
+                    }
+                }
                 a
             }
             _ => cfg.algorithms.clone(),

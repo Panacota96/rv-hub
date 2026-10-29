@@ -66,13 +66,17 @@ jobs:
         run: cargo run --locked -q -p rv-hub-cli -- self-test
       - name: Sample run
         shell: bash
-        run: cargo run --locked -q -p rv-hub-cli -- scan -i examples/sample/evidence --hash sha256,blake3 --lang all --out ci-out --progress none --no-timestamp
+        # Whole-case verification on a copy of the committed sample case (four real tool runs).
+        run: |
+          rm -rf ci-case && cp -R examples/sample/case ci-case
+          cargo run --locked -q -p rv-hub-cli -- verify --case-dir ci-case --rehash --evidence-dir examples/sample/evidence \
+            --crosscheck off --hash sha256,blake3 --lang all --progress none --no-timestamp
       - name: Cross-language verification (Python re-checks the chain, hashes and JSON schemas)
         shell: bash
         run: |
-          run=$(find ci-out/logs -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort | tail -n 1)
-          python tests/verify_chain.py "ci-out/logs/$run"
-          python tests/validate_reports.py "ci-out/reports/$run"
+          run=$(ls ci-case/runs/rv-hub | sort | tail -n 1)
+          python tests/verify_chain.py "ci-case/runs/rv-hub/$run/logs"
+          python tests/validate_reports.py "ci-case/runs/rv-hub/$run/reports"
       - name: Sample script (compares the tool's hashes.csv with expected_hashes.csv)
         if: runner.os == 'Linux'
         env:
@@ -96,10 +100,11 @@ jobs:
         continue-on-error: true
         shell: bash
         run: |
-          cargo run --locked -q -p rv-hub-cli -- scan -i examples/sample/evidence --out tsa-out --progress none | tee tsa.txt
+          rm -rf tsa-case && cp -R examples/sample/case tsa-case
+          cargo run --locked -q -p rv-hub-cli -- verify --case-dir tsa-case --crosscheck off --progress none | tee tsa.txt
           grep -q "timestamp: ok" tsa.txt
-          run=$(find tsa-out/logs -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort | tail -n 1)
-          cargo run --locked -q -p rv-hub-cli -- verify-log "tsa-out/logs/$run"
+          run=$(ls tsa-case/runs/rv-hub | sort | tail -n 1)
+          cargo run --locked -q -p rv-hub-cli -- verify-log "tsa-case/runs/rv-hub/$run/logs"
       - name: Build release binaries (Windows)
         if: runner.os == 'Windows'
         run: cargo build --release --locked -p rv-hub-cli -p rv-hub-gui
