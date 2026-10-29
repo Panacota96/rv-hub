@@ -1,0 +1,32 @@
+2026-10-29T11:00:57.105Z  #00001  run_started          algorithms=sha256+md5 case_dir=/tmp/tmp.sVTkOe7IbL/case case_id=SAMPLE-1 evidence_ids= frontend=cli input_list=null inputs=/tmp/tmp.sVTkOe7IbL/evidence jurisdiction=co langs=en out_dir=rakvor-out recursive=false sign_cert=null tool=rv-hashinv tsa_url=null version=0.3.1
+2026-10-29T11:00:57.105Z  #00002  case_linked          case_created=true case_dir=/tmp/tmp.sVTkOe7IbL/case case_id=SAMPLE-1 case_log_head_at_start=1bab89c7650674d10671054c9f549523bda8a58dfcf4f860e5e82b941e1757c1 case_log_seq_at_start=2 jurisdiction=co registry_items=0 registry_sha256=null requested_jurisdiction=co role=intake run_dir=runs/rv-hashinv/20261029T110057Z-48a8f9
+2026-10-29T11:00:57.107Z  #00003  environment_recorded environment.json  md5=596db0c3cdcb0175106ec54e972af5f0 sha256=7e4a50cebc67a50d4bbb4651e15d3c48d2d3a064fc2ad4c66422eea575930a2e
+2026-10-29T11:00:57.107Z  #00004  inputs_resolved      bytes=3067 items=5
+2026-10-29T11:00:57.107Z  #00005  item_started         /tmp/tmp.sVTkOe7IbL/evidence/captura.png  index=1 modified_utc=2026-10-29T11:00:57Z size=354
+2026-10-29T11:00:57.107Z  #00006  item_hashed          /tmp/tmp.sVTkOe7IbL/evidence/captura.png  bytes_read=354 index=1 mtime_unchanged=true
+2026-10-29T11:00:57.107Z  #00007  item_analyzed        /tmp/tmp.sVTkOe7IbL/evidence/captura.png  detected_type=PNG image extension=png findings= index=1 status=ok
+2026-10-29T11:00:57.107Z  #00008  item_started         /tmp/tmp.sVTkOe7IbL/evidence/contrato.pdf  index=2 modified_utc=2026-10-29T11:00:57Z size=789
+2026-10-29T11:00:57.107Z  #00009  item_hashed          /tmp/tmp.sVTkOe7IbL/evidence/contrato.pdf  bytes_read=789 index=2 mtime_unchanged=true
+2026-10-29T11:00:57.107Z  #00010  item_analyzed        /tmp/tmp.sVTkOe7IbL/evidence/contrato.pdf  detected_type=PDF document extension=pdf findings= index=2 status=ok
+2026-10-29T11:00:57.107Z  #00011  item_started         /tmp/tmp.sVTkOe7IbL/evidence/foto-1.jpg  index=3 modified_utc=2026-10-29T11:00:57Z size=1483
+2026-10-29T11:00:57.108Z  #00012  item_hashed          /tmp/tmp.sVTkOe7IbL/evidence/foto-1.jpg  bytes_read=1483 index=3 mtime_unchanged=true
+2026-10-29T11:00:57.108Z  #00013  item_analyzed        /tmp/tmp.sVTkOe7IbL/evidence/foto-1.jpg  detected_type=JPEG image extension=jpg findings= index=3 status=ok
+2026-10-29T11:00:57.108Z  #00014  item_started         /tmp/tmp.sVTkOe7IbL/evidence/notas.txt  index=4 modified_utc=2026-10-29T11:00:57Z size=101
+2026-10-29T11:00:57.108Z  #00015  item_hashed          /tmp/tmp.sVTkOe7IbL/evidence/notas.txt  bytes_read=101 index=4 mtime_unchanged=true
+2026-10-29T11:00:57.108Z  #00016  item_analyzed        /tmp/tmp.sVTkOe7IbL/evidence/notas.txt  detected_type=null extension=txt findings= index=4 status=ok
+2026-10-29T11:00:57.109Z  #00017  item_started         /tmp/tmp.sVTkOe7IbL/evidence/whatsapp-chat.txt  index=5 modified_utc=2026-10-29T11:00:57Z size=340
+2026-10-29T11:00:57.109Z  #00018  item_hashed          /tmp/tmp.sVTkOe7IbL/evidence/whatsapp-chat.txt  bytes_read=340 index=5 mtime_unchanged=true
+2026-10-29T11:00:57.109Z  #00019  item_analyzed        /tmp/tmp.sVTkOe7IbL/evidence/whatsapp-chat.txt  detected_type=null extension=txt findings= index=5 status=ok
+2026-10-29T11:00:57.110Z  #00020  evidence_registered  /tmp/tmp.sVTkOe7IbL/evidence/captura.png  case_log_seq=3 evidence_id=E0001 index=1 new=true registry_sha256=369dac6fb11ad15c8a2c57659d365c755e9fbdb69c8985eab201054d77a91631
+2026-10-29T11:00:57.110Z  #00021  evidence_registered  /tmp/tmp.sVTkOe7IbL/evidence/contrato.pdf  case_log_seq=3 evidence_id=E0002 index=2 new=true registry_sha256=369dac6fb11ad15c8a2c57659d365c755e9fbdb69c8985eab201054d77a91631
+2026-10-29T11:00:57.110Z  #00022  evidence_registered  /tmp/tmp.sVTkOe7IbL/evidence/foto-1.jpg  case_log_seq=3 evidence_id=E0003 index=3 new=true registry_sha256=369dac6fb11ad15c8a2c57659d365c755e9fbdb69c8985eab201054d77a91631
+2026-10-29T11:00:57.111Z  #00023  evidence_registered  /tmp/tmp.sVTkOe7IbL/evidence/notas.txt  case_log_seq=3 evidence_id=E0004 index=4 new=true registry_sha256=369dac6fb11ad15c8a2c57659d365c755e9fbdb69c8985eab201054d77a91631
+2026-10-29T11:00:57.111Z  #00024  evidence_registered  /tmp/tmp.sVTkOe7IbL/evidence/whatsapp-chat.txt  case_log_seq=3 evidence_id=E0005 index=5 new=true registry_sha256=369dac6fb11ad15c8a2c57659d365c755e9fbdb69c8985eab201054d77a91631
+2026-10-29T11:00:57.111Z  #00025  hash_register_written hashes.csv  md5=05462fa406acdb5b38c28f4fd8e99463 sha256=724a95ff807a709dca957e7dfc8445ee88450790eba74b1d2c8e1ae6972bfa8f
+2026-10-29T11:00:57.119Z  #00026  item_reports_written /tmp/tmp.sVTkOe7IbL/evidence/captura.png  folder=items/00001-captura.png
+2026-10-29T11:00:57.125Z  #00027  item_reports_written /tmp/tmp.sVTkOe7IbL/evidence/contrato.pdf  folder=items/00002-contrato.pdf
+2026-10-29T11:00:57.131Z  #00028  item_reports_written /tmp/tmp.sVTkOe7IbL/evidence/foto-1.jpg  folder=items/00003-foto-1.jpg
+2026-10-29T11:00:57.137Z  #00029  item_reports_written /tmp/tmp.sVTkOe7IbL/evidence/notas.txt  folder=items/00004-notas.txt
+2026-10-29T11:00:57.143Z  #00030  item_reports_written /tmp/tmp.sVTkOe7IbL/evidence/whatsapp-chat.txt  folder=items/00005-whatsapp-chat.txt
+2026-10-29T11:00:57.145Z  #00031  statistics_report_written 
+2026-10-29T11:00:57.145Z  #00032  run_finished         bytes=3067 cancelled=false elapsed_ms=40 errors=0 high=0 info=0 items=5 low=0 medium=0

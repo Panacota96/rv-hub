@@ -1,9 +1,9 @@
 {
   "lang": "en",
   "labels": {
-    "title_statistics": "Run statistics report",
-    "title_technical": "Technical review",
-    "title_summary": "Customer summary",
+    "title_statistics": "Case verification report",
+    "title_technical": "Technical verification",
+    "title_summary": "Verification summary",
     "tool": "Tool",
     "version": "Version",
     "run_id": "Run ID",
@@ -48,22 +48,22 @@
     "none": "None",
     "unknown": "unknown",
     "method": "Method",
-    "method_text": "Each file was opened read-only, hashed in a single pass with the selected algorithms, and checked against a table of file signatures. Every action was written to a hash-chained audit log.",
+    "method_text": "RV Hub read the case folder without changing it: the hash chains of the case log and of every run's audit and review logs were recomputed, each run's links with the case log and its timestamp tokens were checked, and (with --rehash) every registered evidence file was hashed again and compared with the registry. Where the run's own tool was installed and Rakvor-signed, its verify-log was asked for the same verdict. Every action was written to a hash-chained audit log.",
     "conclusion": "Conclusion",
     "what_we_did": "What we did",
     "what_we_found": "What we found",
     "next_steps": "Recommended next step",
-    "next_ok": "No action needed for this file.",
-    "next_attention": "Review the findings below with your examiner before relying on this file.",
-    "next_problem": "Do not rely on this file until the examiner has explained the problem.",
+    "next_ok": "No action needed for this item.",
+    "next_attention": "Review the findings below with your examiner.",
+    "next_problem": "Do not rely on this part of the case until the examiner has explained the problem.",
     "status_ok": "No issues found",
     "status_attention": "Needs attention",
     "status_problem": "Problem found",
-    "summary_ok": "The file was hashed and checked. The checks applied found no issues.",
-    "summary_attention": "The file was hashed and checked. Some points need attention.",
-    "summary_problem": "The file could not be fully examined or shows a serious problem.",
+    "summary_ok": "This item was verified. The checks applied found no sign of alteration.",
+    "summary_attention": "This item was verified. Some points need attention.",
+    "summary_problem": "This item fails verification: it was altered, is missing, or could not be verified.",
     "fingerprint": "Digital fingerprint",
-    "fingerprint_text": "This fingerprint identifies the exact content of the file. Any change, even of one character, would produce a different value.",
+    "fingerprint_text": "This fingerprint identifies the exact content of the file that was verified. Any change, even of one character, would produce a different value.",
     "timestamp": "Trusted timestamp (RFC 3161)",
     "timestamp_ok": "Obtained",
     "timestamp_pending": "Pending — the time-stamping service could not be reached; add it later with the timestamp command",
@@ -84,14 +84,55 @@
     "case_status_verified": "Verified: identical to the registered evidence",
     "case_status_mismatch": "MISMATCH with the registered evidence",
     "case_status_not_in_registry": "Not in the case registry",
-    "case_verification": "Case folder",
+    "case_verification": "Case verification",
     "registered": "With an evidence ID from intake",
     "added": "Newly registered by this run",
     "verified": "Verified against the registry",
     "mismatched": "Different from the registry",
     "unregistered": "Not in the registry",
     "intake_date": "Registered at intake (UTC)",
-    "case_dir": "Case folder"
+    "case_dir": "Case folder",
+    "kind": "Kind",
+    "kind_case_log": "Case log",
+    "kind_run": "Run",
+    "kind_evidence": "Evidence file",
+    "case_linked": "Recorded in the case log",
+    "case_linked_yes": "yes (run_started / run_finished)",
+    "case_linked_no": "no: the case log fails verification and was not extended",
+    "runs": "Runs",
+    "runs_intact": "Runs intact",
+    "runs_broken": "Runs with a broken log",
+    "runs_not_in_case_log": "Runs not in the case log",
+    "reviews_broken": "Broken review logs",
+    "evidence_checked": "Evidence files re-hashed",
+    "evidence_matched": "Evidence matching the registry",
+    "evidence_mismatched": "Evidence differing from the registry",
+    "evidence_missing": "Evidence not found",
+    "crosscheck_agreed": "Tool cross-checks agreeing",
+    "crosscheck_disagreed": "Tool cross-checks disagreeing",
+    "crosscheck_unavailable": "Tool cross-checks not done",
+    "fact_tool": "Tool",
+    "fact_version": "Tool version",
+    "fact_run_id": "Run ID",
+    "fact_run_dir": "Run folder",
+    "fact_entries": "Audit entries",
+    "fact_review_entries": "Review entries",
+    "fact_timestamp": "Timestamp",
+    "fact_verify_log": "verify-log verdict (hub)",
+    "fact_truncation": "Truncation",
+    "fact_crosscheck": "Cross-check with the tool",
+    "fact_case_log_entries": "Case-log entries",
+    "fact_registry_items": "Registered items",
+    "fact_registry_sha256": "Registry SHA-256",
+    "fact_case_id": "Case ID",
+    "fact_registered_path": "Registered path",
+    "fact_located_at": "File read",
+    "fact_algorithms": "Algorithms compared",
+    "fact_run_status": "Run status",
+    "fact_case_link": "Case-log link",
+    "fact_problem": "Problem",
+    "fact_warning": "Warning",
+    "fact_as_found": "Digests cover"
   },
   "severity": {
     "high": "High",
@@ -100,31 +141,6 @@
     "info": "Informational"
   },
   "findings": {
-    "EMPTY_FILE": {
-      "title": "Empty file",
-      "shows": "The file contains no data (0 bytes).",
-      "does_not_prove": "It does not show whether the file was emptied deliberately or created empty."
-    },
-    "EXTENSION_MISMATCH": {
-      "title": "Extension does not match content",
-      "shows": "The name ends in .%{extension} but the content starts with the signature of a %{detected} file.",
-      "does_not_prove": "Renaming is common and often innocent; it does not by itself prove an attempt to hide content."
-    },
-    "EXECUTABLE_CONTENT": {
-      "title": "Executable content under another name",
-      "shows": "The content is a %{detected} program although the name ends in .%{extension}.",
-      "does_not_prove": "It does not show that the program is malicious; analyse it in an isolated environment."
-    },
-    "DUPLICATE": {
-      "title": "Duplicate content",
-      "shows": "Identical content (same %{algorithm}) appears in %{count} files: %{others}.",
-      "does_not_prove": "Identical hashes show identical content, not who copied the file or when."
-    },
-    "UNREADABLE": {
-      "title": "File could not be read",
-      "shows": "Reading failed: %{error}.",
-      "does_not_prove": "It does not show that the file is damaged; permissions or locks can cause this."
-    },
     "EVIDENCE_HASH_MISMATCH_WITH_CASE": {
       "title": "Differs from the evidence registered in the case",
       "shows": "The %{algorithm} of this file is %{actual}, but evidence %{evidence_id} was registered at intake with %{expected}: the file examined is not bit-identical to the registered item.",
@@ -135,16 +151,86 @@
       "shows": "No item of case %{case_id} was registered with this path or this content, so its continuity from intake cannot be shown.",
       "does_not_prove": "That the file is altered or irrelevant; it may simply not have gone through intake."
     },
-    "REGISTRY_PATH_CONTENT_CHANGED": {
-      "title": "Registered path now holds different content",
-      "shows": "This path was registered earlier as %{previous_id} with other content; the current content gets a new evidence ID.",
-      "does_not_prove": "Which version is the original or why the content changed."
+    "CASE_LOG_BROKEN": {
+      "title": "Case log broken",
+      "shows": "The case log (case-log.jsonl), case.json or the registry digest fails verification: %{problem}.",
+      "does_not_prove": "Who changed the file or when; the runs' own logs are checked separately and may still be intact."
+    },
+    "RUN_LOG_BROKEN": {
+      "title": "Run log broken",
+      "shows": "The audit log of run %{run} fails verification: %{problem}.",
+      "does_not_prove": "What the edit changed or who made it; the run's reports cannot be relied on until it is explained."
+    },
+    "REVIEW_LOG_BROKEN": {
+      "title": "Review log broken",
+      "shows": "The review log (review.jsonl) of run %{run} fails verification: %{problem}.",
+      "does_not_prove": "That the run's own audit log or reports were changed; only the record of what was viewed after the run is in doubt."
+    },
+    "RUN_NOT_IN_CASE_LOG": {
+      "title": "Run not recorded in the case log",
+      "shows": "The folder %{run} holds a run that the case log never announced (no run_started entry for it).",
+      "does_not_prove": "That the run's content is false; it may have been copied in from another case or its case-log entries removed."
+    },
+    "TOOL_VERIFY_DISAGREES": {
+      "title": "The tool's own verification disagrees",
+      "shows": "RV Hub found the logs of run %{run} %{hub}, but %{tool} verify-log answered %{tool_verdict} (exit code %{exit_code}).",
+      "does_not_prove": "Which of the two is right; a disagreement means the two verifier implementations differ and must be examined before the case is relied on."
+    },
+    "EVIDENCE_REHASH_MISMATCH": {
+      "title": "Evidence differs from the registry",
+      "shows": "Evidence %{evidence_id} (%{path}) now has %{algorithm} %{actual}, but was registered with %{expected}: the file is not bit-identical to the registered item.",
+      "does_not_prove": "Who changed the file or when; a different copy may have been found under the same name."
+    },
+    "EVIDENCE_MISSING": {
+      "title": "Registered evidence not found",
+      "shows": "Evidence %{evidence_id} (registered at %{path}) could not be re-hashed: %{reason}.",
+      "does_not_prove": "That the evidence was lost or destroyed; it may be stored elsewhere (give its folder with --evidence-dir)."
+    },
+    "UNKNOWN_LOG_FORMAT": {
+      "title": "Unknown log format",
+      "shows": "Run %{run} holds %{file}, a log RV Hub does not know how to verify.",
+      "does_not_prove": "That the file was tampered with or is harmless; it is simply not checked."
+    },
+    "TIMESTAMP_PENDING": {
+      "title": "Trusted timestamp pending",
+      "shows": "Run %{run} has no RFC 3161 timestamp yet: the authority could not be reached when the run finished.",
+      "does_not_prove": "That the log is wrong; until a timestamp is added with `timestamp`, nothing outside the case proves when the log existed."
+    },
+    "CROSSCHECK_UNAVAILABLE": {
+      "title": "Cross-check with the tool not done",
+      "shows": "The logs of run %{run} were not also verified by %{tool} itself: %{reason}.",
+      "does_not_prove": "Any problem with the run; RV Hub's own verification of the run still applies."
+    },
+    "RUN_LOG_INTACT": {
+      "title": "Run log intact",
+      "shows": "The audit log of run %{run} (%{entries} entries) is an unbroken chain, linked to the case log as recorded.",
+      "does_not_prove": "That the analysis results are correct or the evidence authentic; only that the record of the run was not altered since it was written."
+    },
+    "TOOL_SIGNED_RAKVOR": {
+      "title": "Signed by Rakvor",
+      "shows": "%{exe} carries a valid code signature that chains to the Rakvor root certificate.",
+      "does_not_prove": "That the program is free of defects; only that it is the build Rakvor signed, unchanged."
+    },
+    "TOOL_SIGNED_OTHER_ROOT": {
+      "title": "Signed under another root",
+      "shows": "%{exe} is signed, but its certificate chain ends at another root (SHA-256 %{root_sha256}), not the Rakvor root.",
+      "does_not_prove": "That the program is malicious; it is not the Rakvor build and its results must not be presented as Rakvor's."
+    },
+    "TOOL_SIGNATURE_INVALID": {
+      "title": "Signature invalid",
+      "shows": "The code signature of %{exe} does not verify: %{reason}.",
+      "does_not_prove": "Who changed the program or why; do not use it for evidence until it is reinstalled from a verified release."
+    },
+    "TOOL_UNSIGNED": {
+      "title": "Not signed",
+      "shows": "%{exe} carries no code signature (for example a development build).",
+      "does_not_prove": "That the program is faulty or malicious; only that nothing shows it is the Rakvor release."
     }
   },
   "limitations": {
-    "SIGNATURE_TABLE_LIMITED": "Type detection uses a limited table of common file signatures; unknown types are reported as unknown, not as suspicious.",
-    "TIMESTAMPS_FROM_FILESYSTEM": "Modification times come from the file system of the examined copy and may differ from the original source.",
-    "CLEAN_RESULT_IS_NOT_AUTHENTICITY": "A result without findings does not prove that a file is authentic or unaltered before acquisition.",
+    "VERIFICATION_PROVES_INTEGRITY_NOT_CONTENT": "Verification shows that the case log, the run logs and (with --rehash) the evidence files have not changed since they were recorded; it does not show that the tools' findings are correct or that the evidence is authentic.",
+    "SIGNATURE_CHECK_WINDOWS_ONLY": "The code signatures of the tools are checked on Windows only (Authenticode); elsewhere they are reported as not checked.",
+    "CROSSCHECK_NEEDS_INSTALLED_TOOLS": "A run's logs are also verified by the run's own tool only when that tool is installed on this workstation and signed by Rakvor; otherwise only RV Hub's verification applies.",
     "TIMESTAMP_PROVES_EXISTENCE_ONLY": "A trusted timestamp proves the audit log existed in this exact form at the stated time; it does not prove that the examined copy matches the original source."
   },
   "brand": {
@@ -177,17 +263,10 @@
     "intake_date": "Registered at intake (UTC)"
   },
   "ui": {
-    "window_title": "Rakvor",
+    "window_title": "RV Hub",
     "audit_note": "Every action is written to a tamper-evident audit log.",
-    "evidence": "1. Evidence",
-    "evidence_help": "Add one file, several files or whole folders (bulk review). You can also drag them onto this window.",
-    "add_files": "Add files…",
-    "add_folder": "Add folder…",
-    "path_hint": "…or type / paste a path and press Enter",
-    "add_path": "Add path",
-    "remove": "Remove selected",
-    "no_evidence": "No evidence added yet.",
-    "subfolders": "Include subfolders",
+    "evidence": "1. Case folder",
+    "evidence_help": "Choose the case folder to verify (the folder that holds case.json). You can also drag it onto this window. Nothing in it is changed: RV Hub only adds its own run.",
     "hashes": "2. Hash algorithms (choose 1 or 2)",
     "hash_tip_two": "Two algorithms are already selected: untick one first.",
     "hash_tip_one": "At least one algorithm is required.",
@@ -206,16 +285,16 @@
     "tsa": "Trusted timestamp",
     "sign_cert": "Signing certificate (.p12/.pfx)",
     "sign_pass": "Certificate password",
-    "start": "Start review",
+    "start": "Start verification",
     "cancel": "Cancel",
     "cancelling": "Cancelling: finishing the current file, then writing partial reports…",
-    "files": "files",
+    "files": "items",
     "elapsed": "Elapsed",
     "remaining": "Remaining (estimate)",
     "now": "Now",
     "done": "Done",
     "cancelled": "Cancelled — partial results",
-    "failed": "The review failed",
+    "failed": "The verification failed",
     "errors": "errors",
     "findings": "findings",
     "open_report": "Open report",
@@ -223,8 +302,23 @@
     "warnings": "Warnings",
     "lang_all": "All three (EN + ES + FR)",
     "case_dir": "Case folder",
-    "case_dir_hint": "optional: shared case folder (links the tools of one case)",
-    "out_from_case": "Output folder: set by the case folder",
-    "evidence_ids": "Evidence IDs"
+    "case_dir_hint": "e.g. E:\\CASE-014",
+    "out_from_case": "The verification run is written into the case folder",
+    "rehash": "Also re-hash the registered evidence files",
+    "evidence_dir": "Evidence copies in",
+    "evidence_dir_hint": "optional: folder where the evidence is now",
+    "crosscheck": "Ask each run's own tool to verify its logs too (installed, Rakvor-signed tools)",
+    "out_dir_broken": "Output folder if the case log is broken",
+    "codes": "Finding codes"
+  },
+  "suggest": {
+    "title": "Suggested next steps",
+    "no_case": "No case folder yet: open or create the case with the intake tool.",
+    "no_evidence": "No evidence is registered yet: register it with the intake tool.",
+    "pdf_not_analysed": "Registered PDF files have not been analysed yet.",
+    "images_not_analysed": "Registered images (JPEG, PNG, HEIC, WebP) have not been analysed yet.",
+    "chats_not_converted": "Registered chat exports have not been converted to RSMF yet.",
+    "not_examined": "Registered items this tool accepts have not been examined by it yet.",
+    "timestamp_pending": "Some runs are still waiting for their trusted timestamp: run `timestamp` when online."
   }
 }

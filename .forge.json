@@ -4,7 +4,7 @@
   "name": "rv-hub",
   "module": "rv_hub",
   "title": "RV Hub",
-  "run_command": "scan",
+  "run_command": "verify",
   "planned_command": "verify",
   "case_role": "analysis",
   "created": "2026-10-29",
@@ -15,5 +15,14 @@
     "-p",
     "rv-hub-cli",
     "--"
+  ],
+  "sample_args": [
+    "--case-dir",
+    "examples/sample/case",
+    "--rehash",
+    "--evidence-dir",
+    "examples/sample/evidence",
+    "--crosscheck",
+    "off"
   ]
 }

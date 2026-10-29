@@ -1,66 +1,96 @@
-//! The pipeline both front-ends call: intake → hash + analyze each item → duplicates →
-//! hashes.csv → per-item reports → statistics report. Every step is written to the audit log.
+//! The main verb, `rv-hub verify`: whole-case verification. Both front-ends call [`run`].
 //!
-//! With `case_dir` the run works inside a shared case folder (see `case.rs`): outputs go to
-//! `<CASE>/runs/<tool>/<RUN-ID>/`, the case log records run_started / run_finished, and depending on
-//! [`CaseRole`] every item is registered (intake) or verified against the registry (analysis).
+//! ```text
+//! items:   1 the case log ── 2..n every run folder ── (--rehash) every registered evidence file
+//! checks:  checks.rs (same verifier code as the tools) ── cross-check: <tool> verify-log <run>/logs
+//! outputs: <CASE>/runs/rv-hub/<RUN-ID>/{logs,reports}  (hashes.csv, per-item technical / summary / custody,
+//!          statistics, audit chain), linked in the case log by run_started / run_finished.
+//! ```
+//!
+//! The hub never changes another tool's file: it only appends its own run_started / run_finished to the case log
+//! (under the case lock, after re-verifying it, like every tool) and writes its own run folder. When the case log
+//! fails verification it is not extended: the run is then written to `out_dir/{logs,reports}/<RUN-ID>/` instead.
+//! The case role stays [`CaseRole::Analysis`] (recorded in run_started), but no evidence input is needed.
 
-use crate::analyzer::{Finding, Severity, analyze};
 use crate::audit::AuditLog;
-use crate::case::{self, Case, CaseRole, Comparison, Registration, Writer};
+use crate::case::{self, CASE_LOG, Case, CaseError, CaseErrorKind, CaseRole, Writer};
+use crate::checks::{self, RunRef};
 use crate::events::{Event, eta_ms};
+use crate::findings::{self as fnd, Finding, Severity};
 use crate::hash::{HashAlgo, hash_bytes, hash_reader, validate_selection};
-use crate::input::collect;
-use crate::report::{self, AuditRef, CaseInfo, CaseTally, ItemResult, RunInfo, RunTotals};
-use crate::time::{utc_compact, utc_from, utc_now};
+use crate::report::{
+    self, AuditRef, CaseInfo, CrossCheck, Item, ItemKind, RunInfo, RunTotals, Tally, Verdict,
+};
+use crate::signature::OsVerifier;
+use crate::time::{utc_compact, utc_now};
+use crate::tools::{self, ToolInfo};
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
+/// `--crosscheck auto|off`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CrossCheckMode {
+    /// Ask each run's own tool when it is discovered and Rakvor-signed, or given in `tool_overrides`.
+    Auto,
+    Off,
+}
+
 #[derive(Clone, Debug)]
 pub struct RunConfig {
-    pub inputs: Vec<PathBuf>,
-    pub input_list: Option<PathBuf>,
-    pub recursive: bool,
+    /// The case folder to verify (`--case-dir`, required).
+    pub case_dir: PathBuf,
+    /// Also re-hash the registered evidence files (`--rehash`).
+    pub rehash: bool,
+    /// Restrict --rehash to these evidence ids (E0001…). Empty = every registered item.
+    pub evidence_ids: Vec<String>,
+    /// Where registered evidence is now when it is not at its registered path (looked up by file name).
+    pub evidence_dirs: Vec<PathBuf>,
+    pub crosscheck: CrossCheckMode,
+    /// tool → CLI executable to use for the cross-check, whatever its signature (`--tool-exe NAME=PATH`).
+    pub tool_overrides: BTreeMap<String, PathBuf>,
+    /// Discovered tools for the cross-check. None = discover them now (only with `CrossCheckMode::Auto`).
+    pub tools: Option<Vec<ToolInfo>>,
+    pub crosscheck_timeout: Duration,
+    /// Algorithms for the digests of the hub's own files and of the verified logs (1–2).
     pub algorithms: Vec<HashAlgo>,
-    pub out_dir: PathBuf,
     pub langs: Vec<String>,
     pub actor: String,
+    /// Expected case id (`--case`): must match case.json when given.
     pub case_id: Option<String>,
     /// "cli" or "gui"
     pub frontend: String,
-    /// Front-end actions to audit before the run starts (e.g. GUI setting changes): (action, details).
+    /// Front-end actions to audit before the run starts: (action, details).
     pub preamble: Vec<(String, Value)>,
-    /// Command line (CLI) or equivalent settings (GUI), stored in environment.json.
     pub command_line: Vec<String>,
     pub tool_name: String,
     pub tool_version: String,
-    /// Custody form: "co" (Colombia, Fiscalía) or "fr" (France, scellés).
+    /// Custody form when the case has no jurisdiction (the case's jurisdiction always wins).
     pub jurisdiction: String,
-    /// RFC 3161 time-stamping authority; None = no timestamp.
     pub tsa_url: Option<String>,
-    /// Examiner's .p12/.pfx used to sign every PDF.
     pub sign_cert: Option<PathBuf>,
     /// Never logged.
     pub sign_password: Option<String>,
-    /// Shared case folder (`--case-dir`). None = standalone run in `out_dir`.
-    pub case_dir: Option<PathBuf>,
-    /// Case folder only: evidence ids to examine (E0001…). With no input and no ids, every registered item.
-    pub evidence_ids: Vec<String>,
-    /// Intake (registers evidence) or analysis (verifies against the registry). Default: [`crate::CASE_ROLE`].
+    /// Used only when the case log fails verification (it is then never extended).
+    pub out_dir: PathBuf,
+    /// Recorded in run_started; [`crate::CASE_ROLE`].
     pub case_role: CaseRole,
 }
 
 impl Default for RunConfig {
     fn default() -> Self {
         RunConfig {
-            inputs: vec![],
-            input_list: None,
-            recursive: false,
+            case_dir: PathBuf::new(),
+            rehash: false,
+            evidence_ids: vec![],
+            evidence_dirs: vec![],
+            crosscheck: CrossCheckMode::Auto,
+            tool_overrides: BTreeMap::new(),
+            tools: None,
+            crosscheck_timeout: Duration::from_secs(120),
             algorithms: vec![HashAlgo::Sha256],
-            out_dir: PathBuf::from("rakvor-out"),
             langs: vec!["en".into()],
             actor: "unknown".into(),
             case_id: None,
@@ -73,8 +103,7 @@ impl Default for RunConfig {
             tsa_url: None,
             sign_cert: None,
             sign_password: None,
-            case_dir: None,
-            evidence_ids: vec![],
+            out_dir: PathBuf::from("rakvor-out"),
             case_role: crate::CASE_ROLE,
         }
     }
@@ -97,144 +126,15 @@ pub struct RunSummary {
     pub audit_head: String,
     /// {"status": "ok"|"pending"|"off", ...}
     pub timestamp: Value,
-    /// Case folder runs: case id, role and how the items relate to the registry.
     pub case: Option<CaseInfo>,
-}
-
-/// A run linked to a case folder.
-struct CaseLink {
-    case: Case,
-    writer: Writer,
-    /// "runs/<tool>/<RUN-ID>" (relative to the case folder, forward slashes)
-    run_rel: String,
-    run_dir: PathBuf,
-    started_seq: u64,
-    started_head: String,
-    created: bool,
-    requested_algorithms: Vec<HashAlgo>,
-    algo_change: Option<(HashAlgo, Option<HashAlgo>)>,
-    requested_jurisdiction: String,
-    registry_sha256: Option<String>,
-    /// normalised path → evidence id, for items selected with --evidence
-    by_evidence: BTreeMap<String, String>,
-    tally: CaseTally,
-}
-
-impl CaseLink {
-    fn info(&self, role: CaseRole) -> CaseInfo {
-        CaseInfo {
-            case_id: self.case.case_id.clone(),
-            role: role.name().into(),
-            dir: self.case.dir.display().to_string(),
-            tally: self.tally.clone(),
-        }
-    }
-}
-
-/// Opens (or creates) the case, resolves --evidence, applies the case rules to the configuration and appends
-/// run_started to the case log. Nothing is written into a case that fails verification.
-fn open_case(cfg: &RunConfig, dir: &Path, run_id: &str) -> Result<(RunConfig, CaseLink), String> {
-    let writer = Writer {
-        tool: cfg.tool_name.clone(),
-        version: cfg.tool_version.clone(),
-        run_id: run_id.to_string(),
-        actor: cfg.actor.clone(),
-    };
-    let ids = case::parse_evidence_ids(&cfg.evidence_ids)?;
-    let (case, created) =
-        Case::open_or_create(dir, cfg.case_id.as_deref(), &cfg.jurisdiction, &writer)?;
-    case.check_ids(&ids)?;
-    let mut c = cfg.clone();
-    c.case_id = Some(case.case_id.clone());
-    c.jurisdiction = case.jurisdiction.clone();
-    let (algos, algo_change) =
-        case::ensure_case_algorithm(&cfg.algorithms, &case.registry_algorithms());
-    c.algorithms = algos;
-    c.evidence_ids = ids.clone();
-    let mut by_evidence = BTreeMap::new();
-    for id in &ids {
-        if let Some(it) = case.get(id) {
-            c.inputs.push(PathBuf::from(&it.path));
-            by_evidence.insert(it.path.clone(), id.clone());
-        }
-    }
-    if c.inputs.is_empty() && c.input_list.is_none() {
-        c.inputs = case.items.iter().map(|i| PathBuf::from(&i.path)).collect();
-    }
-    let run_rel = format!("runs/{}/{}", cfg.tool_name, run_id);
-    let run_dir = dir.join("runs").join(&cfg.tool_name).join(run_id);
-    let (started_seq, started_head) = case.append(
-        &writer,
-        "run_started",
-        json!({"tool": cfg.tool_name, "version": cfg.tool_version, "run_dir": run_rel, "frontend": cfg.frontend,
-               "role": cfg.case_role.name(), "evidence_ids": ids}),
-    )?;
-    let registry_sha256 = case::registry_digest(dir);
-    Ok((
-        c,
-        CaseLink {
-            case,
-            writer,
-            run_rel,
-            run_dir,
-            started_seq,
-            started_head,
-            created,
-            requested_algorithms: cfg.algorithms.clone(),
-            algo_change,
-            requested_jurisdiction: cfg.jurisdiction.clone(),
-            registry_sha256,
-            by_evidence,
-            tally: CaseTally::default(),
-        },
-    ))
-}
-
-/// Appends run_finished to the case log (also after a cancel or a failure). The audit head recorded here is the
-/// run's final audit entry, read back from disk.
-fn finish_case(
-    link: &CaseLink,
-    cfg: &RunConfig,
-    log_dir: &Path,
-    result: &Result<RunSummary, String>,
-    sink: &mut dyn FnMut(&Event),
-) {
-    let heads = crate::audit::heads(&log_dir.join("audit.jsonl"));
-    let (entries, head) = heads
-        .iter()
-        .next_back()
-        .map(|(s, h)| (*s, json!(h)))
-        .unwrap_or((0, Value::Null));
-    let t = &link.tally;
-    let verification = json!({"registered": t.registered, "added": t.added, "verified": t.verified,
-                              "mismatched": t.mismatched, "unregistered": t.unregistered});
-    let details = match result {
-        Ok(s) => json!({
-            "tool": cfg.tool_name, "version": cfg.tool_version, "run_dir": link.run_rel,
-            "status": if s.cancelled { "cancelled" } else { "completed" },
-            "audit_head": head, "audit_entries": entries,
-            "timestamp_status": s.timestamp["status"].as_str().unwrap_or("off"),
-            "totals": {"items": s.items, "bytes": s.bytes, "errors": s.errors, "high": s.high, "medium": s.medium,
-                       "low": s.low, "info": s.info},
-            "verification": verification,
-        }),
-        Err(e) => json!({
-            "tool": cfg.tool_name, "version": cfg.tool_version, "run_dir": link.run_rel, "status": "failed",
-            "reason": e, "audit_head": head, "audit_entries": entries, "timestamp_status": "off",
-            "totals": null, "verification": verification,
-        }),
-    };
-    if let Err(e) = link.case.append(&link.writer, "run_finished", details) {
-        sink(&Event::Error {
-            path: None,
-            message: format!("case log: run_finished not recorded: {}", e),
-        });
-    }
+    /// Distinct finding codes, sorted (what `expected_findings.json` lists).
+    pub codes: Vec<String>,
 }
 
 const PROGRESS_EVERY: Duration = Duration::from_millis(150);
 
-fn new_run_id() -> String {
+/// "20261029T110057Z-a1b2c3": UTC time + 6 hex of a per-process seed.
+pub fn new_run_id() -> String {
     let seed = format!(
         "{:?}-{}-{}",
         std::time::SystemTime::now(),
@@ -256,59 +156,273 @@ fn csv_field(s: &str) -> String {
     }
 }
 
-/// Runs the whole pipeline. Events go to `sink`; set `cancel` to stop after the current chunk
-/// (partial reports are still written and the cancellation is audited).
+/// Checks done before anything is written: case.json and its schema, `--case`, evidence ids.
+/// Usage errors (exit 2) for a wrong folder, case id or id; Io (exit 1) when case.json cannot be read.
+pub fn preflight(cfg: &RunConfig) -> Result<(String, String), CaseError> {
+    let dir = &cfg.case_dir;
+    let p = dir.join(case::CASE_FILE);
+    if !p.is_file() {
+        return Err(CaseError::new(
+            CaseErrorKind::Usage,
+            format!(
+                "{} is not a case folder (no {})",
+                dir.display(),
+                case::CASE_FILE
+            ),
+        ));
+    }
+    let v: Value = std::fs::read_to_string(&p)
+        .map_err(|e| {
+            CaseError::new(
+                CaseErrorKind::Io,
+                format!("cannot read {}: {e}", p.display()),
+            )
+        })
+        .and_then(|t| {
+            serde_json::from_str(&t).map_err(|e| {
+                CaseError::new(
+                    CaseErrorKind::Usage,
+                    format!("{} is not valid JSON: {e}", p.display()),
+                )
+            })
+        })?;
+    if v["schema"] != case::SCHEMA_CASE {
+        return Err(CaseError::new(
+            CaseErrorKind::Usage,
+            format!(
+                "{} has schema {}; this tool reads {} only",
+                p.display(),
+                v["schema"],
+                case::SCHEMA_CASE
+            ),
+        ));
+    }
+    let case_id = v["case_id"].as_str().unwrap_or_default().to_string();
+    if let Some(want) = cfg
+        .case_id
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+    {
+        if want != case_id {
+            return Err(CaseError::new(
+                CaseErrorKind::Usage,
+                format!(
+                    "the case folder {} belongs to case {case_id}, not {want}",
+                    dir.display()
+                ),
+            ));
+        }
+    }
+    let ids = case::parse_evidence_ids(&cfg.evidence_ids)?;
+    if !ids.is_empty() {
+        let reg = registry_items(dir).map_err(|e| CaseError::new(CaseErrorKind::Usage, e))?;
+        let unknown: Vec<&String> = ids
+            .iter()
+            .filter(|i| !reg.iter().any(|r| &r.evidence_id == *i))
+            .collect();
+        if !unknown.is_empty() {
+            return Err(CaseError::new(
+                CaseErrorKind::Usage,
+                format!(
+                    "evidence id(s) not in the case registry: {}",
+                    unknown
+                        .iter()
+                        .map(|s| s.as_str())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                ),
+            ));
+        }
+    }
+    let jurisdiction = match v["jurisdiction"].as_str() {
+        Some(j @ ("co" | "fr")) => j.to_string(),
+        _ => cfg.jurisdiction.clone(),
+    };
+    Ok((case_id, jurisdiction))
+}
+
+fn registry_items(dir: &Path) -> Result<Vec<case::RegistryItem>, String> {
+    let p = dir.join(case::REGISTRY_JSON);
+    if !p.is_file() {
+        return Ok(vec![]);
+    }
+    let v: Value = std::fs::read_to_string(&p)
+        .map_err(|e| e.to_string())
+        .and_then(|t| serde_json::from_str(&t).map_err(|e| e.to_string()))
+        .map_err(|e| format!("{}: {e}", p.display()))?;
+    let mut items: Vec<case::RegistryItem> =
+        serde_json::from_value(v["items"].clone()).map_err(|e| format!("{}: {e}", p.display()))?;
+    items.sort_by_key(|i| {
+        i.evidence_id
+            .trim_start_matches('E')
+            .parse::<u64>()
+            .unwrap_or(0)
+    });
+    Ok(items)
+}
+
+/// Where the run writes, and whether it is linked in the case log.
+struct Target {
+    log_dir: PathBuf,
+    report_dir: PathBuf,
+    /// Some when the run is linked in the case log.
+    link: Option<(Case, Writer, String, u64, String)>,
+    not_extended: Option<String>,
+}
+
+fn open_target(cfg: &RunConfig, run_id: &str, case_log_intact: bool) -> Result<Target, CaseError> {
+    let dir = &cfg.case_dir;
+    if !case_log_intact {
+        return Ok(Target {
+            log_dir: cfg.out_dir.join("logs").join(run_id),
+            report_dir: cfg.out_dir.join("reports").join(run_id),
+            link: None,
+            not_extended: Some(
+                "the case log fails verification: a broken case is never extended".into(),
+            ),
+        });
+    }
+    let writer = Writer {
+        tool: cfg.tool_name.clone(),
+        version: cfg.tool_version.clone(),
+        run_id: run_id.to_string(),
+        actor: cfg.actor.clone(),
+    };
+    let case = Case::open(dir)?;
+    let run_rel = format!("runs/{}/{}", cfg.tool_name, run_id);
+    let (seq, head) = case.append(
+        &writer,
+        "run_started",
+        json!({"tool": cfg.tool_name, "version": cfg.tool_version, "run_dir": run_rel, "frontend": cfg.frontend,
+               "role": cfg.case_role.name(), "purpose": "verification", "evidence_ids": cfg.evidence_ids,
+               "rehash": cfg.rehash}),
+    )?;
+    let run_dir = dir.join(&run_rel);
+    Ok(Target {
+        log_dir: run_dir.join("logs"),
+        report_dir: run_dir.join("reports"),
+        link: Some((case, writer, run_rel, seq, head)),
+        not_extended: None,
+    })
+}
+
+/// Runs the whole-case verification. Events go to `sink`; `cancel` stops after the current chunk (partial
+/// reports are still written and the cancellation is audited).
 pub fn run(
     cfg: &RunConfig,
     sink: &mut dyn FnMut(&Event),
     cancel: &AtomicBool,
-) -> Result<RunSummary, String> {
-    validate_selection(&cfg.algorithms)?;
+) -> Result<RunSummary, CaseError> {
+    let usage = |m: String| CaseError::new(CaseErrorKind::Usage, m);
+    validate_selection(&cfg.algorithms).map_err(usage)?;
     if cfg.langs.is_empty() {
-        return Err("select at least one report language".into());
+        return Err(usage("select at least one report language".into()));
     }
     if cfg.jurisdiction != "co" && cfg.jurisdiction != "fr" {
-        return Err(format!(
+        return Err(usage(format!(
             "unknown jurisdiction '{}': use co or fr",
             cfg.jurisdiction
-        ));
+        )));
     }
+    let (case_id, jurisdiction) = preflight(cfg)?;
+    let mut cfg = cfg.clone();
+    cfg.evidence_ids = case::parse_evidence_ids(&cfg.evidence_ids)?;
+    cfg.jurisdiction = jurisdiction;
+    let dir = cfg.case_dir.clone();
     let run_id = new_run_id();
-    let Some(case_dir) = &cfg.case_dir else {
-        let log_dir = cfg.out_dir.join("logs").join(&run_id);
-        let report_dir = cfg.out_dir.join("reports").join(&run_id);
-        return pipeline(cfg, sink, cancel, &run_id, &log_dir, &report_dir, None);
-    };
-    let (cfg, mut link) = open_case(cfg, case_dir, &run_id)?;
-    let log_dir = link.run_dir.join("logs");
-    let report_dir = link.run_dir.join("reports");
+
+    // Snapshot of the case as found, before the hub appends anything.
+    let case_log_path = dir.join(CASE_LOG);
+    let case_entries = checks::read_entries(&case_log_path);
+    let case_log_bytes = std::fs::read(&case_log_path).ok();
+    let case_log_intact = case::verify_log_and_registry(&dir).is_ok();
+    let runs = checks::runs_of_case(&dir, &case_entries);
+    let registry = registry_items(&dir);
+
+    let target = open_target(&cfg, &run_id, case_log_intact)?;
     let result = pipeline(
         &cfg,
         sink,
         cancel,
         &run_id,
-        &log_dir,
-        &report_dir,
-        Some(&mut link),
+        &target,
+        &case_id,
+        &case_entries,
+        case_log_bytes.as_deref(),
+        &runs,
+        registry,
     );
-    finish_case(&link, &cfg, &log_dir, &result, sink);
-    result
+    if let Some((case, writer, run_rel, _, _)) = &target.link {
+        finish_case(case, writer, run_rel, &cfg, &target.log_dir, &result, sink);
+    }
+    result.map_err(|e| CaseError::new(CaseErrorKind::Io, e))
 }
 
+/// run_finished in the case log (also after a cancel or a failure), with the run's final audit head.
+fn finish_case(
+    case: &Case,
+    writer: &Writer,
+    run_rel: &str,
+    cfg: &RunConfig,
+    log_dir: &Path,
+    result: &Result<RunSummary, String>,
+    sink: &mut dyn FnMut(&Event),
+) {
+    let heads = crate::audit::heads(&log_dir.join("audit.jsonl"));
+    let (entries, head) = heads
+        .iter()
+        .next_back()
+        .map(|(s, h)| (*s, json!(h)))
+        .unwrap_or((0, Value::Null));
+    let details = match result {
+        Ok(s) => json!({
+            "tool": cfg.tool_name, "version": cfg.tool_version, "run_dir": run_rel,
+            "status": if s.cancelled { "cancelled" } else { "completed" },
+            "audit_head": head, "audit_entries": entries,
+            "timestamp_status": s.timestamp["status"].as_str().unwrap_or("off"),
+            "totals": {"items": s.items, "bytes": s.bytes, "errors": s.errors, "high": s.high, "medium": s.medium,
+                       "low": s.low, "info": s.info},
+            "verification": s.case.as_ref().map(|c| json!(c.tally)), "codes": s.codes,
+        }),
+        Err(e) => json!({
+            "tool": cfg.tool_name, "version": cfg.tool_version, "run_dir": run_rel, "status": "failed",
+            "reason": e, "audit_head": head, "audit_entries": entries, "timestamp_status": "off", "totals": null,
+        }),
+    };
+    if let Err(e) = case.append(writer, "run_finished", details) {
+        sink(&Event::Error {
+            path: None,
+            message: format!("case log: run_finished not recorded: {}", e),
+        });
+    }
+}
+
+/// One planned item: what to check.
+enum Plan {
+    CaseLog,
+    Run(RunRef),
+    Evidence(case::RegistryItem),
+}
+
+#[allow(clippy::too_many_arguments)]
 fn pipeline(
     cfg: &RunConfig,
     sink: &mut dyn FnMut(&Event),
     cancel: &AtomicBool,
     run_id: &str,
-    log_dir: &Path,
-    report_dir: &Path,
-    mut link: Option<&mut CaseLink>,
+    target: &Target,
+    case_id: &str,
+    case_entries: &[Value],
+    case_log_bytes: Option<&[u8]>,
+    runs: &[RunRef],
+    registry: Result<Vec<case::RegistryItem>, String>,
 ) -> Result<RunSummary, String> {
     let started = Instant::now();
     let started_utc = utc_now();
-    let run_id = run_id.to_string();
-    let (log_dir, report_dir) = (log_dir.to_path_buf(), report_dir.to_path_buf());
-    let mut log = AuditLog::create(&log_dir, &run_id, &cfg.actor)
+    let dir = &cfg.case_dir;
+    let (log_dir, report_dir) = (&target.log_dir, &target.report_dir);
+    let mut log = AuditLog::create(log_dir, run_id, &cfg.actor)
         .map_err(|e| format!("cannot create audit log in {}: {}", log_dir.display(), e))?;
     let io = |e: std::io::Error| format!("audit log write failed: {}", e);
 
@@ -316,35 +430,35 @@ fn pipeline(
         "run_started",
         None,
         json!({
-            "tool": cfg.tool_name, "version": cfg.tool_version, "frontend": cfg.frontend,
-            "algorithms": cfg.algorithms, "langs": cfg.langs, "case_id": cfg.case_id,
-            "inputs": cfg.inputs.iter().map(|p| p.display().to_string()).collect::<Vec<_>>(),
-            "input_list": cfg.input_list.as_ref().map(|p| p.display().to_string()),
-            "recursive": cfg.recursive, "out_dir": cfg.out_dir.display().to_string(),
+            "tool": cfg.tool_name, "version": cfg.tool_version, "frontend": cfg.frontend, "verb": "verify",
+            "algorithms": cfg.algorithms, "langs": cfg.langs, "case_id": case_id,
+            "case_dir": dir.display().to_string(), "rehash": cfg.rehash, "evidence_ids": cfg.evidence_ids,
+            "evidence_dirs": cfg.evidence_dirs.iter().map(|p| p.display().to_string()).collect::<Vec<_>>(),
+            "crosscheck": if cfg.crosscheck == CrossCheckMode::Auto { "auto" } else { "off" },
+            "tool_overrides": cfg.tool_overrides.iter().map(|(k, v)| (k.clone(), json!(v.display().to_string()))).collect::<serde_json::Map<_, _>>(),
             "jurisdiction": cfg.jurisdiction, "tsa_url": cfg.tsa_url,
             "sign_cert": cfg.sign_cert.as_ref().map(|p| p.display().to_string()),
-            "case_dir": cfg.case_dir.as_ref().map(|p| p.display().to_string()),
-            "evidence_ids": cfg.evidence_ids,
+            "out_dir": cfg.out_dir.display().to_string(),
         }),
     )
     .map_err(io)?;
-    if let Some(l) = link.as_deref() {
-        log.record(
-            "case_linked",
-            None,
-            json!({"case_id": l.case.case_id, "case_dir": l.case.dir.display().to_string(), "role": cfg.case_role.name(),
-                   "run_dir": l.run_rel, "case_created": l.created, "case_log_seq_at_start": l.started_seq,
-                   "case_log_head_at_start": l.started_head, "registry_sha256": l.registry_sha256,
-                   "registry_items": l.case.items.len(), "jurisdiction": l.case.jurisdiction,
-                   "requested_jurisdiction": l.requested_jurisdiction}),
-        )
-        .map_err(io)?;
-        if let Some((added, replaced)) = l.algo_change {
+    match (&target.link, &target.not_extended) {
+        (Some((case, _, run_rel, seq, head)), _) => {
             log.record(
-                "case_algorithm_added",
+                "case_linked",
                 None,
-                json!({"requested": l.requested_algorithms, "added": added, "replaced": replaced,
-                       "algorithms": cfg.algorithms, "registry_algorithms": l.case.registry_algorithms()}),
+                json!({"case_id": case.case_id, "case_dir": case.dir.display().to_string(), "role": cfg.case_role.name(),
+                       "run_dir": run_rel, "case_created": false, "case_log_seq_at_start": seq,
+                       "case_log_head_at_start": head, "registry_sha256": case::registry_digest(&case.dir),
+                       "registry_items": case.items.len(), "jurisdiction": case.jurisdiction}),
+            )
+            .map_err(io)?;
+        }
+        (None, reason) => {
+            log.record(
+                "case_not_extended",
+                None,
+                json!({"case_id": case_id, "case_dir": dir.display().to_string(), "reason": reason}),
             )
             .map_err(io)?;
         }
@@ -352,7 +466,6 @@ fn pipeline(
     for (action, details) in &cfg.preamble {
         log.record(action, None, details.clone()).map_err(io)?;
     }
-
     let env_json = report::pretty(&crate::env::describe(
         &cfg.tool_name,
         &cfg.tool_version,
@@ -360,7 +473,7 @@ fn pipeline(
         &cfg.command_line,
     ));
     let (_, env_digest) =
-        report::write_hashed(&log_dir, "environment.json", &env_json, &cfg.algorithms)?;
+        report::write_hashed(log_dir, "environment.json", &env_json, &cfg.algorithms)?;
     log.record("environment_recorded", Some("environment.json"), env_digest)
         .map_err(io)?;
     let signer = match &cfg.sign_cert {
@@ -385,26 +498,115 @@ fn pipeline(
         }
     };
 
-    let items = match collect(&cfg.inputs, cfg.input_list.as_deref(), cfg.recursive) {
-        Ok(i) => i,
-        Err(e) => {
-            log.record("error", None, json!({"stage": "input", "message": e}))
-                .map_err(io)?;
-            log.record("run_failed", None, json!({"reason": e}))
-                .map_err(io)?;
-            return Err(e);
+    // Tools for the cross-check.
+    let tools: Vec<ToolInfo> = match (&cfg.tools, cfg.crosscheck) {
+        (_, CrossCheckMode::Off) => vec![],
+        (Some(t), _) => t.clone(),
+        (None, CrossCheckMode::Auto) => {
+            tools::discover(&tools::DiscoverOptions::from_env(vec![]), &OsVerifier)
         }
     };
+    if cfg.crosscheck == CrossCheckMode::Auto {
+        log.record(
+            "tools_inventoried",
+            None,
+            json!({"tools": tools.iter().map(|t| json!({"tool": t.tool, "version": t.version,
+                "cli_exe": t.cli_exe.as_ref().map(|p| p.display().to_string()), "cli_sha256": t.cli_sha256,
+                "cli_signature": t.cli_signature, "describe_source": t.describe_source})).collect::<Vec<_>>(),
+                   "overrides": cfg.tool_overrides.keys().collect::<Vec<_>>()}),
+        )
+        .map_err(io)?;
+    }
+
+    // Plan the items.
+    let mut plan: Vec<Plan> = vec![Plan::CaseLog];
+    plan.extend(runs.iter().cloned().map(Plan::Run));
+    let mut superseded: Vec<(String, String)> = Vec::new();
+    if cfg.rehash {
+        match &registry {
+            Ok(items) => {
+                for (i, it) in items.iter().enumerate() {
+                    if !cfg.evidence_ids.is_empty() && !cfg.evidence_ids.contains(&it.evidence_id) {
+                        continue;
+                    }
+                    if let Some(later) = items[i + 1..]
+                        .iter()
+                        .find(|o| case::same_path(&o.path, &it.path))
+                    {
+                        superseded.push((it.evidence_id.clone(), later.evidence_id.clone()));
+                        continue;
+                    }
+                    plan.push(Plan::Evidence(it.clone()));
+                }
+            }
+            Err(e) => {
+                log.record("error", None, json!({"stage": "registry", "message": e}))
+                    .map_err(io)?;
+            }
+        }
+    }
+    for (old, new) in &superseded {
+        log.record(
+            "evidence_superseded",
+            None,
+            json!({"evidence_id": old, "superseded_by": new}),
+        )
+        .map_err(io)?;
+    }
+    let size_of = |p: &Path| std::fs::metadata(p).map(|m| m.len()).unwrap_or(0);
+    let mut items: Vec<Item> = Vec::with_capacity(plan.len());
+    for (n, p) in plan.iter().enumerate() {
+        let index = n as u64 + 1;
+        let mut it = match p {
+            Plan::CaseLog => Item::new(index, ItemKind::CaseLog, CASE_LOG, dir.join(CASE_LOG)),
+            Plan::Run(r) => {
+                let mut it = Item::new(
+                    index,
+                    ItemKind::Run,
+                    r.rel.clone(),
+                    r.log_dir(dir).join("audit.jsonl"),
+                );
+                it.tool = Some(r.tool.clone());
+                it.run_id = Some(r.run_id.clone());
+                it
+            }
+            Plan::Evidence(e) => {
+                let name = e
+                    .path
+                    .rsplit(['/', '\\'])
+                    .next()
+                    .unwrap_or(&e.path)
+                    .to_string();
+                let path =
+                    checks::locate(e, &cfg.evidence_dirs).unwrap_or_else(|| PathBuf::from(&e.path));
+                let mut it = Item::new(
+                    index,
+                    ItemKind::Evidence,
+                    format!("{} {}", e.evidence_id, name),
+                    path,
+                );
+                it.evidence_id = Some(e.evidence_id.clone());
+                it.intake_utc = Some(e.registered_utc.clone());
+                it
+            }
+        };
+        it.size = match p {
+            Plan::CaseLog => case_log_bytes.map(|b| b.len() as u64).unwrap_or(0),
+            _ => size_of(&it.path),
+        };
+        items.push(it);
+    }
     let total_items = items.len() as u64;
     let total_bytes: u64 = items.iter().map(|i| i.size).sum();
     log.record(
         "inputs_resolved",
         None,
-        json!({"items": total_items, "bytes": total_bytes}),
+        json!({"items": total_items, "bytes": total_bytes, "runs": runs.len(),
+               "evidence": items.iter().filter(|i| i.kind == ItemKind::Evidence).count()}),
     )
     .map_err(io)?;
     sink(&Event::RunStarted {
-        run_id: run_id.clone(),
+        run_id: run_id.to_string(),
         tool: cfg.tool_name.clone(),
         version: cfg.tool_version.clone(),
         frontend: cfg.frontend.clone(),
@@ -414,146 +616,197 @@ fn pipeline(
         total_bytes,
     });
 
-    let mut results: Vec<ItemResult> = Vec::with_capacity(items.len());
-    let mut hashed_seq: BTreeMap<u64, u64> = BTreeMap::new();
+    let mut tally = Tally {
+        registered: registry.as_ref().map(|r| r.len() as u64).unwrap_or(0),
+        ..Default::default()
+    };
     let mut bytes_before = 0u64;
     let mut errors = 0u64;
     let mut cancelled = false;
     let mut last_progress = Instant::now() - PROGRESS_EVERY;
-
-    for item in &items {
+    let mut done: Vec<Item> = Vec::with_capacity(items.len());
+    for (mut it, p) in items.into_iter().zip(plan.iter()) {
         if cancel.load(Ordering::Relaxed) {
             cancelled = true;
             break;
         }
-        let path_s = item.path.display().to_string();
-        let modified = std::fs::metadata(&item.path)
-            .and_then(|m| m.modified())
-            .ok();
-        let modified_utc = modified.map(utc_from);
+        let label = it.label.clone();
         sink(&Event::ItemStarted {
-            index: item.index,
-            path: path_s.clone(),
-            size: item.size,
+            index: it.index,
+            path: it.path.display().to_string(),
+            size: it.size,
         });
-        let first_seq = log
-            .record(
-                "item_started",
-                Some(&path_s),
-                json!({"index": item.index, "size": item.size, "modified_utc": modified_utc}),
-            )
+        it.audit_first_seq = log
+            .record("item_started", Some(&label), json!({"index": it.index, "kind": it.kind, "path": it.path.display().to_string(), "size": it.size}))
             .map_err(io)?;
 
-        let mut on_chunk = |n: u64| {
-            if last_progress.elapsed() >= PROGRESS_EVERY {
-                last_progress = Instant::now();
-                let elapsed = started.elapsed().as_millis() as u64;
-                let done_bytes = bytes_before + n;
-                sink(&Event::Progress {
-                    done: item.index - 1,
-                    total: total_items,
-                    bytes_done: done_bytes,
-                    bytes_total: total_bytes,
-                    elapsed_ms: elapsed,
-                    eta_ms: eta_ms(elapsed, done_bytes, total_bytes),
-                });
-            }
-            !cancel.load(Ordering::Relaxed)
-        };
-        // File::open is read-only: the evidence is never opened for writing.
-        let outcome = std::fs::File::open(&item.path)
-            .and_then(|f| hash_reader(f, &cfg.algorithms, &mut on_chunk));
-        let mut result = ItemResult {
-            index: item.index,
-            path: item.path.clone(),
-            size: item.size,
-            modified_utc,
-            hashes: vec![],
-            detected_type: None,
-            extension: None,
-            findings: vec![],
-            error: None,
-            audit_first_seq: first_seq,
-            audit_last_seq: first_seq,
-            evidence_id: None,
-            case_status: None,
-            intake_utc: None,
-        };
-        match outcome {
-            Ok(None) => {
-                log.record(
-                    "item_cancelled",
-                    Some(&path_s),
-                    json!({"index": item.index}),
-                )
-                .map_err(io)?;
-                cancelled = true;
-                break;
-            }
-            Ok(Some(out)) => {
-                let after = std::fs::metadata(&item.path)
-                    .and_then(|m| m.modified())
-                    .ok();
-                let hashes: BTreeMap<String, String> = out
-                    .digests
-                    .iter()
-                    .map(|(a, h)| (a.name().to_string(), h.clone()))
+        // Digests: the case log as read at the start; other files streamed (progress + cancel per chunk).
+        let algos: Vec<HashAlgo> = match p {
+            Plan::Evidence(e) => {
+                let mut a: Vec<HashAlgo> = HashAlgo::ALL
+                    .into_iter()
+                    .filter(|a| e.hashes.contains_key(a.name()))
                     .collect();
-                let seq = log.record("item_hashed", Some(&path_s), json!({"index": item.index, "bytes_read": out.bytes, "hashes": hashes, "mtime_unchanged": modified == after})).map_err(io)?;
-                hashed_seq.insert(item.index, seq);
-                sink(&Event::ItemHashed {
-                    index: item.index,
-                    path: path_s.clone(),
-                    hashes,
-                });
-                let a = analyze(&result.file_name(), out.bytes, &out.head);
-                result.size = out.bytes;
-                result.hashes = out.digests;
-                result.detected_type = a.detected_type;
-                result.extension = a.extension;
-                result.findings = a.findings;
-                if let Some(l) = link.as_deref_mut() {
-                    case_check_item(l, cfg.case_role, &mut result, &mut log, sink)?;
-                }
+                a.truncate(HashAlgo::MAX_SELECTED);
+                a
             }
-            Err(e) => {
-                errors += 1;
-                result.error = Some(e.to_string());
-                result
-                    .findings
-                    .push(Finding::new("UNREADABLE", Severity::High).with("error", e.to_string()));
-                sink(&Event::Error {
-                    path: Some(path_s.clone()),
-                    message: e.to_string(),
-                });
-                log.record(
-                    "item_error",
-                    Some(&path_s),
-                    json!({"index": item.index, "message": e.to_string()}),
-                )
-                .map_err(io)?;
+            _ => cfg.algorithms.clone(),
+        };
+        let mut read_error = None;
+        if let (Plan::CaseLog, Some(b)) = (p, case_log_bytes) {
+            it.hashes = cfg
+                .algorithms
+                .iter()
+                .map(|a| (*a, hash_bytes(b, *a)))
+                .collect();
+        } else if it.path.is_file() && !algos.is_empty() {
+            let index = it.index;
+            let mut on_chunk = |n: u64| {
+                if last_progress.elapsed() >= PROGRESS_EVERY {
+                    last_progress = Instant::now();
+                    let elapsed = started.elapsed().as_millis() as u64;
+                    sink(&Event::Progress {
+                        done: index - 1,
+                        total: total_items,
+                        bytes_done: bytes_before + n,
+                        bytes_total: total_bytes,
+                        elapsed_ms: elapsed,
+                        eta_ms: eta_ms(elapsed, bytes_before + n, total_bytes),
+                    });
+                }
+                !cancel.load(Ordering::Relaxed)
+            };
+            // File::open is read-only: nothing in the case is ever opened for writing.
+            match std::fs::File::open(&it.path).and_then(|f| hash_reader(f, &algos, &mut on_chunk))
+            {
+                Ok(Some(o)) => {
+                    it.size = o.bytes;
+                    it.hashes = o.digests;
+                }
+                Ok(None) => {
+                    log.record("item_cancelled", Some(&label), json!({"index": it.index}))
+                        .map_err(io)?;
+                    cancelled = true;
+                    break;
+                }
+                Err(e) => read_error = Some(e.to_string()),
             }
         }
-        let codes: Vec<String> = result.findings.iter().map(|f| f.code.clone()).collect();
-        result.audit_last_seq = log.record("item_analyzed", Some(&path_s), json!({"index": item.index, "detected_type": result.detected_type, "extension": result.extension, "findings": result.findings, "status": result.status()})).map_err(io)?;
+        if !it.hashes.is_empty() {
+            let hashes: BTreeMap<String, String> = it
+                .hashes
+                .iter()
+                .map(|(a, h)| (a.name().to_string(), h.clone()))
+                .collect();
+            log.record(
+                "item_hashed",
+                Some(&label),
+                json!({"index": it.index, "bytes_read": it.size, "hashes": hashes}),
+            )
+            .map_err(io)?;
+            sink(&Event::ItemHashed {
+                index: it.index,
+                path: it.path.display().to_string(),
+                hashes,
+            });
+        }
+
+        match p {
+            Plan::CaseLog => {
+                checks::check_case_log(dir, case_entries, &mut it);
+            }
+            Plan::Run(r) => {
+                checks::check_run(dir, case_id, r, &mut it);
+                tally.runs += 1;
+                if it.findings.iter().any(|f| f.code == fnd::RUN_LOG_BROKEN) {
+                    tally.runs_broken += 1;
+                } else if it.findings.iter().any(|f| f.code == fnd::RUN_LOG_INTACT) {
+                    tally.runs_intact += 1;
+                }
+                if it
+                    .findings
+                    .iter()
+                    .any(|f| f.code == fnd::RUN_NOT_IN_CASE_LOG)
+                {
+                    tally.runs_not_in_case_log += 1;
+                }
+                if it.findings.iter().any(|f| f.code == fnd::REVIEW_LOG_BROKEN) {
+                    tally.reviews_broken += 1;
+                }
+                if cfg.crosscheck == CrossCheckMode::Auto {
+                    let x = crosscheck(cfg, &tools, r, &mut it, &mut log)?;
+                    match x.outcome.as_str() {
+                        "agrees" => tally.crosscheck_agreed += 1,
+                        "disagrees" => tally.crosscheck_disagreed += 1,
+                        "unavailable" => tally.crosscheck_unavailable += 1,
+                        _ => {}
+                    }
+                    it.crosscheck = Some(x);
+                }
+            }
+            Plan::Evidence(e) => {
+                tally.evidence_checked += 1;
+                it.fact("fact_registered_path", e.path.clone());
+                if let Some(err) = &read_error {
+                    errors += 1;
+                    it.error = Some(err.clone());
+                    checks::missing_evidence(e, &format!("cannot be read ({err})"), &mut it);
+                    tally.evidence_missing += 1;
+                } else if it.hashes.is_empty() {
+                    let reason = if algos.is_empty() {
+                        "the registry holds no supported algorithm for it".to_string()
+                    } else if cfg.evidence_dirs.is_empty() {
+                        "not found at its registered path".to_string()
+                    } else {
+                        "not found at its registered path nor in the --evidence-dir folders"
+                            .to_string()
+                    };
+                    checks::missing_evidence(e, &reason, &mut it);
+                    tally.evidence_missing += 1;
+                } else {
+                    it.fact("fact_located_at", it.path.display().to_string());
+                    let digests = it.hashes.clone();
+                    if checks::compare_evidence(e, &digests, &mut it) {
+                        tally.evidence_matched += 1;
+                    } else {
+                        tally.evidence_mismatched += 1;
+                    }
+                }
+            }
+        }
+        if let (Some(err), false) = (&read_error, matches!(p, Plan::Evidence(_))) {
+            errors += 1;
+            it.error = Some(err.clone());
+            it.fact("fact_problem", format!("cannot be read: {err}"));
+        }
+        let codes: Vec<String> = it.findings.iter().map(|f| f.code.clone()).collect();
+        it.audit_last_seq = log
+            .record(
+                "item_verified",
+                Some(&label),
+                json!({"index": it.index, "kind": it.kind, "findings": it.findings, "verdict": it.verdict,
+                       "facts": it.facts.iter().map(|(k, v)| json!([k, v])).collect::<Vec<_>>(), "status": it.status()}),
+            )
+            .map_err(io)?;
         sink(&Event::ItemFinished {
-            index: item.index,
-            path: path_s,
-            status: result.status().into(),
+            index: it.index,
+            path: it.path.display().to_string(),
+            status: it.status().into(),
             findings: codes,
         });
-        bytes_before += item.size;
+        bytes_before += it.size;
         let elapsed = started.elapsed().as_millis() as u64;
         sink(&Event::Progress {
-            done: item.index,
+            done: it.index,
             total: total_items,
             bytes_done: bytes_before,
             bytes_total: total_bytes,
             elapsed_ms: elapsed,
             eta_ms: eta_ms(elapsed, bytes_before, total_bytes),
         });
-        results.push(result);
+        done.push(it);
     }
+    let results = done;
     if cancelled {
         log.record(
             "run_cancelled",
@@ -567,33 +820,7 @@ fn pipeline(
         });
     }
 
-    // Intake: register every successfully hashed item in the case registry (under the case lock).
-    if let (Some(l), CaseRole::Intake) = (link.as_deref_mut(), cfg.case_role) {
-        register_items(l, &mut results, &hashed_seq, &mut log, sink)?;
-    }
-
-    // Duplicates (cross-item finding).
-    let primary = cfg.algorithms[0];
-    for (hash, idx) in report::duplicate_groups(&results) {
-        let names: Vec<String> = idx.iter().map(|&i| results[i].file_name()).collect();
-        log.record("duplicate_group", None, json!({"algorithm": primary, "hash": hash, "items": idx.iter().map(|&i| results[i].index).collect::<Vec<_>>()})).map_err(io)?;
-        for &i in &idx {
-            let others: Vec<String> = names
-                .iter()
-                .enumerate()
-                .filter(|(j, _)| idx[*j] != i)
-                .map(|(_, n)| n.clone())
-                .collect();
-            results[i].findings.push(
-                Finding::new("DUPLICATE", Severity::Info)
-                    .with("algorithm", primary.name())
-                    .with("count", idx.len().to_string())
-                    .with("others", crate::report::capped_list(&others, 10)),
-            );
-        }
-    }
-
-    // hashes.csv: the hash register of every reviewed file.
+    // hashes.csv: the hash register of every file the hub read.
     let mut csv = format!(
         "index,path,size,{},status,error\n",
         cfg.algorithms
@@ -625,29 +852,35 @@ fn pipeline(
         ));
     }
     let (_, csv_digest) =
-        report::write_hashed(&log_dir, "hashes.csv", csv.as_bytes(), &cfg.algorithms)?;
+        report::write_hashed(log_dir, "hashes.csv", csv.as_bytes(), &cfg.algorithms)?;
     log.record("hash_register_written", Some("hashes.csv"), csv_digest)
         .map_err(io)?;
 
     // Reports.
-    let elapsed_ms = started.elapsed().as_millis() as u64;
-    let info = RunInfo {
+    let case_info = CaseInfo {
+        case_id: case_id.to_string(),
+        role: cfg.case_role.name().into(),
+        dir: dir.display().to_string(),
+        linked: target.link.is_some(),
+        tally,
+    };
+    let mut info = RunInfo {
         tool_name: cfg.tool_name.clone(),
         tool_version: cfg.tool_version.clone(),
-        run_id: run_id.clone(),
-        case_id: cfg.case_id.clone(),
+        run_id: run_id.to_string(),
+        case_id: Some(case_id.to_string()),
         actor: cfg.actor.clone(),
         frontend: cfg.frontend.clone(),
         algorithms: cfg.algorithms.clone(),
         langs: cfg.langs.clone(),
         started_utc,
         finished_utc: utc_now(),
-        elapsed_ms,
+        elapsed_ms: started.elapsed().as_millis() as u64,
         cancelled,
         jurisdiction: cfg.jurisdiction.clone(),
         signer,
         timestamp: json!({"status": "off"}),
-        case: link.as_deref().map(|l| l.info(cfg.case_role)),
+        case: Some(case_info),
     };
     let log_dir_s = log_dir.display().to_string();
     for r in &results {
@@ -656,11 +889,11 @@ fn pipeline(
             entries: log.entries(),
             log_dir: log_dir_s.clone(),
         };
-        let dir = report_dir.join("items").join(r.folder());
-        let files = report::write_item_reports(&dir, &info, r, &audit)?;
+        let d = report_dir.join("items").join(r.folder());
+        let files = report::write_item_reports(&d, &info, r, &audit)?;
         log.record(
             "item_reports_written",
-            Some(&r.path.display().to_string()),
+            Some(&r.label),
             json!({"folder": format!("items/{}", r.folder()), "files": files}),
         )
         .map_err(io)?;
@@ -676,10 +909,8 @@ fn pipeline(
         bytes: results.iter().map(|r| r.size).sum(),
         errors,
     };
-    // Trusted timestamp of the chain head: covers every evidence hash, finding and per-item report digest.
-    let mut info = info;
     if let Some(url) = &cfg.tsa_url {
-        match crate::trust::timestamp_head(&log_dir, log.entries(), log.head(), url) {
+        match crate::trust::timestamp_head(log_dir, log.entries(), log.head(), url) {
             Ok(ts) => {
                 log.record("timestamp_obtained", Some(&ts.file), ts.to_json())
                     .map_err(io)?;
@@ -688,7 +919,8 @@ fn pipeline(
                 info.timestamp = v;
             }
             Err(e) => {
-                log.record("timestamp_pending", None, json!({"tsa": url, "reason": e, "covers_seq": log.entries(), "head": log.head()})).map_err(io)?;
+                log.record("timestamp_pending", None, json!({"tsa": url, "reason": e, "covers_seq": log.entries(), "head": log.head()}))
+                    .map_err(io)?;
                 info.timestamp = json!({"status": "pending", "tsa": url, "reason": e});
             }
         }
@@ -704,37 +936,49 @@ fn pipeline(
         entries: log.entries(),
         log_dir: log_dir_s,
     };
-    let files = report::write_statistics(&report_dir, &info, &results, &totals, &audit)?;
+    let files = report::write_statistics(report_dir, &info, &results, &totals, &audit)?;
     log.record("statistics_report_written", None, json!({"files": files}))
         .map_err(io)?;
-    let main_report = report_dir.join(format!("statistics.{}.html", cfg.langs[0]));
     sink(&Event::ReportWritten {
         kind: "statistics".into(),
-        path: main_report.display().to_string(),
+        path: report_dir
+            .join(format!("statistics.{}.html", cfg.langs[0]))
+            .display()
+            .to_string(),
     });
 
     let mut sev: BTreeMap<Severity, u64> = BTreeMap::new();
+    let mut codes: Vec<String> = Vec::new();
     for f in results.iter().flat_map(|r| &r.findings) {
         *sev.entry(f.severity).or_default() += 1;
+        if !codes.contains(&f.code) {
+            codes.push(f.code.clone());
+        }
     }
+    codes.sort();
+    let get = |s: Severity| sev.get(&s).copied().unwrap_or(0);
     let summary = RunSummary {
-        run_id,
+        run_id: run_id.to_string(),
         items: totals.items,
         bytes: totals.bytes,
         errors,
         elapsed_ms: started.elapsed().as_millis() as u64,
-        high: sev.get(&Severity::High).copied().unwrap_or(0),
-        medium: sev.get(&Severity::Medium).copied().unwrap_or(0),
-        low: sev.get(&Severity::Low).copied().unwrap_or(0),
-        info: sev.get(&Severity::Info).copied().unwrap_or(0),
+        high: get(Severity::High),
+        medium: get(Severity::Medium),
+        low: get(Severity::Low),
+        info: get(Severity::Info),
         cancelled,
         report_dir: report_dir.clone(),
         log_dir: log_dir.clone(),
         audit_head: String::new(),
         timestamp: info.timestamp.clone(),
         case: info.case.clone(),
+        codes,
     };
-    log.record("run_finished", None, json!({"items": summary.items, "bytes": summary.bytes, "errors": errors, "elapsed_ms": summary.elapsed_ms, "high": summary.high, "medium": summary.medium, "low": summary.low, "info": summary.info, "cancelled": cancelled})).map_err(io)?;
+    log.record("run_finished", None, json!({"items": summary.items, "bytes": summary.bytes, "errors": errors,
+        "elapsed_ms": summary.elapsed_ms, "high": summary.high, "medium": summary.medium, "low": summary.low,
+        "info": summary.info, "cancelled": cancelled, "codes": summary.codes}))
+        .map_err(io)?;
     sink(&Event::RunFinished {
         items: summary.items,
         bytes: summary.bytes,
@@ -754,514 +998,304 @@ fn pipeline(
     })
 }
 
-/// Analysis: compares the fresh hashes with the registry (by --evidence id, else by path, else by content).
-/// Intake: notes a registered path whose content changed. Findings are added to the item.
-fn case_check_item(
-    l: &mut CaseLink,
-    role: CaseRole,
-    result: &mut ItemResult,
+/// Asks the run's own tool for its verify-log verdict and compares it with the hub's.
+fn crosscheck(
+    cfg: &RunConfig,
+    tools: &[ToolInfo],
+    run: &RunRef,
+    it: &mut Item,
     log: &mut AuditLog,
-    sink: &mut dyn FnMut(&Event),
-) -> Result<(), String> {
+) -> Result<CrossCheck, String> {
     let io = |e: std::io::Error| format!("audit log write failed: {}", e);
-    let norm = case::normalize_path(&result.path);
-    let path_s = result.path.display().to_string();
-    if role == CaseRole::Intake {
-        if let Some(prev) = l.case.find_by_path(&norm) {
-            if matches!(
-                case::compare(&prev.hashes, &result.hashes),
-                Comparison::Mismatch { .. }
-            ) {
-                result.findings.push(
-                    Finding::new("REGISTRY_PATH_CONTENT_CHANGED", Severity::Medium)
-                        .with("previous_id", prev.evidence_id.clone()),
-                );
-            }
-        }
-        return Ok(());
-    }
-    let expected = l
-        .by_evidence
-        .get(&norm)
-        .and_then(|id| l.case.get(id))
-        .map(|e| (e.clone(), "evidence_id"))
-        .or_else(|| l.case.find_by_path(&norm).map(|e| (e.clone(), "path")))
-        .or_else(|| {
-            l.case
-                .find_by_content(&result.hashes)
-                .map(|e| (e.clone(), "content"))
-        });
-    let status = match expected {
-        None => {
-            log.record(
-                "evidence_not_in_case_registry",
-                Some(&path_s),
-                json!({"index": result.index, "case_id": l.case.case_id}),
-            )
-            .map_err(io)?;
-            result.findings.push(
-                Finding::new("EVIDENCE_NOT_IN_CASE_REGISTRY", Severity::Medium)
-                    .with("case_id", l.case.case_id.clone()),
-            );
-            l.tally.unregistered += 1;
-            "not_in_registry"
-        }
-        Some((e, by)) => {
-            result.evidence_id = Some(e.evidence_id.clone());
-            result.intake_utc = Some(e.registered_utc.clone());
-            match case::compare(&e.hashes, &result.hashes) {
-                Comparison::Match(algos) => {
-                    log.record("evidence_verified_against_case", Some(&path_s),
-                        json!({"index": result.index, "evidence_id": e.evidence_id, "algorithm": algos.join("+"),
-                               "match": true, "matched_by": by})).map_err(io)?;
-                    l.tally.verified += 1;
-                    "verified"
-                }
-                other => {
-                    let (algorithm, expected, actual) = match other {
-                        Comparison::Mismatch {
-                            algorithm,
-                            expected,
-                            actual,
-                        } => (algorithm, expected, actual),
-                        _ => ("none".to_string(), "-".to_string(), "-".to_string()),
-                    };
-                    log.record("evidence_verified_against_case", Some(&path_s),
-                        json!({"index": result.index, "evidence_id": e.evidence_id, "algorithm": algorithm,
-                               "match": false, "matched_by": by, "expected": expected, "actual": actual})).map_err(io)?;
-                    result.findings.push(
-                        Finding::new("EVIDENCE_HASH_MISMATCH_WITH_CASE", Severity::High)
-                            .with("evidence_id", e.evidence_id.clone())
-                            .with("algorithm", algorithm)
-                            .with("expected", expected)
-                            .with("actual", actual),
-                    );
-                    l.tally.mismatched += 1;
-                    "mismatch"
-                }
-            }
-        }
+    let mut x = CrossCheck {
+        tool: run.tool.clone(),
+        exe: None,
+        exe_sha256: None,
+        outcome: "unavailable".into(),
+        exit_code: None,
+        reason: None,
     };
-    result.case_status = Some(status.into());
-    sink(&Event::EvidenceLinked {
-        index: result.index,
-        path: path_s,
-        evidence_id: result.evidence_id.clone(),
-        status: status.into(),
-    });
-    Ok(())
-}
-
-/// Intake: registers every hashed item (same path + same content keeps its id) and audits each id.
-fn register_items(
-    l: &mut CaseLink,
-    results: &mut [ItemResult],
-    hashed_seq: &BTreeMap<u64, u64>,
-    log: &mut AuditLog,
-    sink: &mut dyn FnMut(&Event),
-) -> Result<(), String> {
-    let io = |e: std::io::Error| format!("audit log write failed: {}", e);
-    let idx: Vec<usize> = (0..results.len())
-        .filter(|&i| !results[i].hashes.is_empty())
-        .collect();
-    if idx.is_empty() {
-        return Ok(());
+    let unavailable = |it: &mut Item, x: &mut CrossCheck, reason: String| {
+        it.findings.push(
+            Finding::of(fnd::CROSSCHECK_UNAVAILABLE)
+                .with("tool", run.tool.clone())
+                .with("run", run.rel.clone())
+                .with("reason", reason.clone()),
+        );
+        x.reason = Some(reason);
+    };
+    let hub = it.verdict.unwrap_or(Verdict::NotVerifiable);
+    if run.tool == cfg.tool_name {
+        x.outcome = "skipped".into();
+        x.reason = Some("a run of RV Hub itself: the hub's verdict is the tool's".into());
+        it.fact("fact_crosscheck", "skipped (RV Hub's own run)");
+        return Ok(x);
     }
-    let regs: Vec<Registration> = idx
-        .iter()
-        .map(|&i| Registration {
-            path: case::normalize_path(&results[i].path),
-            size: results[i].size,
-            hashes: results[i].hashes.clone(),
-            audit_seq: hashed_seq.get(&results[i].index).copied().unwrap_or(0),
-        })
-        .collect();
-    let (ids, case_seq) = match l.case.register(&l.writer, &regs) {
-        Ok(x) => x,
-        Err(e) => {
-            log.record(
-                "error",
-                None,
-                json!({"stage": "case_registry", "message": e.message}),
-            )
-            .map_err(io)?;
-            log.record("run_failed", None, json!({"reason": e.message}))
+    let exe = if let Some(p) = cfg.tool_overrides.get(&run.tool) {
+        Some(p.clone())
+    } else {
+        let found: Vec<&ToolInfo> = tools
+            .iter()
+            .filter(|t| t.tool == run.tool && t.cli_exe.is_some())
+            .collect();
+        match found.iter().find(|t| t.cli_signature.is_rakvor()) {
+            Some(t) => t.cli_exe.clone(),
+            None => {
+                let why = match found.first() {
+                    None => format!("{} is not installed on this workstation", run.tool),
+                    Some(t) => format!(
+                        "{} is not Rakvor-signed ({})",
+                        run.tool,
+                        t.cli_signature.key()
+                    ),
+                };
+                unavailable(it, &mut x, why.clone());
+                it.fact("fact_crosscheck", format!("not done: {why}"));
+                log.record(
+                    "crosscheck",
+                    Some(&run.rel),
+                    json!({"tool": run.tool, "outcome": "unavailable", "reason": why}),
+                )
                 .map_err(io)?;
-            return Err(e.message);
+                return Ok(x);
+            }
         }
     };
-    let digest = case::registry_digest(&l.case.dir);
-    for (&i, a) in idx.iter().zip(ids) {
-        let (id, added, utc) = (a.evidence_id, a.added, a.registered_utc);
-        let r = &mut results[i];
-        let status = if added {
-            "registered"
-        } else {
-            "already_registered"
-        };
+    let exe = exe.unwrap_or_default();
+    x.exe = Some(exe.display().to_string());
+    x.exe_sha256 = tools::sha256_of(&exe);
+    if hub == Verdict::NotVerifiable {
+        let why = "the run's log folder is missing: nothing to verify".to_string();
+        unavailable(it, &mut x, why.clone());
+        it.fact("fact_crosscheck", format!("not done: {why}"));
         log.record(
-            "evidence_registered",
-            Some(&r.path.display().to_string()),
-            json!({"index": r.index, "evidence_id": id, "new": added, "case_log_seq": case_seq,
-                   "registry_sha256": digest}),
+            "crosscheck",
+            Some(&run.rel),
+            json!({"tool": run.tool, "exe": x.exe, "outcome": "unavailable", "reason": why}),
         )
         .map_err(io)?;
-        l.tally.registered += 1;
-        if added {
-            l.tally.added += 1;
-        }
-        r.evidence_id = Some(id);
-        r.case_status = Some(status.into());
-        r.intake_utc = Some(utc);
-        sink(&Event::EvidenceLinked {
-            index: r.index,
-            path: r.path.display().to_string(),
-            evidence_id: r.evidence_id.clone(),
-            status: status.into(),
-        });
+        return Ok(x);
     }
-    Ok(())
+    let log_dir = run.log_dir(&cfg.case_dir);
+    let args = [
+        std::ffi::OsString::from("verify-log"),
+        log_dir.clone().into_os_string(),
+    ];
+    let out = crate::proc::run(&exe, &args, cfg.crosscheck_timeout);
+    let (tool_verdict, reason) = match &out {
+        Err(e) => (None, Some(format!("cannot start {}: {e}", exe.display()))),
+        Ok(o) if o.timed_out => (
+            None,
+            Some(format!(
+                "no answer within {} s",
+                cfg.crosscheck_timeout.as_secs()
+            )),
+        ),
+        Ok(o) => match o.code {
+            Some(0) => (Some(Verdict::Intact), None),
+            Some(3) => (Some(Verdict::Broken), None),
+            c => (
+                None,
+                Some(format!(
+                    "verify-log exited with {}",
+                    c.map(|c| c.to_string())
+                        .unwrap_or_else(|| "a signal".into())
+                )),
+            ),
+        },
+    };
+    let output = out
+        .as_ref()
+        .map(|o| {
+            String::from_utf8_lossy(&o.stdout)
+                .lines()
+                .take(20)
+                .collect::<Vec<_>>()
+                .join("\n")
+        })
+        .unwrap_or_default();
+    x.exit_code = out.as_ref().ok().and_then(|o| o.code);
+    match tool_verdict {
+        None => {
+            let why = reason.unwrap_or_default();
+            unavailable(it, &mut x, why.clone());
+            it.fact("fact_crosscheck", format!("not done: {why}"));
+        }
+        Some(tv) if tv == hub => {
+            x.outcome = "agrees".into();
+            it.fact(
+                "fact_crosscheck",
+                format!(
+                    "{} verify-log: {} (exit {}), same as RV Hub",
+                    run.tool,
+                    checks::verdict_word(tv),
+                    x.exit_code.unwrap_or(-1)
+                ),
+            );
+        }
+        // Older verify-log implementations (rv-pdfauth, rv-imgauth) check the chain, the timestamp tokens and the
+        // review log, but not truncation against the case log: their verdict is compared at that level.
+        Some(tv) if Some(tv) == it.chain_verdict => {
+            x.outcome = "agrees".into();
+            x.reason = Some("same verdict at chain level; this tool's verify-log does not check truncation against the case log".into());
+            it.fact(
+                "fact_crosscheck",
+                format!(
+                    "{} verify-log: {} (exit {}), same as RV Hub's chain-level verdict (RV Hub, with the truncation check against the case log: {}); this tool's verify-log does not check truncation against the case log",
+                    run.tool, checks::verdict_word(tv), x.exit_code.unwrap_or(-1), checks::verdict_word(hub)
+                ),
+            );
+        }
+        Some(tv) => {
+            x.outcome = "disagrees".into();
+            it.findings.push(
+                Finding::of(fnd::TOOL_VERIFY_DISAGREES)
+                    .with("tool", run.tool.clone())
+                    .with("run", run.rel.clone())
+                    .with("hub", checks::verdict_word(hub))
+                    .with("tool_verdict", checks::verdict_word(tv))
+                    .with(
+                        "exit_code",
+                        x.exit_code.map(|c| c.to_string()).unwrap_or_default(),
+                    ),
+            );
+            it.fact(
+                "fact_crosscheck",
+                format!(
+                    "{} verify-log: {} (exit {}), RV Hub: {}",
+                    run.tool,
+                    checks::verdict_word(tv),
+                    x.exit_code.unwrap_or(-1),
+                    checks::verdict_word(hub)
+                ),
+            );
+        }
+    }
+    log.record(
+        "crosscheck",
+        Some(&run.rel),
+        json!({"tool": run.tool, "exe": x.exe, "exe_sha256": x.exe_sha256, "args": ["verify-log", log_dir.display().to_string()],
+               "exit_code": x.exit_code, "outcome": x.outcome, "reason": x.reason, "hub_verdict": hub,
+               "hub_chain_verdict": it.chain_verdict,
+               "output": output, "override": cfg.tool_overrides.contains_key(&run.tool)}),
+    )
+    .map_err(io)?;
+    Ok(x)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn cfg(input: PathBuf, out: PathBuf) -> RunConfig {
-        RunConfig {
-            inputs: vec![input],
-            input_list: None,
-            recursive: true,
-            algorithms: vec![HashAlgo::Sha256, HashAlgo::Md5],
-            out_dir: out,
-            langs: vec!["es".into(), "en".into()],
-            actor: "tester".into(),
-            case_id: Some("CASE-1".into()),
-            frontend: "test".into(),
-            preamble: vec![("ui_setting_changed".into(), json!({"lang": "es"}))],
-            command_line: vec![],
-            tool_name: "rv-hub".into(),
-            tool_version: "0.0.0".into(),
-            ..Default::default()
-        }
-    }
-
-    #[test]
-    fn full_run_writes_logs_and_reports() {
-        let ev = tempfile::tempdir().unwrap();
-        let out = tempfile::tempdir().unwrap();
-        std::fs::write(ev.path().join("a.txt"), "same").unwrap();
-        std::fs::write(ev.path().join("b.txt"), "same").unwrap();
-        std::fs::write(ev.path().join("photo.jpg"), b"%PDF-1.7\n...").unwrap();
-        let mut events = Vec::new();
-        let s = run(
-            &cfg(ev.path().into(), out.path().into()),
-            &mut |e| events.push(e.clone()),
-            &AtomicBool::new(false),
-        )
-        .unwrap();
-        assert_eq!(s.items, 3);
-        assert_eq!(s.medium, 1); // extension mismatch
-        assert_eq!(s.info, 2); // duplicate pair
-        assert!(crate::audit::verify(&s.log_dir.join("audit.jsonl")).is_ok());
-        for f in ["audit.log", "hashes.csv", "environment.json"] {
-            assert!(s.log_dir.join(f).exists(), "{}", f);
-        }
-        for f in ["statistics.json", "statistics.es.html", "statistics.en.pdf"] {
-            assert!(s.report_dir.join(f).exists(), "{}", f);
-        }
-        let item = s.report_dir.join("items/00003-photo.jpg");
-        for f in [
-            "custody.json",
-            "custody.es.pdf",
-            "custody.en.html",
-            "technical.json",
-            "summary.json",
-            "technical.es.html",
-            "summary.en.pdf",
-            "technical.en.pdf",
-            "summary.es.html",
-        ] {
-            assert!(item.join(f).exists(), "{}", f);
-        }
-        let es = std::fs::read_to_string(s.report_dir.join("statistics.es.html")).unwrap();
-        let en = std::fs::read_to_string(s.report_dir.join("statistics.en.html")).unwrap();
-        assert_ne!(es, en);
-        assert!(matches!(events.first(), Some(Event::RunStarted { .. })));
-        assert!(matches!(events.last(), Some(Event::RunFinished { .. })));
-        let csv = std::fs::read_to_string(s.log_dir.join("hashes.csv")).unwrap();
-        assert!(csv.starts_with("index,path,size,sha256,md5,"));
-    }
-
-    #[test]
-    fn cancel_before_start_writes_partial_reports() {
-        let ev = tempfile::tempdir().unwrap();
-        let out = tempfile::tempdir().unwrap();
-        std::fs::write(ev.path().join("a.txt"), "x").unwrap();
-        let s = run(
-            &cfg(ev.path().into(), out.path().into()),
-            &mut |_| {},
-            &AtomicBool::new(true),
-        )
-        .unwrap();
-        assert!(s.cancelled);
-        assert_eq!(s.items, 0);
-        let log = std::fs::read_to_string(s.log_dir.join("audit.jsonl")).unwrap();
-        assert!(log.contains("\"run_cancelled\""));
-    }
-
     fn sample_copy(dir: &Path) -> PathBuf {
-        let src = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/sample/evidence");
-        let ev = dir.join("evidence");
-        std::fs::create_dir_all(&ev).unwrap();
-        for e in std::fs::read_dir(src).unwrap() {
-            let p = e.unwrap().path();
-            std::fs::copy(&p, ev.join(p.file_name().unwrap())).unwrap();
+        fn copy(from: &Path, to: &Path) {
+            std::fs::create_dir_all(to).unwrap();
+            for e in std::fs::read_dir(from).unwrap() {
+                let e = e.unwrap();
+                if e.path().is_dir() {
+                    copy(&e.path(), &to.join(e.file_name()));
+                } else {
+                    std::fs::copy(e.path(), to.join(e.file_name())).unwrap();
+                }
+            }
         }
-        ev
+        let case = dir.join("case");
+        copy(
+            &Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/sample/case"),
+            &case,
+        );
+        case
     }
 
-    fn case_cfg(case: &Path, role: CaseRole, inputs: Vec<PathBuf>) -> RunConfig {
+    fn cfg(case: &Path, out: &Path) -> RunConfig {
         RunConfig {
-            inputs,
-            algorithms: vec![HashAlgo::Sha256, HashAlgo::Md5],
-            langs: vec!["en".into()],
+            case_dir: case.to_path_buf(),
+            crosscheck: CrossCheckMode::Off,
             actor: "tester".into(),
-            case_id: Some("CASE-T".into()),
             frontend: "test".into(),
-            tool_version: "0.0.0".into(),
-            case_dir: Some(case.to_path_buf()),
-            case_role: role,
+            out_dir: out.to_path_buf(),
             ..Default::default()
         }
     }
 
     fn case_log(case: &Path) -> Vec<Value> {
-        std::fs::read_to_string(case.join(case::CASE_LOG))
-            .unwrap()
-            .lines()
-            .map(|l| serde_json::from_str(l).unwrap())
-            .collect()
-    }
-
-    fn run_dirs(case: &Path) -> usize {
-        std::fs::read_dir(case.join("runs/rv-hub"))
-            .map(|d| d.count())
-            .unwrap_or(0)
+        checks::read_entries(&case.join(CASE_LOG))
     }
 
     #[test]
-    fn case_intake_then_analysis_detects_tampering() {
-        let tmp = tempfile::tempdir().unwrap();
-        let ev = sample_copy(tmp.path());
-        let case = tmp.path().join("case");
-        let go = |c: &RunConfig| run(c, &mut |_| {}, &AtomicBool::new(false));
-
-        // 1. Intake registers the three sample items.
-        let s = go(&case_cfg(&case, CaseRole::Intake, vec![ev.clone()])).unwrap();
-        let t = s.case.as_ref().unwrap().tally.clone();
-        assert_eq!((t.registered, t.added), (3, 3));
-        assert!(s.log_dir.starts_with(case.join("runs/rv-hub")));
-        assert!(s.log_dir.ends_with("logs") && s.report_dir.ends_with("reports"));
-        let reg = Case::open(&case).unwrap();
-        let ids: Vec<&str> = reg.items.iter().map(|i| i.evidence_id.as_str()).collect();
-        assert_eq!(ids, ["E0001", "E0002", "E0003"]);
-        let audit = std::fs::read_to_string(s.log_dir.join("audit.jsonl")).unwrap();
-        let actions: Vec<String> = audit
-            .lines()
-            .map(|l| {
-                serde_json::from_str::<Value>(l).unwrap()["action"]
-                    .as_str()
-                    .unwrap()
-                    .to_string()
-            })
-            .collect();
-        assert_eq!(&actions[..2], ["run_started", "case_linked"]);
-        assert_eq!(
-            actions
-                .iter()
-                .filter(|a| *a == "evidence_registered")
-                .count(),
-            3
-        );
-        let tech: Value = serde_json::from_str(
-            &std::fs::read_to_string(
-                s.report_dir
-                    .join("items/00001-acta-copia.txt/technical.json"),
-            )
-            .unwrap(),
-        )
-        .unwrap();
-        assert_eq!(tech["item"]["evidence_id"], "E0001");
-        let custody: Value = serde_json::from_str(
-            &std::fs::read_to_string(s.report_dir.join("items/00001-acta-copia.txt/custody.json"))
-                .unwrap(),
-        )
-        .unwrap();
-        assert_eq!(
-            (custody["evidence_id"].as_str(), custody["case_id"].as_str()),
-            (Some("E0001"), Some("CASE-T"))
-        );
-        assert!(custody["intake_utc"].is_string());
-        let v = case::verify_case(&case);
-        assert!(v.problems.is_empty(), "{:?}", v.problems);
-        assert_eq!((v.runs, v.registry_items), (1, 3));
-
-        // 2. Re-running intake keeps the ids.
-        let s = go(&case_cfg(&case, CaseRole::Intake, vec![ev.clone()])).unwrap();
-        let t = s.case.unwrap().tally;
-        assert_eq!((t.registered, t.added), (3, 0));
-
-        // 3. Analysis role, all registered items by default, disjoint algorithm → sha256 added.
-        let mut a = case_cfg(&case, CaseRole::Analysis, vec![]);
-        a.case_id = None;
-        a.algorithms = vec![HashAlgo::Blake3];
+    fn verify_links_its_run_and_a_cancel_still_closes_it() {
+        let d = tempfile::tempdir().unwrap();
+        let case = sample_copy(d.path());
         let mut events = vec![];
-        let s = run(&a, &mut |e| events.push(e.clone()), &AtomicBool::new(false)).unwrap();
-        let t = s.case.clone().unwrap().tally;
-        assert_eq!((t.verified, t.mismatched, t.unregistered), (3, 0, 0));
-        assert_eq!(s.high, 0);
-        let audit = std::fs::read_to_string(s.log_dir.join("audit.jsonl")).unwrap();
-        assert!(
-            audit.contains("\"case_algorithm_added\"")
-                && audit.contains("\"evidence_verified_against_case\"")
-        );
-        assert_eq!(
-            events
-                .iter()
-                .filter(
-                    |e| matches!(e, Event::EvidenceLinked { status, .. } if status == "verified")
-                )
-                .count(),
-            3
-        );
-
-        // 4. Tampered evidence copy → high mismatch finding, analysis still runs; unregistered file → medium.
-        std::fs::write(ev.join("acta.txt"), "tampered").unwrap();
-        std::fs::write(ev.join("extra.txt"), "not registered").unwrap();
-        let mut a = case_cfg(&case, CaseRole::Analysis, vec![ev.clone()]);
-        a.case_id = None;
-        let s = go(&a).unwrap();
-        let t = s.case.clone().unwrap().tally;
-        assert_eq!((t.verified, t.mismatched, t.unregistered), (2, 1, 1));
-        assert!(s.high >= 1);
-        let stats = std::fs::read_to_string(s.report_dir.join("statistics.json")).unwrap();
-        assert!(
-            stats.contains("EVIDENCE_HASH_MISMATCH_WITH_CASE")
-                && stats.contains("EVIDENCE_NOT_IN_CASE_REGISTRY")
-        );
-        let html = std::fs::read_to_string(s.report_dir.join("statistics.en.html")).unwrap();
-        assert!(html.contains("E0003") && html.contains("Case folder"));
-        let fin = case_log(&case).into_iter().last().unwrap();
-        assert_eq!(fin["action"], "run_finished");
-        assert_eq!(fin["details"]["verification"]["mismatched"], 1);
-        assert_eq!(
-            fin["details"]["audit_head"].as_str(),
-            Some(s.audit_head.as_str())
-        );
-        // Intake of the changed file: new id + note.
-        let s = go(&case_cfg(
-            &case,
-            CaseRole::Intake,
-            vec![ev.join("acta.txt")],
-        ))
-        .unwrap();
-        assert_eq!(s.medium, 1);
-        assert_eq!(Case::open(&case).unwrap().items.len(), 4);
-        let v = case::verify_case(&case);
-        assert!(v.problems.is_empty(), "{:?}", v.problems);
-
-        // 5. Cancelled and failed runs still close their entry in the case log.
-        let mut a = case_cfg(&case, CaseRole::Analysis, vec![]);
-        a.case_id = None;
-        let s = run(&a, &mut |_| {}, &AtomicBool::new(true)).unwrap();
-        assert!(s.cancelled);
-        assert_eq!(
-            case_log(&case).last().unwrap()["details"]["status"],
-            "cancelled"
-        );
-        a.inputs = vec![tmp.path().join("missing")];
-        assert!(go(&a).is_err());
-        let last = case_log(&case).pop().unwrap();
-        assert_eq!(
-            (last["action"].as_str(), last["details"]["status"].as_str()),
-            (Some("run_finished"), Some("failed"))
-        );
-        assert!(case::verify_case(&case).problems.is_empty());
-
-        // 6. A tampered case log is detected and never extended.
-        let lp = case.join(case::CASE_LOG);
-        let original = std::fs::read_to_string(&lp).unwrap();
-        std::fs::write(&lp, original.replacen("\"tester\"", "\"mallory\"", 1)).unwrap();
-        assert!(!case::verify_case(&case).problems.is_empty());
-        let before = run_dirs(&case);
-        let mut a = case_cfg(&case, CaseRole::Analysis, vec![]);
-        a.case_id = None;
-        let e = go(&a).unwrap_err();
-        assert!(e.contains("never extended"), "{}", e);
-        assert_eq!(run_dirs(&case), before, "no run folder in a broken case");
-        assert_eq!(
-            std::fs::read_to_string(&lp).unwrap(),
-            original.replacen("\"tester\"", "\"mallory\"", 1)
-        );
-        std::fs::write(&lp, &original).unwrap();
-
-        // 7. An edited registry is detected through the digest recorded in the case log.
-        let rp = case.join(case::REGISTRY_JSON);
-        let reg = std::fs::read_to_string(&rp).unwrap();
-        std::fs::write(&rp, reg.replacen("E0002", "E0009", 1)).unwrap();
-        let v = case::verify_case(&case);
-        assert!(
-            v.problems.iter().any(|p| p.contains("registry")),
-            "{:?}",
-            v.problems
-        );
-        assert!(go(&a).is_err());
-        std::fs::write(&rp, reg).unwrap();
-
-        // 8. An edited run audit log is detected by verify-case.
-        let first_run = case
-            .join("runs/rv-hub")
-            .read_dir()
-            .unwrap()
-            .next()
-            .unwrap()
-            .unwrap()
-            .path();
-        let ap = first_run.join("logs/audit.jsonl");
-        let audit = std::fs::read_to_string(&ap).unwrap();
-        std::fs::write(&ap, audit.replacen("\"tester\"", "\"mallory\"", 1)).unwrap();
-        assert!(!case::verify_case(&case).problems.is_empty());
-    }
-
-    #[test]
-    fn evidence_ids_select_items_and_unknown_ids_are_refused() {
-        let tmp = tempfile::tempdir().unwrap();
-        let ev = sample_copy(tmp.path());
-        let case = tmp.path().join("case");
-        run(
-            &case_cfg(&case, CaseRole::Intake, vec![ev]),
-            &mut |_| {},
+        let s = run(
+            &cfg(&case, &d.path().join("out")),
+            &mut |e| events.push(e.clone()),
             &AtomicBool::new(false),
         )
         .unwrap();
-        let mut a = case_cfg(&case, CaseRole::Analysis, vec![]);
-        a.evidence_ids = vec!["e2".into()];
-        let s = run(&a, &mut |_| {}, &AtomicBool::new(false)).unwrap();
-        assert_eq!(s.items, 1);
-        assert_eq!(s.case.unwrap().tally.verified, 1);
-        a.evidence_ids = vec!["E0042".into()];
-        let e = run(&a, &mut |_| {}, &AtomicBool::new(false)).unwrap_err();
-        assert!(e.contains("E0042"), "{}", e);
-        a.case_id = Some("OTHER".into());
-        a.evidence_ids = vec![];
-        assert!(run(&a, &mut |_| {}, &AtomicBool::new(false)).is_err());
+        assert_eq!((s.high, s.items), (0, 5));
+        assert_eq!(s.codes, ["RUN_LOG_INTACT"]);
+        assert!(s.log_dir.starts_with(case.join("runs/rv-hub")));
+        assert!(matches!(
+            events.first(),
+            Some(Event::RunStarted { total_items: 5, .. })
+        ));
+        assert!(matches!(events.last(), Some(Event::RunFinished { .. })));
+        let last = case_log(&case).pop().unwrap();
+        assert_eq!(
+            (last["action"].as_str(), last["details"]["status"].as_str()),
+            (Some("run_finished"), Some("completed"))
+        );
+        assert!(case::verify_case(&case).problems.is_empty());
+        let s = run(
+            &cfg(&case, &d.path().join("out")),
+            &mut |_| {},
+            &AtomicBool::new(true),
+        )
+        .unwrap();
+        assert!(s.cancelled && s.items == 0);
+        assert_eq!(
+            case_log(&case).pop().unwrap()["details"]["status"],
+            "cancelled"
+        );
+        assert!(case::verify_case(&case).problems.is_empty());
     }
 
     #[test]
-    fn three_algorithms_are_refused() {
-        let mut c = cfg(PathBuf::from("."), PathBuf::from("."));
-        c.algorithms = vec![HashAlgo::Md5, HashAlgo::Sha1, HashAlgo::Sha256];
-        assert!(run(&c, &mut |_| {}, &AtomicBool::new(false)).is_err());
+    fn a_broken_case_log_is_never_extended() {
+        let d = tempfile::tempdir().unwrap();
+        let case = sample_copy(d.path());
+        let lp = case.join(CASE_LOG);
+        let text = std::fs::read_to_string(&lp).unwrap();
+        let broken = text.replacen("\"actor\":\"Examiner PDF\"", "\"actor\":\"Mallory\"", 1);
+        assert_ne!(broken, text);
+        std::fs::write(&lp, &broken).unwrap();
+        let out = d.path().join("out");
+        let s = run(&cfg(&case, &out), &mut |_| {}, &AtomicBool::new(false)).unwrap();
+        assert!(s.codes.contains(&"CASE_LOG_BROKEN".to_string()) && s.high > 0);
+        assert!(s.log_dir.starts_with(out.join("logs")));
+        assert!(
+            !case.join("runs/rv-hub").exists(),
+            "no run folder in a broken case"
+        );
+        assert_eq!(std::fs::read_to_string(&lp).unwrap(), broken);
+        let audit = std::fs::read_to_string(s.log_dir.join("audit.jsonl")).unwrap();
+        assert!(audit.contains("\"case_not_extended\""));
+        assert!(!s.case.unwrap().linked);
+    }
+
+    #[test]
+    fn preflight_errors_are_usage_errors() {
+        let d = tempfile::tempdir().unwrap();
+        let mut c = cfg(d.path(), d.path());
+        assert_eq!(preflight(&c).unwrap_err().kind, CaseErrorKind::Usage);
+        let case = sample_copy(d.path());
+        c.case_dir = case;
+        assert_eq!(preflight(&c).unwrap().0, "SAMPLE-1");
+        c.evidence_ids = vec!["E0099".into()];
+        assert!(preflight(&c).unwrap_err().message.contains("E0099"));
+        c.evidence_ids = vec![];
+        c.case_id = Some("OTHER".into());
+        assert_eq!(preflight(&c).unwrap_err().exit_code(), 2);
     }
 }

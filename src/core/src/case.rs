@@ -75,7 +75,7 @@ pub struct CaseError {
 }
 
 impl CaseError {
-    fn new(kind: CaseErrorKind, message: impl Into<String>) -> CaseError {
+    pub fn new(kind: CaseErrorKind, message: impl Into<String>) -> CaseError {
         CaseError {
             kind,
             message: message.into(),

@@ -1,0 +1,26 @@
+{
+  "case_id": "SAMPLE-1",
+  "made_by": "tests/samples/make_case.sh",
+  "tools": {
+    "rv-hashinv": {
+      "cli_sha256": "ffa4c222e22450ca5248e37b3f85468ddc8c267bfc73bf72f1e5ac73373ad3c3",
+      "describe": true,
+      "version": "0.3.1"
+    },
+    "rv-imgauth": {
+      "cli_sha256": "def0f44efd3d60cc2d0cc278eaa1753e5ec6ab183517be51153fe09779662f01",
+      "describe": false,
+      "version": "0.1.0"
+    },
+    "rv-pdfauth": {
+      "cli_sha256": "93eefa1cb6cead397ac5aa932f017138a94e90c3092218d65fbf0f282209745e",
+      "describe": false,
+      "version": "0.3.0"
+    },
+    "rv-rsmf": {
+      "cli_sha256": "a8b3e99bec357e53d36e1f67ad3e40b8ec866ff5da7e472bc63ee6968a787c6c",
+      "describe": false,
+      "version": "0.1.0"
+    }
+  }
+}

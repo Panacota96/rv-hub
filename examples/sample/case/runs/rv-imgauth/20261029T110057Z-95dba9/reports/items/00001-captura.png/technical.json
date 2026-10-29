@@ -1,0 +1,190 @@
+{
+  "audit": {
+    "first_seq": 5,
+    "last_seq": 12
+  },
+  "case": {
+    "case_dir": "/tmp/tmp.sVTkOe7IbL/case",
+    "case_id": "SAMPLE-1",
+    "intake_utc": "2026-10-29T11:00:57.109Z",
+    "role": "analysis",
+    "status": "verified"
+  },
+  "extracted_files": [
+    {
+      "bytes": 898,
+      "hashes": {
+        "sha256": "c9f140622551085fda2b3428e0c6e81e54c4c6b13cdad57314638f4e6505974e"
+      },
+      "kind": "structure",
+      "rel_path": "structure.json"
+    },
+    {
+      "bytes": 123,
+      "hashes": {
+        "sha256": "f07be8fa2c6e0057dc23806739e3091b649abb03e6cb9fe24458075adcbee13c"
+      },
+      "kind": "metadata",
+      "rel_path": "metadata.json"
+    },
+    {
+      "bytes": 908,
+      "hashes": {
+        "sha256": "348f1c293ad961931aea9209ad5587c18c4b4adf236eb33ba8b0058a9d158d94"
+      },
+      "kind": "original_preview",
+      "rel_path": "maps/original.png"
+    }
+  ],
+  "findings": [],
+  "hashes": {
+    "sha256": "666ed73f0863f60ec48123834935c56c7ec98487834fa366fc0d7be8a1fa03c5"
+  },
+  "image": {
+    "analysis": "completed",
+    "evidence_rehash": {
+      "algorithm": "sha256",
+      "bytes": 354,
+      "first_pass": "666ed73f0863f60ec48123834935c56c7ec98487834fa366fc0d7be8a1fa03c5",
+      "match": true,
+      "second_pass": "666ed73f0863f60ec48123834935c56c7ec98487834fa366fc0d7be8a1fa03c5"
+    },
+    "fingerprint_dbs": [
+      {
+        "entries": 0,
+        "name": "rakvor-starter",
+        "role": "starter",
+        "sha256": "e0b0c87e4b79e5c5402e920d343436056c25bb959a5bb757a7d0519b95ab4be8",
+        "status": "loaded",
+        "version": "0"
+      },
+      {
+        "path": "/root/.local/share/rakvor/rv-imgauth/fingerprints.local.json",
+        "role": "local",
+        "status": "absent"
+      }
+    ],
+    "format": "png",
+    "height": 48,
+    "map_parameters": [],
+    "maps": [],
+    "metadata_summary": {
+      "fields": [],
+      "gps_tags": 0,
+      "groups": {},
+      "icc_sha256": null,
+      "makernote_present": false,
+      "problems": [],
+      "tag_count": 0,
+      "thumbnail_present": false,
+      "xmp_history": [],
+      "xmp_present": false
+    },
+    "options": {
+      "copy_move": false,
+      "ela_quality": 95,
+      "maps": [],
+      "max_pixels": 100000000,
+      "references": []
+    },
+    "original_preview": {
+      "file": "maps/original.png",
+      "height": 48,
+      "params": {
+        "decoder": "png",
+        "orientation": "stored order (EXIF Orientation not applied)",
+        "samples": "RGB 8-bit, lossless PNG",
+        "size": "64x48"
+      },
+      "width": 64
+    },
+    "parser": null,
+    "parser_error": null,
+    "pixel_decode_error": null,
+    "qt_fingerprint": null,
+    "reference_table": null,
+    "references": null,
+    "structure_summary": {
+      "facts": [
+        {
+          "name": "bit depth",
+          "value": "8"
+        },
+        {
+          "name": "colour type",
+          "value": "2"
+        },
+        {
+          "name": "bytes after IEND",
+          "value": "0"
+        }
+      ],
+      "segments": 4,
+      "sequence": [
+        "signature",
+        "IHDR",
+        "IDAT",
+        "IEND"
+      ]
+    },
+    "width": 64,
+    "worker": {
+      "elapsed_ms": 22,
+      "memory_mb": 2048,
+      "network": {
+        "detail": "unshare(CLONE_NEWNET) in pre_exec: own network namespace without interfaces",
+        "isolated": true,
+        "method": "linux_netns"
+      },
+      "protocol": "rv-imgauth-worker/1",
+      "status": "completed",
+      "timeout_s": 120
+    }
+  },
+  "item": {
+    "detected_type": "PNG image",
+    "error": null,
+    "evidence_id": "E0001",
+    "extension": "png",
+    "file_name": "captura.png",
+    "index": 1,
+    "modified_utc": "2026-10-29T11:00:57Z",
+    "path": "/tmp/tmp.sVTkOe7IbL/evidence/captura.png",
+    "size": 354,
+    "status": "ok"
+  },
+  "limitations": [
+    "NO_FINDING_IS_NOT_AUTHENTICITY",
+    "VISUAL_MAPS_REQUIRE_INTERPRETATION",
+    "DOUBLE_COMPRESSION_IS_NOT_MANIPULATION",
+    "FINGERPRINT_DB_COVERAGE",
+    "COPY_MOVE_SCALE_ROTATION_NOT_DETECTED",
+    "NO_VALIDATED_ERROR_RATES_YET",
+    "TIMESTAMPS_FROM_FILESYSTEM",
+    "TIMESTAMP_PROVES_EXISTENCE_ONLY",
+    "SIGNATURE_TABLE_LIMITED"
+  ],
+  "run": {
+    "actor": "Examiner Image",
+    "algorithms": [
+      "sha256"
+    ],
+    "cancelled": false,
+    "case_id": "SAMPLE-1",
+    "elapsed_ms": 51,
+    "finished_utc": "2026-10-29T11:00:57.325Z",
+    "frontend": "cli",
+    "jurisdiction": "co",
+    "langs": [
+      "en"
+    ],
+    "pdf_signed_by": null,
+    "run_id": "20261029T110057Z-95dba9",
+    "started_utc": "2026-10-29T11:00:57.273Z"
+  },
+  "schema": "rakvor.item-technical/1",
+  "tool": {
+    "name": "rv-imgauth",
+    "version": "0.1.0"
+  }
+}

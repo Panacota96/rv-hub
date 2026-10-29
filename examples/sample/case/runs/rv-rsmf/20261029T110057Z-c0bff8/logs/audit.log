@@ -1,0 +1,23 @@
+2026-10-29T11:00:57.397Z  #00001  run_started          algorithms=sha256 case_dir=/tmp/tmp.sVTkOe7IbL/case case_id=SAMPLE-1 evidence_ids=E0005 frontend=cli input_list=null inputs=/tmp/tmp.sVTkOe7IbL/evidence/whatsapp-chat.txt jurisdiction=co langs=en out_dir=rakvor-out recursive=false sign_cert=null tool=rv-rsmf tsa_url=null version=0.1.0
+2026-10-29T11:00:57.398Z  #00002  case_linked          case_created=false case_dir=/tmp/tmp.sVTkOe7IbL/case case_id=SAMPLE-1 case_log_head_at_start=63c1885737b8d5f786e1d6976be3600c99d6d9218a0f10890f47530f14363a1c case_log_seq_at_start=9 jurisdiction=co registry_items=5 registry_sha256=369dac6fb11ad15c8a2c57659d365c755e9fbdb69c8985eab201054d77a91631 requested_jurisdiction=co role=analysis run_dir=runs/rv-rsmf/20261029T110057Z-c0bff8
+2026-10-29T11:00:57.399Z  #00003  environment_recorded environment.json  sha256=28936730c8f4cfcf93b3d612bbd306a8d2d9531eced2e84be35b55dca27f73d6
+2026-10-29T11:00:57.399Z  #00004  inputs_resolved      bytes=340 items=1
+2026-10-29T11:00:57.399Z  #00005  item_started         /tmp/tmp.sVTkOe7IbL/evidence/whatsapp-chat.txt  index=1 modified_utc=2026-10-29T11:00:57Z size=340
+2026-10-29T11:00:57.400Z  #00006  item_hashed          /tmp/tmp.sVTkOe7IbL/evidence/whatsapp-chat.txt  bytes_read=340 index=1 mtime_unchanged=true
+2026-10-29T11:00:57.400Z  #00007  evidence_verified_against_case /tmp/tmp.sVTkOe7IbL/evidence/whatsapp-chat.txt  algorithm=sha256 evidence_id=E0005 index=1 match=true matched_by=evidence_id
+2026-10-29T11:00:57.400Z  #00008  item_analyzed        /tmp/tmp.sVTkOe7IbL/evidence/whatsapp-chat.txt  detected_type=null extension=txt findings= index=1 status=ok
+2026-10-29T11:00:57.400Z  #00009  conversion_started   rsmf_dir=/tmp/tmp.sVTkOe7IbL/case/runs/rv-rsmf/20261029T110057Z-c0bff8/rsmf rsmf_version=2.0.0 shortcode_table=relativity-supported-emoji checked 2026-10-27 (Server 2024 page)
+2026-10-29T11:00:57.409Z  #00010  export_planned       /tmp/tmp.sVTkOe7IbL/evidence/whatsapp-chat.txt  export=1 item_index=1 members=1 root=/tmp/tmp.sVTkOe7IbL/evidence source=whatsapp
+2026-10-29T11:00:57.414Z  #00011  export_parsed        /tmp/tmp.sVTkOe7IbL/evidence/whatsapp-chat.txt  conversations=1 events=5 findings={"code":"DATE_ORDER_INFERRED","params":{"example":"13/03/2026, 08:45","line":"5","order":"dmy"},"severity":"info"} participants=2 source=whatsapp
+2026-10-29T11:00:57.417Z  #00012  rsmf_written         001-whatsapp-chat-txt-000001/whatsapp-chat-f83511/2026-03-12.rsmf  attachments=0 bytes=2118 conversation=c-38b058f83511 day=2026-03-12 event_collection_id=41ed5928-66ce-59be-faf6-136049b9d208 events=4 missing_attachments=0 part=0 sha256=2ea561276f2d9d25e1c51c310643e61ecf62c5cb8326c779fba36293c292a941
+2026-10-29T11:00:57.428Z  #00013  rsmf_validated       001-whatsapp-chat-txt-000001/whatsapp-chat-f83511/2026-03-12.rsmf  roundtrip_problems= schema=rsmf_schema_2_0_0.json schema_errors= strict_errors= valid=true
+2026-10-29T11:00:57.430Z  #00014  rsmf_written         001-whatsapp-chat-txt-000001/whatsapp-chat-f83511/2026-03-13.rsmf  attachments=0 bytes=1692 conversation=c-38b058f83511 day=2026-03-13 event_collection_id=41ed5928-66ce-59be-faf6-136049b9d208 events=1 missing_attachments=0 part=0 sha256=fdbb4796981a45aeb185fb0d9830ef3e846329f28088483bc66a9c9d4c30f2e3
+2026-10-29T11:00:57.438Z  #00015  rsmf_validated       001-whatsapp-chat-txt-000001/whatsapp-chat-f83511/2026-03-13.rsmf  roundtrip_problems= schema=rsmf_schema_2_0_0.json schema_errors= strict_errors= valid=true
+2026-10-29T11:00:57.438Z  #00016  trace_written        trace.csv  sha256=b2d12b5699c2f11e83fa555199cb8baa5f17ff68641cd2781a4395e1b6ea7372
+2026-10-29T11:00:57.439Z  #00017  trace_written        trace.json  sha256=eec7400df3cc565c4a50d8cd5ad389d12f4123f97136d8eb898f3839c0898aee
+2026-10-29T11:00:57.439Z  #00018  trace_written        conversions.json  sha256=de020e77fc0d9fa1b582f124413a4a48702d34225737248b1a6d952c75cb44c0
+2026-10-29T11:00:57.439Z  #00019  conversion_finished  attachments_missing=0 attachments_packed=0 conversations=1 events=5 exports=1 exports_failed=0 files=2 files_invalid=0
+2026-10-29T11:00:57.439Z  #00020  hash_register_written hashes.csv  sha256=5bf03691bc5953e9a81e2e67b5ef6f58fe47340cfa23ac0ac4a8d0741fe59a33
+2026-10-29T11:00:57.456Z  #00021  item_reports_written /tmp/tmp.sVTkOe7IbL/evidence/whatsapp-chat.txt  folder=items/00001-whatsapp-chat.txt
+2026-10-29T11:00:57.460Z  #00022  statistics_report_written 
+2026-10-29T11:00:57.460Z  #00023  run_finished         bytes=340 cancelled=false elapsed_ms=63 errors=0 high=0 info=3 items=1 low=0 medium=0

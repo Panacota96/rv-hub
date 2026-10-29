@@ -1,0 +1,56 @@
+{
+  "format": "png",
+  "heif": null,
+  "height": 48,
+  "jpeg": null,
+  "png": {
+    "after_iend": 0,
+    "bit_depth": 8,
+    "chunks": [
+      "IHDR",
+      "IDAT",
+      "IEND"
+    ],
+    "color_type": 2,
+    "height": 48,
+    "width": 64
+  },
+  "structure": [
+    {
+      "children": [],
+      "detail": {},
+      "kind": "signature",
+      "length": 8,
+      "offset": 0
+    },
+    {
+      "children": [],
+      "detail": {
+        "bit_depth": "8",
+        "color_type": "2",
+        "height": "48",
+        "interlace": "0",
+        "width": "64"
+      },
+      "kind": "IHDR",
+      "length": 25,
+      "offset": 8
+    },
+    {
+      "children": [],
+      "detail": {},
+      "kind": "IDAT",
+      "length": 309,
+      "offset": 33
+    },
+    {
+      "children": [],
+      "detail": {},
+      "kind": "IEND",
+      "length": 12,
+      "offset": 342
+    }
+  ],
+  "webp": null,
+  "width": 64
+}

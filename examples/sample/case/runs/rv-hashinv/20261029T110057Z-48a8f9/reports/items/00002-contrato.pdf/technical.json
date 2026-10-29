@@ -1,0 +1,61 @@
+{
+  "audit": {
+    "first_seq": 8,
+    "last_seq": 10
+  },
+  "case": {
+    "case_dir": "/tmp/tmp.sVTkOe7IbL/case",
+    "case_id": "SAMPLE-1",
+    "intake_utc": "2026-10-29T11:00:57.109Z",
+    "role": "intake",
+    "status": "registered"
+  },
+  "findings": [],
+  "hashes": {
+    "md5": "3082cd4f122a51fb39c34cfb376f9314",
+    "sha256": "d231afe23c28b2e88e7b0420ad936fbac8c73dbfa091940c0f2a651c7068949a"
+  },
+  "item": {
+    "detected_type": "PDF document",
+    "error": null,
+    "evidence_id": "E0002",
+    "extension": "pdf",
+    "file_name": "contrato.pdf",
+    "index": 2,
+    "modified_utc": "2026-10-29T11:00:57Z",
+    "path": "/tmp/tmp.sVTkOe7IbL/evidence/contrato.pdf",
+    "size": 789,
+    "status": "ok"
+  },
+  "limitations": [
+    "SIGNATURE_TABLE_LIMITED",
+    "TIMESTAMPS_FROM_FILESYSTEM",
+    "CLEAN_RESULT_IS_NOT_AUTHENTICITY",
+    "TIMESTAMP_PROVES_EXISTENCE_ONLY"
+  ],
+  "run": {
+    "actor": "Examiner Intake",
+    "algorithms": [
+      "sha256",
+      "md5"
+    ],
+    "cancelled": false,
+    "case_id": "SAMPLE-1",
+    "elapsed_ms": 5,
+    "finished_utc": "2026-10-29T11:00:57.111Z",
+    "frontend": "cli",
+    "jurisdiction": "co",
+    "langs": [
+      "en"
+    ],
+    "pdf_signed_by": null,
+    "pdf_signer_certificate_sha256": null,
+    "run_id": "20261029T110057Z-48a8f9",
+    "started_utc": "2026-10-29T11:00:57.105Z"
+  },
+  "schema": "rakvor.item-technical/1",
+  "tool": {
+    "name": "rv-hashinv",
+    "version": "0.3.1"
+  }
+}

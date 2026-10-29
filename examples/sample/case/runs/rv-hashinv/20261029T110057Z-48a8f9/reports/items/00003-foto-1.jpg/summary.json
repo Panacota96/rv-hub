@@ -1,0 +1,23 @@
+{
+  "case_id": "SAMPLE-1",
+  "findings": [],
+  "fingerprint": {
+    "algorithm": "sha256",
+    "value": "2c131e2942ef56ad7a4a6ecdce4740846e5c76f9d04fa46ac80b3753dad6b0cb"
+  },
+  "item": {
+    "evidence_id": "E0003",
+    "file_name": "foto-1.jpg",
+    "index": 3
+  },
+  "run_id": "20261029T110057Z-48a8f9",
+  "schema": "rakvor.item-summary/1",
+  "status": "ok",
+  "text": {
+    "en": {
+      "next_step": "No action needed for this file.",
+      "status": "No issues found",
+      "summary": "The file was hashed and checked. The checks applied found no issues."
+    }
+  }
+}

@@ -44,6 +44,9 @@ spki = "0.7"
 const-oid = { version = "0.9", features = ["db"] }
 rsa = { version = "0.9", features = ["sha2"] }
 sha2-legacy = { package = "sha2", version = "0.10" }
+# Windows only (RV Hub): Authenticode check (WinVerifyTrust + signer chain) and the uninstall registry.
+windows = { version = "0.62", features = ["Win32_Foundation", "Win32_Security_WinTrust", "Win32_Security_Cryptography", "Win32_Security_Cryptography_Catalog", "Win32_Security_Cryptography_Sip"] }
+winreg = "0.55"
 tempfile = "3"
 assert_cmd = "2"
 predicates = "3"

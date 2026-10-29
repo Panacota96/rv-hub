@@ -1,0 +1,5 @@
+12/03/2026, 09:14 - Los mensajes y las llamadas están cifrados de extremo a extremo.
+12/03/2026, 09:15 - Laura Demo: Hola, ¿recibiste el contrato?
+12/03/2026, 09:17 - Pablo Ficticio: Sí, lo reviso hoy y te confirmo.
+12/03/2026, 18:02 - Laura Demo: Perfecto, gracias.
+13/03/2026, 08:45 - Pablo Ficticio: Firmado. Te lo envío por correo.

@@ -1,8 +1,11 @@
 //! Everything the window shows and every rule it enforces, without any drawing code.
 //! Kept separate from `app.rs` so it can be unit-tested headless (CI has no display).
+//!
+//! Core-engineer stage: the window offers the main verb (whole-case verification) only; the GUI stage adds the
+//! Tools and Case tabs on top of `rv_hub_core::{tools, case_view, suggest, launch}`.
 
 use rv_hub_core::{
-    CASE_ROLE, Event, HashAlgo, RunConfig, TOOL_NAME, TOOL_VERSION, case, hash, i18n,
+    CrossCheckMode, Event, HashAlgo, RunConfig, TOOL_NAME, TOOL_VERSION, hash, i18n,
     time::human_duration,
 };
 use serde_json::{Value, json};
@@ -39,16 +42,6 @@ pub struct Outcome {
     pub log_dir: PathBuf,
 }
 
-/// One item's link to the case registry, shown in the result panel.
-#[derive(Clone, Debug, PartialEq)]
-pub struct EvidenceLink {
-    pub index: u64,
-    pub path: String,
-    pub evidence_id: Option<String>,
-    /// registered | already_registered | verified | mismatch | not_in_registry
-    pub status: String,
-}
-
 pub const LANG_CHOICES: [(&str, &str); 4] = [
     ("en", "English"),
     ("es", "Español"),
@@ -58,9 +51,12 @@ pub const LANG_CHOICES: [(&str, &str); 4] = [
 
 #[derive(Clone, Debug)]
 pub struct GuiState {
-    pub inputs: Vec<PathBuf>,
-    pub path_entry: String,
-    pub recursive: bool,
+    /// Also re-hash the registered evidence (`--rehash`).
+    pub rehash: bool,
+    /// Where the evidence copies are now (`--evidence-dir`), when not at their registered paths.
+    pub evidence_dir: String,
+    /// Ask each run's own tool to verify its logs (`--crosscheck auto`).
+    pub crosscheck: bool,
     pub selected: Vec<HashAlgo>,
     pub lang: String,
     pub out_dir: String,
@@ -81,18 +77,18 @@ pub struct GuiState {
     pub sign_cert: String,
     /// Kept in memory only; never logged.
     pub sign_password: String,
-    /// Shared case folder; when set, the output folder is derived from it and locked.
+    /// The case folder to verify (required); the run is written to `<case>/runs/rv-hub/<RUN-ID>`.
     pub case_dir: String,
-    /// Evidence ids reported by the last run (case folder only).
-    pub evidence: Vec<EvidenceLink>,
+    /// Finding codes of the last finished verification.
+    pub codes: Vec<String>,
 }
 
 impl Default for GuiState {
     fn default() -> Self {
         GuiState {
-            inputs: vec![],
-            path_entry: String::new(),
-            recursive: true,
+            rehash: false,
+            evidence_dir: String::new(),
+            crosscheck: true,
             selected: vec![HashAlgo::Sha256],
             lang: "en".into(),
             out_dir: "rakvor-out".into(),
@@ -111,7 +107,7 @@ impl Default for GuiState {
             sign_cert: String::new(),
             sign_password: String::new(),
             case_dir: String::new(),
-            evidence: vec![],
+            codes: vec![],
         }
     }
 }
@@ -161,28 +157,6 @@ impl GuiState {
         Ok(())
     }
 
-    pub fn add_input(&mut self, p: PathBuf) {
-        if !self.inputs.contains(&p) {
-            self.note("ui_input_added", json!({"path": p.display().to_string()}));
-            self.inputs.push(p);
-        }
-    }
-
-    pub fn add_typed_path(&mut self) {
-        let t = self.path_entry.trim().trim_matches('"').to_string();
-        if !t.is_empty() {
-            self.add_input(PathBuf::from(t));
-            self.path_entry.clear();
-        }
-    }
-
-    pub fn remove_input(&mut self, i: usize) {
-        if i < self.inputs.len() {
-            let p = self.inputs.remove(i);
-            self.note("ui_input_removed", json!({"path": p.display().to_string()}));
-        }
-    }
-
     pub fn set_lang(&mut self, l: &str) {
         if self.lang != l {
             self.lang = l.to_string();
@@ -190,10 +164,31 @@ impl GuiState {
         }
     }
 
-    pub fn set_recursive(&mut self, r: bool) {
-        if self.recursive != r {
-            self.recursive = r;
-            self.note("ui_recursive_changed", json!({"recursive": r}));
+    pub fn set_rehash(&mut self, on: bool) {
+        if self.rehash != on {
+            self.rehash = on;
+            self.note("ui_rehash_changed", json!({"rehash": on}));
+        }
+    }
+
+    pub fn set_crosscheck(&mut self, on: bool) {
+        if self.crosscheck != on {
+            self.crosscheck = on;
+            self.note(
+                "ui_crosscheck_changed",
+                json!({"crosscheck": if on { "auto" } else { "off" }}),
+            );
+        }
+    }
+
+    pub fn set_evidence_dir(&mut self, path: &str) {
+        let path = path.trim().trim_matches('"').to_string();
+        if self.evidence_dir != path {
+            self.evidence_dir = path.clone();
+            self.note(
+                "ui_evidence_dir_changed",
+                json!({"path": if path.is_empty() { Value::Null } else { json!(path) }}),
+            );
         }
     }
 
@@ -239,95 +234,68 @@ impl GuiState {
         }
     }
 
-    /// Rule: with a case folder the output folder is `<case>/runs/<tool>/<RUN-ID>` and cannot be edited.
+    /// Rule: the run is always written to `<case>/runs/rv-hub/<RUN-ID>` (or to the output folder when the case log
+    /// is broken and must not be extended).
     pub fn set_case_dir(&mut self, path: &str) {
         let path = path.trim().trim_matches('"').to_string();
         if self.case_dir != path {
             self.case_dir = path.clone();
             self.note(
                 "ui_case_dir_changed",
-                json!({"path": if path.is_empty() { Value::Null } else { json!(path) }, "role": CASE_ROLE.name()}),
+                json!({"path": if path.is_empty() { Value::Null } else { json!(path) }}),
             );
         }
     }
 
-    pub fn out_locked(&self) -> bool {
-        !self.case_dir.trim().is_empty()
-    }
-
-    /// What the output-folder field shows: the derived run folder when a case folder is set.
+    /// Where the run will be written.
     pub fn out_dir_display(&self) -> String {
-        if self.out_locked() {
+        if self.case_dir.trim().is_empty() {
+            "\u{2014}".into()
+        } else {
             PathBuf::from(self.case_dir.trim())
                 .join("runs")
                 .join(TOOL_NAME)
                 .join("<RUN-ID>")
                 .display()
                 .to_string()
-        } else {
-            self.out_dir.clone()
         }
     }
 
-    /// Result-panel lines: "E0001  acta.txt  — Verified: identical to the registered evidence".
-    pub fn evidence_lines(&self) -> Vec<String> {
-        let c = i18n::catalog(&self.ui_lang);
-        self.evidence
-            .iter()
-            .map(|e| {
-                let name = std::path::Path::new(&e.path)
-                    .file_name()
-                    .map(|n| n.to_string_lossy().into_owned())
-                    .unwrap_or_else(|| e.path.clone());
-                format!(
-                    "{}  {}  \u{2014} {}",
-                    e.evidence_id.as_deref().unwrap_or("\u{2014}"),
-                    name,
-                    c.label(&format!("case_status_{}", e.status))
-                )
-            })
-            .collect()
-    }
-
     pub fn can_start(&self) -> bool {
-        !self.is_running()
-            && (!self.inputs.is_empty() || self.out_locked())
-            && (self.out_locked() || !self.out_dir.trim().is_empty())
+        !self.is_running() && !self.case_dir.trim().is_empty()
     }
 
     /// Builds the run configuration; the recorded UI actions become audit preamble entries.
     pub fn to_config(&self) -> Result<RunConfig, String> {
-        if self.inputs.is_empty() && !self.out_locked() {
-            return Err("Add at least one file or folder.".into());
+        if self.case_dir.trim().is_empty() {
+            return Err("Choose the case folder to verify.".into());
         }
         hash::validate_selection(&self.selected)?;
-        let case_id = Some(self.case_id.trim().to_string()).filter(|s| !s.is_empty());
-        if self.out_locked() {
-            case::preflight(
-                std::path::Path::new(self.case_dir.trim()),
-                case_id.as_deref(),
-                &[],
-            )
-            .map_err(|e| e.message)?;
-        }
         let langs = i18n::parse_langs(&self.lang)?;
         if !self.sign_cert.is_empty() && !std::path::Path::new(&self.sign_cert).is_file() {
             return Err(format!("Signing certificate not found: {}", self.sign_cert));
         }
+        let case_id = Some(self.case_id.trim().to_string()).filter(|s| !s.is_empty());
         let mut preamble = self.ui_actions.clone();
-        preamble.push(("ui_start_clicked".into(), json!({"algorithms": self.selected, "lang": self.lang, "recursive": self.recursive,
-            "inputs": self.inputs.len(), "jurisdiction": self.jurisdiction, "timestamp": self.timestamp,
-            "pdf_signing": !self.sign_cert.is_empty(), "case_dir": if self.out_locked() { json!(self.case_dir.trim()) } else { Value::Null },
+        preamble.push(("ui_start_clicked".into(), json!({"algorithms": self.selected, "lang": self.lang, "rehash": self.rehash,
+            "crosscheck": self.crosscheck, "evidence_dir": self.evidence_dir, "jurisdiction": self.jurisdiction,
+            "timestamp": self.timestamp, "pdf_signing": !self.sign_cert.is_empty(), "case_dir": self.case_dir.trim(),
             "at_utc": rv_hub_core::time::utc_now()})));
         let settings = vec![
-            format!("{} (gui)", TOOL_NAME),
+            format!("{} (gui) verify", TOOL_NAME),
+            format!("case_dir={}", self.case_dir.trim()),
+            format!("rehash={}", self.rehash),
             format!(
-                "inputs={}",
-                self.inputs
-                    .iter()
-                    .map(|p| p.display().to_string())
-                    .collect::<Vec<_>>()
-                    .join(";")
+                "evidence_dir={}",
+                if self.evidence_dir.is_empty() {
+                    "none"
+                } else {
+                    self.evidence_dir.as_str()
+                }
+            ),
+            format!(
+                "crosscheck={}",
+                if self.crosscheck { "auto" } else { "off" }
             ),
             format!(
                 "hash={}",
@@ -338,16 +306,7 @@ impl GuiState {
                     .join(",")
             ),
             format!("lang={}", self.lang),
-            format!("recursive={}", self.recursive),
-            format!("out={}", self.out_dir_display().trim()),
-            format!(
-                "case_dir={}",
-                if self.out_locked() {
-                    self.case_dir.trim()
-                } else {
-                    "none"
-                }
-            ),
+            format!("out={}", self.out_dir.trim()),
             format!("jurisdiction={}", self.jurisdiction),
             format!(
                 "tsa={}",
@@ -366,10 +325,19 @@ impl GuiState {
                 }
             ),
         ];
-        Ok(RunConfig {
-            inputs: self.inputs.clone(),
-            input_list: None,
-            recursive: self.recursive,
+        let cfg = RunConfig {
+            case_dir: PathBuf::from(self.case_dir.trim()),
+            rehash: self.rehash,
+            evidence_dirs: if self.evidence_dir.trim().is_empty() {
+                vec![]
+            } else {
+                vec![PathBuf::from(self.evidence_dir.trim())]
+            },
+            crosscheck: if self.crosscheck {
+                CrossCheckMode::Auto
+            } else {
+                CrossCheckMode::Off
+            },
             algorithms: self.selected.clone(),
             out_dir: PathBuf::from(self.out_dir.trim()),
             langs,
@@ -400,14 +368,10 @@ impl GuiState {
             } else {
                 Some(self.sign_password.clone())
             },
-            case_dir: if self.out_locked() {
-                Some(PathBuf::from(self.case_dir.trim()))
-            } else {
-                None
-            },
-            evidence_ids: vec![],
-            case_role: CASE_ROLE,
-        })
+            ..Default::default()
+        };
+        rv_hub_core::run::preflight(&cfg).map_err(|e| e.message)?;
+        Ok(cfg)
     }
 
     pub fn start(&mut self) {
@@ -416,7 +380,7 @@ impl GuiState {
         self.current_item.clear();
         self.warnings.clear();
         self.outcome = None;
-        self.evidence.clear();
+        self.codes.clear();
         // Recorded actions now belong to this run's audit log.
         self.ui_actions.clear();
     }
@@ -432,17 +396,14 @@ impl GuiState {
                 self.progress.bytes_total = *total_bytes;
             }
             Event::ItemStarted { path, .. } => self.current_item = path.clone(),
-            Event::EvidenceLinked {
-                index,
-                path,
-                evidence_id,
-                status,
-            } => self.evidence.push(EvidenceLink {
-                index: *index,
-                path: path.clone(),
-                evidence_id: evidence_id.clone(),
-                status: status.clone(),
-            }),
+            Event::ItemFinished { findings, .. } => {
+                for f in findings {
+                    if !self.codes.contains(f) {
+                        self.codes.push(f.clone());
+                    }
+                }
+                self.codes.sort();
+            }
             Event::Progress {
                 done,
                 total,
@@ -576,29 +537,68 @@ mod tests {
         assert_eq!(s.selected, vec![HashAlgo::Md5]);
     }
 
+    fn sample_copy(tag: &str) -> PathBuf {
+        fn copy(from: &std::path::Path, to: &std::path::Path) {
+            std::fs::create_dir_all(to).unwrap();
+            for e in std::fs::read_dir(from).unwrap() {
+                let e = e.unwrap();
+                if e.path().is_dir() {
+                    copy(&e.path(), &to.join(e.file_name()));
+                } else {
+                    std::fs::copy(e.path(), to.join(e.file_name())).unwrap();
+                }
+            }
+        }
+        let tmp = std::env::temp_dir().join(format!("rv-hub-gui-{}-{}", tag, std::process::id()));
+        let _ = std::fs::remove_dir_all(&tmp);
+        copy(
+            &std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/sample/case"),
+            &tmp.join("case"),
+        );
+        tmp
+    }
+
     #[test]
     fn settings_changes_become_audit_preamble() {
+        let tmp = sample_copy("pre");
         let mut s = GuiState::default();
-        assert!(s.to_config().is_err(), "no input yet");
-        s.path_entry = "\"C:\\evidence\"".into();
-        s.add_typed_path();
+        assert!(
+            !s.can_start() && s.to_config().is_err(),
+            "no case folder yet"
+        );
+        s.set_case_dir(&format!("\"{}\"", tmp.join("case").display()));
         s.toggle_algo(HashAlgo::Blake3).unwrap();
         s.set_lang("es");
+        s.set_rehash(true);
+        s.set_crosscheck(false);
+        s.set_evidence_dir("E:\\copies");
         let cfg = s.to_config().unwrap();
-        assert_eq!(cfg.inputs, vec![PathBuf::from("C:\\evidence")]);
+        assert_eq!(cfg.case_dir, tmp.join("case"));
+        assert!(cfg.rehash && cfg.crosscheck == CrossCheckMode::Off);
+        assert_eq!(cfg.evidence_dirs, vec![PathBuf::from("E:\\copies")]);
         assert_eq!(cfg.frontend, "gui");
         let actions: Vec<&str> = cfg.preamble.iter().map(|(a, _)| a.as_str()).collect();
         assert_eq!(
             actions,
             vec![
-                "ui_input_added",
+                "ui_case_dir_changed",
                 "ui_hash_selection_changed",
                 "ui_language_changed",
+                "ui_rehash_changed",
+                "ui_crosscheck_changed",
+                "ui_evidence_dir_changed",
                 "ui_start_clicked"
             ]
         );
         s.start();
         assert!(s.ui_actions.is_empty());
+        s.case_id = "OTHER".into();
+        assert!(
+            s.to_config()
+                .unwrap_err()
+                .contains("belongs to case SAMPLE-1")
+        );
+        let _ = std::fs::remove_dir_all(&tmp);
     }
 
     #[test]
@@ -626,6 +626,12 @@ mod tests {
         assert!((s.fraction() - 0.25).abs() < 1e-6);
         assert!(s.timing_text(Some(2500)).contains("6.0 s"));
         assert!(s.progress_text().starts_with("1 / 4"));
+        s.apply(&Event::ItemFinished {
+            index: 2,
+            path: "x".into(),
+            status: "problem".into(),
+            findings: vec!["RUN_LOG_BROKEN".into()],
+        });
         s.apply(&Event::RunFinished {
             items: 4,
             bytes: 400,
@@ -640,6 +646,7 @@ mod tests {
             cancelled: false,
         });
         assert_eq!(s.phase, Phase::Finished);
+        assert_eq!(s.codes, ["RUN_LOG_BROKEN"]);
         assert_eq!(
             s.outcome.as_ref().unwrap().report,
             PathBuf::from("out/reports/R/statistics.en.html")
@@ -648,15 +655,16 @@ mod tests {
 
     #[test]
     fn interface_language_and_trust_settings_are_audited() {
+        let tmp = sample_copy("trust");
         let mut s = GuiState::default();
         s.set_ui_lang("fr");
-        assert_eq!(s.tr("start"), "Lancer l'analyse");
+        assert_eq!(s.tr("start"), "Lancer la vérification");
         s.set_ui_lang("es");
-        assert_eq!(s.tr("start"), "Iniciar revisión");
+        assert_eq!(s.tr("start"), "Iniciar verificación");
         s.set_jurisdiction("fr");
         s.set_timestamp(false, "http://tsa.example");
         s.set_sign_cert("missing.p12");
-        s.add_input(PathBuf::from("."));
+        s.set_case_dir(&tmp.join("case").display().to_string());
         assert!(s.to_config().is_err(), "missing certificate refused");
         s.set_sign_cert("");
         let cfg = s.to_config().unwrap();
@@ -672,88 +680,35 @@ mod tests {
                 .iter()
                 .all(|(_, d)| !d.to_string().contains("password"))
         );
-    }
-
-    #[test]
-    fn case_folder_locks_the_output_folder_and_shows_evidence_ids() {
-        let tmp = std::env::temp_dir().join(format!("rv-gui-case-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&tmp);
-        std::fs::create_dir_all(tmp.join("ev")).unwrap();
-        std::fs::write(tmp.join("ev/a.txt"), "a").unwrap();
-        std::fs::write(tmp.join("ev/b.txt"), "b").unwrap();
-        let mut s = GuiState {
-            timestamp: false,
-            ..Default::default()
-        };
-        assert!(!s.can_start());
-        let case_dir = tmp.join("CASE-G");
-        s.set_case_dir(&format!("\"{}\"", case_dir.display()));
-        assert!(
-            s.out_locked() && s.can_start(),
-            "a case folder alone can start (registered items)"
-        );
-        assert!(s.out_dir_display().contains("runs") && s.out_dir_display().ends_with("<RUN-ID>"));
-        assert!(s.to_config().is_err(), "creating a case needs a case id");
-        s.case_id = "CASE-G".into();
-        s.add_input(tmp.join("ev"));
-        if CASE_ROLE == rv_hub_core::CaseRole::Analysis {
-            // An analysis tool verifies against a registry: create it with an explicit intake run first.
-            let seed = RunConfig {
-                inputs: vec![tmp.join("ev")],
-                case_id: Some("CASE-G".into()),
-                case_dir: Some(case_dir.clone()),
-                case_role: rv_hub_core::CaseRole::Intake,
-                ..Default::default()
-            };
-            let off = std::sync::atomic::AtomicBool::new(false);
-            rv_hub_core::run(&seed, &mut |_| {}, &off).unwrap();
-        }
-        let cfg = s.to_config().unwrap();
-        assert_eq!(cfg.case_dir.as_deref(), Some(case_dir.as_path()));
-        assert_eq!(cfg.case_role, CASE_ROLE);
-        let actions: Vec<&str> = cfg.preamble.iter().map(|(a, _)| a.as_str()).collect();
-        assert_eq!(actions[0], "ui_case_dir_changed");
-        s.start();
-        let cancel = std::sync::atomic::AtomicBool::new(false);
-        let summary = rv_hub_core::run(&cfg, &mut |e| s.apply(e), &cancel).unwrap();
-        assert_eq!(s.phase, Phase::Finished);
-        assert!(summary.log_dir.starts_with(&case_dir));
-        let ids: Vec<Option<&str>> = s
-            .evidence
-            .iter()
-            .map(|e| e.evidence_id.as_deref())
-            .collect();
-        assert_eq!(ids, vec![Some("E0001"), Some("E0002")]);
-        assert!(s.evidence_lines()[0].starts_with("E0001  a.txt"));
-        let log = std::fs::read_to_string(summary.log_dir.join("audit.jsonl")).unwrap();
-        assert!(log.contains("\"ui_case_dir_changed\"") && log.contains("\"case_linked\""));
-        s.set_case_dir("");
-        assert!(!s.out_locked() && s.out_dir_display() == "rakvor-out");
         let _ = std::fs::remove_dir_all(&tmp);
     }
 
     #[test]
-    fn a_real_run_from_gui_settings_is_audited() {
-        let ev = std::env::temp_dir().join(format!("rv-gui-test-{}", std::process::id()));
-        std::fs::create_dir_all(&ev).unwrap();
-        std::fs::write(ev.join("a.txt"), "x").unwrap();
+    fn a_real_verification_from_gui_settings_is_audited() {
+        let tmp = sample_copy("run");
         let mut s = GuiState {
             timestamp: false, // tests stay offline
+            crosscheck: false,
             ..Default::default()
         };
-        s.add_input(ev.clone());
-        s.out_dir = ev.join("out").display().to_string();
+        s.set_case_dir(&tmp.join("case").display().to_string());
+        assert!(
+            s.out_dir_display().contains("rv-hub") && s.out_dir_display().ends_with("<RUN-ID>")
+        );
         let cfg = s.to_config().unwrap();
         s.start();
         let cancel = std::sync::atomic::AtomicBool::new(false);
         let summary = rv_hub_core::run(&cfg, &mut |e| s.apply(e), &cancel).unwrap();
         assert_eq!(s.phase, Phase::Finished);
+        assert_eq!(s.codes, ["RUN_LOG_INTACT"]);
+        assert!(summary.log_dir.starts_with(tmp.join("case/runs/rv-hub")));
         let log = std::fs::read_to_string(summary.log_dir.join("audit.jsonl")).unwrap();
         assert!(
-            log.contains("\"ui_input_added\"")
+            log.contains("\"ui_case_dir_changed\"")
                 && log.contains("\"ui_start_clicked\"")
                 && log.contains("\"frontend\":\"gui\"")
+                && log.contains("\"case_linked\"")
         );
-        let _ = std::fs::remove_dir_all(&ev);
+        let _ = std::fs::remove_dir_all(&tmp);
     }
 }

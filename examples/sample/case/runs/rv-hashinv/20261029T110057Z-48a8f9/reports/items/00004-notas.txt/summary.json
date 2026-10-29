@@ -1,0 +1,23 @@
+{
+  "case_id": "SAMPLE-1",
+  "findings": [],
+  "fingerprint": {
+    "algorithm": "sha256",
+    "value": "a8886a29cdac18bf1a954ff29785e7b2937756ff58839d2ccd645923306f2b80"
+  },
+  "item": {
+    "evidence_id": "E0004",
+    "file_name": "notas.txt",
+    "index": 4
+  },
+  "run_id": "20261029T110057Z-48a8f9",
+  "schema": "rakvor.item-summary/1",
+  "status": "ok",
+  "text": {
+    "en": {
+      "next_step": "No action needed for this file.",
+      "status": "No issues found",
+      "summary": "The file was hashed and checked. The checks applied found no issues."
+    }
+  }
+}

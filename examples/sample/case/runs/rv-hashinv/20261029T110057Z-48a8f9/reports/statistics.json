@@ -1,0 +1,122 @@
+{
+  "audit": {
+    "entries": 30,
+    "head": "6967e266dcf11c9b7d3f19613a41da35017e2bbdaa568b2cec27bbf75ed3f622",
+    "log_dir": "/tmp/tmp.sVTkOe7IbL/case/runs/rv-hashinv/20261029T110057Z-48a8f9/logs"
+  },
+  "case": {
+    "case_dir": "/tmp/tmp.sVTkOe7IbL/case",
+    "case_id": "SAMPLE-1",
+    "counts": {
+      "added": 5,
+      "mismatched": 0,
+      "registered": 5,
+      "unregistered": 0,
+      "verified": 0
+    },
+    "role": "intake"
+  },
+  "duplicate_groups": [],
+  "findings_by_code": {},
+  "findings_by_severity": {
+    "high": 0,
+    "info": 0,
+    "low": 0,
+    "medium": 0
+  },
+  "items": [
+    {
+      "evidence_id": "E0001",
+      "findings": [],
+      "index": 1,
+      "path": "/tmp/tmp.sVTkOe7IbL/evidence/captura.png",
+      "report_folder": "items/00001-captura.png",
+      "size": 354,
+      "status": "ok"
+    },
+    {
+      "evidence_id": "E0002",
+      "findings": [],
+      "index": 2,
+      "path": "/tmp/tmp.sVTkOe7IbL/evidence/contrato.pdf",
+      "report_folder": "items/00002-contrato.pdf",
+      "size": 789,
+      "status": "ok"
+    },
+    {
+      "evidence_id": "E0003",
+      "findings": [],
+      "index": 3,
+      "path": "/tmp/tmp.sVTkOe7IbL/evidence/foto-1.jpg",
+      "report_folder": "items/00003-foto-1.jpg",
+      "size": 1483,
+      "status": "ok"
+    },
+    {
+      "evidence_id": "E0004",
+      "findings": [],
+      "index": 4,
+      "path": "/tmp/tmp.sVTkOe7IbL/evidence/notas.txt",
+      "report_folder": "items/00004-notas.txt",
+      "size": 101,
+      "status": "ok"
+    },
+    {
+      "evidence_id": "E0005",
+      "findings": [],
+      "index": 5,
+      "path": "/tmp/tmp.sVTkOe7IbL/evidence/whatsapp-chat.txt",
+      "report_folder": "items/00005-whatsapp-chat.txt",
+      "size": 340,
+      "status": "ok"
+    }
+  ],
+  "items_by_status": {
+    "ok": 5
+  },
+  "items_by_type": {
+    "JPEG image": 1,
+    "PDF document": 1,
+    "PNG image": 1,
+    "unknown": 2
+  },
+  "limitations": [
+    "SIGNATURE_TABLE_LIMITED",
+    "TIMESTAMPS_FROM_FILESYSTEM",
+    "CLEAN_RESULT_IS_NOT_AUTHENTICITY",
+    "TIMESTAMP_PROVES_EXISTENCE_ONLY"
+  ],
+  "run": {
+    "actor": "Examiner Intake",
+    "algorithms": [
+      "sha256",
+      "md5"
+    ],
+    "cancelled": false,
+    "case_id": "SAMPLE-1",
+    "elapsed_ms": 5,
+    "finished_utc": "2026-10-29T11:00:57.111Z",
+    "frontend": "cli",
+    "jurisdiction": "co",
+    "langs": [
+      "en"
+    ],
+    "pdf_signed_by": null,
+    "pdf_signer_certificate_sha256": null,
+    "run_id": "20261029T110057Z-48a8f9",
+    "started_utc": "2026-10-29T11:00:57.105Z"
+  },
+  "schema": "rakvor.statistics/1",
+  "timestamp": {
+    "status": "off"
+  },
+  "tool": {
+    "name": "rv-hashinv",
+    "version": "0.3.1"
+  },
+  "totals": {
+    "bytes": 3067,
+    "errors": 0,
+    "items": 5
+  }
+}

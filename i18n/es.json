@@ -1,9 +1,9 @@
 {
   "lang": "es",
   "labels": {
-    "title_statistics": "Informe estadístico de la ejecución",
-    "title_technical": "Revisión técnica",
-    "title_summary": "Resumen para el cliente",
+    "title_statistics": "Informe de verificación del caso",
+    "title_technical": "Verificación técnica",
+    "title_summary": "Resumen de la verificación",
     "tool": "Herramienta",
     "version": "Versión",
     "run_id": "ID de ejecución",
@@ -48,22 +48,22 @@
     "none": "Ninguno",
     "unknown": "desconocido",
     "method": "Método",
-    "method_text": "Cada archivo se abrió en modo solo lectura, se calculó su hash en una sola pasada con los algoritmos seleccionados y se comparó con una tabla de firmas de archivo. Cada acción quedó registrada en un log de auditoría encadenado por hashes.",
+    "method_text": "RV Hub leyó la carpeta del caso sin modificarla: se recalcularon las cadenas de hashes del registro del caso y de los registros de auditoría y de revisión de cada ejecución, se comprobaron los vínculos de cada ejecución con el registro del caso y sus sellos de tiempo y (con --rehash) se volvió a calcular el hash de cada archivo de evidencia registrado y se comparó con el registro. Cuando la herramienta de la ejecución estaba instalada y firmada por Rakvor, se le pidió el mismo veredicto con verify-log. Cada acción quedó registrada en un log de auditoría encadenado por hashes.",
     "conclusion": "Conclusión",
     "what_we_did": "Qué hicimos",
     "what_we_found": "Qué encontramos",
     "next_steps": "Siguiente paso recomendado",
-    "next_ok": "No se requiere ninguna acción para este archivo.",
-    "next_attention": "Revise los hallazgos con su perito antes de apoyarse en este archivo.",
-    "next_problem": "No se apoye en este archivo hasta que el perito explique el problema.",
+    "next_ok": "No se requiere ninguna acción para este elemento.",
+    "next_attention": "Revise los hallazgos con su perito.",
+    "next_problem": "No se apoye en esta parte del caso hasta que el perito explique el problema.",
     "status_ok": "Sin problemas",
     "status_attention": "Requiere atención",
     "status_problem": "Problema detectado",
-    "summary_ok": "Se calculó el hash del archivo y se revisó. Las verificaciones aplicadas no encontraron problemas.",
-    "summary_attention": "Se calculó el hash del archivo y se revisó. Algunos puntos requieren atención.",
-    "summary_problem": "El archivo no pudo examinarse por completo o presenta un problema grave.",
+    "summary_ok": "Este elemento se verificó. Las comprobaciones aplicadas no encontraron indicios de alteración.",
+    "summary_attention": "Este elemento se verificó. Algunos puntos requieren atención.",
+    "summary_problem": "Este elemento no supera la verificación: fue alterado, falta o no pudo verificarse.",
     "fingerprint": "Huella digital",
-    "fingerprint_text": "Esta huella identifica el contenido exacto del archivo. Cualquier cambio, incluso de un solo carácter, produciría un valor diferente.",
+    "fingerprint_text": "Esta huella identifica el contenido exacto del archivo verificado. Cualquier cambio, incluso de un solo carácter, produciría un valor diferente.",
     "timestamp": "Sello de tiempo confiable (RFC 3161)",
     "timestamp_ok": "Obtenido",
     "timestamp_pending": "Pendiente — no se pudo contactar el servicio de sellado de tiempo; agréguelo después con el comando timestamp",
@@ -84,14 +84,55 @@
     "case_status_verified": "Verificado: idéntico a la evidencia registrada",
     "case_status_mismatch": "NO COINCIDE con la evidencia registrada",
     "case_status_not_in_registry": "No está en el registro del caso",
-    "case_verification": "Carpeta del caso",
+    "case_verification": "Verificación del caso",
     "registered": "Con ID de evidencia de la recepción",
     "added": "Registrados por primera vez en esta ejecución",
     "verified": "Verificados contra el registro",
     "mismatched": "Distintos del registro",
     "unregistered": "No registrados",
     "intake_date": "Registrado en la recepción (UTC)",
-    "case_dir": "Carpeta del caso"
+    "case_dir": "Carpeta del caso",
+    "kind": "Tipo",
+    "kind_case_log": "Registro del caso",
+    "kind_run": "Ejecución",
+    "kind_evidence": "Archivo de evidencia",
+    "case_linked": "Anotada en el registro del caso",
+    "case_linked_yes": "sí (run_started / run_finished)",
+    "case_linked_no": "no: el registro del caso no supera la verificación y no se amplió",
+    "runs": "Ejecuciones",
+    "runs_intact": "Ejecuciones íntegras",
+    "runs_broken": "Ejecuciones con registro roto",
+    "runs_not_in_case_log": "Ejecuciones fuera del registro del caso",
+    "reviews_broken": "Registros de revisión rotos",
+    "evidence_checked": "Evidencias con hash recalculado",
+    "evidence_matched": "Evidencias que coinciden con el registro",
+    "evidence_mismatched": "Evidencias que difieren del registro",
+    "evidence_missing": "Evidencias no encontradas",
+    "crosscheck_agreed": "Verificaciones cruzadas concordantes",
+    "crosscheck_disagreed": "Verificaciones cruzadas discrepantes",
+    "crosscheck_unavailable": "Verificaciones cruzadas no realizadas",
+    "fact_tool": "Herramienta",
+    "fact_version": "Versión de la herramienta",
+    "fact_run_id": "ID de ejecución",
+    "fact_run_dir": "Carpeta de la ejecución",
+    "fact_entries": "Entradas de auditoría",
+    "fact_review_entries": "Entradas de revisión",
+    "fact_timestamp": "Sello de tiempo",
+    "fact_verify_log": "Veredicto verify-log (hub)",
+    "fact_truncation": "Truncamiento",
+    "fact_crosscheck": "Verificación cruzada con la herramienta",
+    "fact_case_log_entries": "Entradas del registro del caso",
+    "fact_registry_items": "Elementos registrados",
+    "fact_registry_sha256": "SHA-256 del registro",
+    "fact_case_id": "ID del caso",
+    "fact_registered_path": "Ruta registrada",
+    "fact_located_at": "Archivo leído",
+    "fact_algorithms": "Algoritmos comparados",
+    "fact_run_status": "Estado de la ejecución",
+    "fact_case_link": "Vínculo con el registro del caso",
+    "fact_problem": "Problema",
+    "fact_warning": "Advertencia",
+    "fact_as_found": "Los resúmenes cubren"
   },
   "severity": {
     "high": "Alta",
@@ -100,31 +141,6 @@
     "info": "Informativa"
   },
   "findings": {
-    "EMPTY_FILE": {
-      "title": "Archivo vacío",
-      "shows": "El archivo no contiene datos (0 bytes).",
-      "does_not_prove": "No indica si el archivo se vació a propósito o se creó vacío."
-    },
-    "EXTENSION_MISMATCH": {
-      "title": "La extensión no coincide con el contenido",
-      "shows": "El nombre termina en .%{extension}, pero el contenido empieza con la firma de un archivo %{detected}.",
-      "does_not_prove": "Cambiar el nombre es frecuente y a menudo inocente; por sí solo no prueba un intento de ocultar contenido."
-    },
-    "EXECUTABLE_CONTENT": {
-      "title": "Contenido ejecutable con otro nombre",
-      "shows": "El contenido es un programa %{detected}, aunque el nombre termina en .%{extension}.",
-      "does_not_prove": "No demuestra que el programa sea malicioso; debe analizarse en un entorno aislado."
-    },
-    "DUPLICATE": {
-      "title": "Contenido duplicado",
-      "shows": "El mismo contenido (mismo %{algorithm}) aparece en %{count} archivos: %{others}.",
-      "does_not_prove": "Hashes idénticos muestran contenido idéntico, no quién copió el archivo ni cuándo."
-    },
-    "UNREADABLE": {
-      "title": "No se pudo leer el archivo",
-      "shows": "La lectura falló: %{error}.",
-      "does_not_prove": "No demuestra que el archivo esté dañado; permisos o bloqueos pueden causarlo."
-    },
     "EVIDENCE_HASH_MISMATCH_WITH_CASE": {
       "title": "Difiere de la evidencia registrada en el caso",
       "shows": "El %{algorithm} de este archivo es %{actual}, pero la evidencia %{evidence_id} se registró en la recepción con %{expected}: el archivo examinado no es idéntico bit a bit al elemento registrado.",
@@ -135,16 +151,86 @@
       "shows": "Ningún elemento del caso %{case_id} se registró con esta ruta o este contenido, por lo que no puede mostrarse su continuidad desde la recepción.",
       "does_not_prove": "Que el archivo esté alterado o sea irrelevante; puede simplemente no haber pasado por la recepción."
     },
-    "REGISTRY_PATH_CONTENT_CHANGED": {
-      "title": "La ruta registrada contiene ahora otro contenido",
-      "shows": "Esta ruta se registró antes como %{previous_id} con otro contenido; el contenido actual recibe un nuevo ID de evidencia.",
-      "does_not_prove": "Cuál versión es la original ni por qué cambió el contenido."
+    "CASE_LOG_BROKEN": {
+      "title": "Registro del caso roto",
+      "shows": "El registro del caso (case-log.jsonl), case.json o el resumen del registro de evidencias no superan la verificación: %{problem}.",
+      "does_not_prove": "Quién modificó el archivo ni cuándo; los registros propios de cada ejecución se verifican por separado y pueden seguir intactos."
+    },
+    "RUN_LOG_BROKEN": {
+      "title": "Registro de la ejecución roto",
+      "shows": "El registro de auditoría de la ejecución %{run} no supera la verificación: %{problem}.",
+      "does_not_prove": "Qué cambió la edición ni quién la hizo; no se debe confiar en los informes de esa ejecución hasta que se explique."
+    },
+    "REVIEW_LOG_BROKEN": {
+      "title": "Registro de revisión roto",
+      "shows": "El registro de revisión (review.jsonl) de la ejecución %{run} no supera la verificación: %{problem}.",
+      "does_not_prove": "Que el registro de auditoría o los informes de la ejecución hayan cambiado; solo queda en duda lo que se consultó después de la ejecución."
+    },
+    "RUN_NOT_IN_CASE_LOG": {
+      "title": "Ejecución no registrada en el registro del caso",
+      "shows": "La carpeta %{run} contiene una ejecución que el registro del caso nunca anunció (no tiene entrada run_started).",
+      "does_not_prove": "Que el contenido de la ejecución sea falso; pudo copiarse desde otro caso o se borraron sus entradas del registro del caso."
+    },
+    "TOOL_VERIFY_DISAGREES": {
+      "title": "La verificación de la propia herramienta discrepa",
+      "shows": "RV Hub encontró los registros de la ejecución %{run} en estado %{hub}, pero %{tool} verify-log respondió %{tool_verdict} (código de salida %{exit_code}).",
+      "does_not_prove": "Cuál de los dos tiene razón; la discrepancia indica que las dos implementaciones del verificador difieren y debe examinarse antes de apoyarse en el caso."
+    },
+    "EVIDENCE_REHASH_MISMATCH": {
+      "title": "La evidencia difiere del registro",
+      "shows": "La evidencia %{evidence_id} (%{path}) tiene ahora %{algorithm} %{actual}, pero se registró con %{expected}: el archivo no es idéntico bit a bit al elemento registrado.",
+      "does_not_prove": "Quién cambió el archivo ni cuándo; puede haberse encontrado otra copia con el mismo nombre."
+    },
+    "EVIDENCE_MISSING": {
+      "title": "Evidencia registrada no encontrada",
+      "shows": "No se pudo recalcular el hash de la evidencia %{evidence_id} (registrada en %{path}): %{reason}.",
+      "does_not_prove": "Que la evidencia se haya perdido o destruido; puede estar guardada en otro lugar (indique su carpeta con --evidence-dir)."
+    },
+    "UNKNOWN_LOG_FORMAT": {
+      "title": "Formato de registro desconocido",
+      "shows": "La ejecución %{run} contiene %{file}, un registro que RV Hub no sabe verificar.",
+      "does_not_prove": "Que el archivo haya sido manipulado ni que sea inofensivo; simplemente no se verifica."
+    },
+    "TIMESTAMP_PENDING": {
+      "title": "Sello de tiempo pendiente",
+      "shows": "La ejecución %{run} aún no tiene sello de tiempo RFC 3161: no se pudo contactar a la autoridad al terminar la ejecución.",
+      "does_not_prove": "Que el registro sea incorrecto; hasta que se añada un sello con `timestamp`, nada externo al caso prueba cuándo existía el registro."
+    },
+    "CROSSCHECK_UNAVAILABLE": {
+      "title": "Verificación cruzada no realizada",
+      "shows": "Los registros de la ejecución %{run} no fueron verificados también por %{tool}: %{reason}.",
+      "does_not_prove": "Ningún problema en la ejecución; la verificación propia de RV Hub sigue siendo válida."
+    },
+    "RUN_LOG_INTACT": {
+      "title": "Registro de la ejecución íntegro",
+      "shows": "El registro de auditoría de la ejecución %{run} (%{entries} entradas) es una cadena sin rupturas, vinculada al registro del caso tal como consta.",
+      "does_not_prove": "Que los resultados del análisis sean correctos ni que la evidencia sea auténtica; solo que el registro de la ejecución no cambió desde que se escribió."
+    },
+    "TOOL_SIGNED_RAKVOR": {
+      "title": "Firmado por Rakvor",
+      "shows": "%{exe} tiene una firma de código válida que encadena con el certificado raíz de Rakvor.",
+      "does_not_prove": "Que el programa no tenga defectos; solo que es la compilación firmada por Rakvor, sin cambios."
+    },
+    "TOOL_SIGNED_OTHER_ROOT": {
+      "title": "Firmado bajo otra raíz",
+      "shows": "%{exe} está firmado, pero su cadena de certificados termina en otra raíz (SHA-256 %{root_sha256}), no en la raíz de Rakvor.",
+      "does_not_prove": "Que el programa sea malicioso; no es la compilación de Rakvor y sus resultados no deben presentarse como de Rakvor."
+    },
+    "TOOL_SIGNATURE_INVALID": {
+      "title": "Firma no válida",
+      "shows": "La firma de código de %{exe} no se verifica: %{reason}.",
+      "does_not_prove": "Quién cambió el programa ni por qué; no lo use con evidencias hasta reinstalarlo desde una versión verificada."
+    },
+    "TOOL_UNSIGNED": {
+      "title": "Sin firma",
+      "shows": "%{exe} no tiene firma de código (por ejemplo, una compilación de desarrollo).",
+      "does_not_prove": "Que el programa sea defectuoso o malicioso; solo que nada demuestra que sea la versión publicada por Rakvor."
     }
   },
   "limitations": {
-    "SIGNATURE_TABLE_LIMITED": "La detección de tipo usa una tabla limitada de firmas comunes; los tipos desconocidos se reportan como desconocidos, no como sospechosos.",
-    "TIMESTAMPS_FROM_FILESYSTEM": "Las fechas de modificación provienen del sistema de archivos de la copia examinada y pueden diferir de la fuente original.",
-    "CLEAN_RESULT_IS_NOT_AUTHENTICITY": "Un resultado sin hallazgos no prueba que un archivo sea auténtico ni que no haya sido alterado antes de su adquisición.",
+    "VERIFICATION_PROVES_INTEGRITY_NOT_CONTENT": "La verificación muestra que el registro del caso, los registros de las ejecuciones y (con --rehash) los archivos de evidencia no cambiaron desde que se registraron; no muestra que los hallazgos de las herramientas sean correctos ni que la evidencia sea auténtica.",
+    "SIGNATURE_CHECK_WINDOWS_ONLY": "Las firmas de código de las herramientas solo se verifican en Windows (Authenticode); en otros sistemas se indican como no verificadas.",
+    "CROSSCHECK_NEEDS_INSTALLED_TOOLS": "Los registros de una ejecución también los verifica la propia herramienta solo si está instalada en este equipo y firmada por Rakvor; si no, solo se aplica la verificación de RV Hub.",
     "TIMESTAMP_PROVES_EXISTENCE_ONLY": "Un sello de tiempo confiable prueba que el log de auditoría existía en esta forma exacta en la hora indicada; no prueba que la copia examinada coincida con la fuente original."
   },
   "brand": {
@@ -177,17 +263,10 @@
     "intake_date": "Registrado en la recepción (UTC)"
   },
   "ui": {
-    "window_title": "Rakvor",
+    "window_title": "RV Hub",
     "audit_note": "Cada acción queda registrada en un log de auditoría a prueba de manipulación.",
-    "evidence": "1. Evidencia",
-    "evidence_help": "Agregue un archivo, varios archivos o carpetas completas (revisión masiva). También puede arrastrarlos a esta ventana.",
-    "add_files": "Agregar archivos…",
-    "add_folder": "Agregar carpeta…",
-    "path_hint": "…o escriba / pegue una ruta y presione Enter",
-    "add_path": "Agregar ruta",
-    "remove": "Quitar seleccionados",
-    "no_evidence": "Todavía no hay evidencia.",
-    "subfolders": "Incluir subcarpetas",
+    "evidence": "1. Carpeta del caso",
+    "evidence_help": "Elija la carpeta del caso que desea verificar (la que contiene case.json). También puede arrastrarla a esta ventana. No se modifica nada en ella: RV Hub solo añade su propia ejecución.",
     "hashes": "2. Algoritmos de hash (elija 1 o 2)",
     "hash_tip_two": "Ya hay dos algoritmos seleccionados: desmarque uno primero.",
     "hash_tip_one": "Se requiere al menos un algoritmo.",
@@ -206,16 +285,16 @@
     "tsa": "Sello de tiempo confiable",
     "sign_cert": "Certificado de firma (.p12/.pfx)",
     "sign_pass": "Contraseña del certificado",
-    "start": "Iniciar revisión",
+    "start": "Iniciar verificación",
     "cancel": "Cancelar",
     "cancelling": "Cancelando: se termina el archivo actual y se escriben informes parciales…",
-    "files": "archivos",
+    "files": "elementos",
     "elapsed": "Tiempo transcurrido",
     "remaining": "Tiempo restante (estimado)",
     "now": "Ahora",
     "done": "Terminado",
     "cancelled": "Cancelado — resultados parciales",
-    "failed": "La revisión falló",
+    "failed": "La verificación falló",
     "errors": "errores",
     "findings": "hallazgos",
     "open_report": "Abrir informe",
@@ -223,8 +302,23 @@
     "warnings": "Advertencias",
     "lang_all": "Los tres (EN + ES + FR)",
     "case_dir": "Carpeta del caso",
-    "case_dir_hint": "opcional: carpeta compartida del caso (enlaza las herramientas de un caso)",
-    "out_from_case": "Carpeta de salida: definida por la carpeta del caso",
-    "evidence_ids": "ID de evidencia"
+    "case_dir_hint": "p. ej. E:\\CASO-014",
+    "out_from_case": "La ejecución de verificación se escribe en la carpeta del caso",
+    "rehash": "Recalcular también el hash de las evidencias registradas",
+    "evidence_dir": "Copias de la evidencia en",
+    "evidence_dir_hint": "opcional: carpeta donde está ahora la evidencia",
+    "crosscheck": "Pedir también a la herramienta de cada ejecución que verifique sus registros (herramientas instaladas y firmadas por Rakvor)",
+    "out_dir_broken": "Carpeta de salida si el registro del caso está roto",
+    "codes": "Códigos de hallazgos"
+  },
+  "suggest": {
+    "title": "Próximos pasos sugeridos",
+    "no_case": "Aún no hay carpeta del caso: ábrala o créela con la herramienta de recepción.",
+    "no_evidence": "Aún no hay evidencias registradas: regístrelas con la herramienta de recepción.",
+    "pdf_not_analysed": "Hay archivos PDF registrados que aún no se han analizado.",
+    "images_not_analysed": "Hay imágenes registradas (JPEG, PNG, HEIC, WebP) que aún no se han analizado.",
+    "chats_not_converted": "Hay exportaciones de chat registradas que aún no se han convertido a RSMF.",
+    "not_examined": "Hay elementos registrados que esta herramienta acepta y que aún no ha examinado.",
+    "timestamp_pending": "Algunas ejecuciones esperan aún su sello de tiempo: ejecute `timestamp` cuando haya conexión."
   }
 }

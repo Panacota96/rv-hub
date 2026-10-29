@@ -35,5 +35,10 @@ const-oid.workspace = true
 rsa.workspace = true
 sha2-legacy.workspace = true
 
+# Windows: signature check (signature/windows.rs) and tool discovery in the uninstall registry (tools.rs).
+[target.'cfg(windows)'.dependencies]
+windows.workspace = true
+winreg.workspace = true
+
 [dev-dependencies]
 tempfile.workspace = true

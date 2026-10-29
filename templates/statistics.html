@@ -36,29 +36,22 @@
 </table>{% else %}<p>{{ t.none }}</p>{% endif %}
 
 <h2>{{ t.by_type }}</h2>
-<table><tr><th>{{ t.detected_type }}</th><th>{{ t.items }}</th></tr>
+<table><tr><th>{{ t.kind }}</th><th>{{ t.items }}</th></tr>
 {% for row in type_rows %}<tr><td>{{ row.name }}</td><td>{{ row.count }}</td></tr>{% endfor %}
 </table>
-
-<h2>{{ t.duplicates }}</h2>
-{% if duplicate_rows %}<table><tr><th>{{ t.hashes }}</th><th>{{ t.path }}</th></tr>
-{% for row in duplicate_rows %}<tr><td class="mono">{{ row.hash }}</td><td>{% for p in row.paths %}<div>{{ p }}</div>{% endfor %}</td></tr>{% endfor %}
-</table>{% else %}<p>{{ t.none }}</p>{% endif %}
 
 {% if case %}<h2>{{ t.case_verification }}</h2>
 <div class="kv">
   <div>{{ t.case }}</div><div><strong>{{ case.case_id }}</strong></div>
-  <div>{{ t.registered }}</div><div>{{ case.registered }}</div>
-  <div>{{ t.added }}</div><div>{{ case.added }}</div>
-  <div>{{ t.verified }}</div><div>{{ case.verified }}</div>
-  <div>{{ t.mismatched }}</div><div>{{ case.mismatched }}</div>
-  <div>{{ t.unregistered }}</div><div>{{ case.unregistered }}</div>
   <div>{{ t.case_dir }}</div><div class="mono">{{ case.dir }}</div>
+  <div>{{ t.case_linked }}</div><div>{{ case.linked_text }}</div>
+  {% for r in case.rows %}<div>{{ r.label }}</div><div>{{ r.value }}</div>
+  {% endfor %}
 </div>
 {% endif %}
 <h2>{{ t.items }}</h2>
-<table><tr><th>#</th>{% if case %}<th>{{ t.evidence_id }}</th>{% endif %}<th>{{ t.file }}</th><th>{{ t.size }}</th><th>{{ t.status }}</th><th>{{ t.findings }}</th></tr>
-{% for it in item_rows %}<tr><td>{{ it.index }}</td>{% if case %}<td class="mono">{{ it.evidence_id or "—" }}</td>{% endif %}<td><a href="{{ it.link }}">{{ it.file_name }}</a></td><td>{{ it.size }}</td><td>{{ it.status_label }}</td><td>{{ it.finding_count }}</td></tr>{% endfor %}
+<table><tr><th>#</th><th>{{ t.kind }}</th><th>{{ t.item }}</th><th>{{ t.size }}</th><th>{{ t.status }}</th><th>{{ t.findings }}</th></tr>
+{% for it in item_rows %}<tr><td>{{ it.index }}</td><td>{{ it.kind }}</td><td><a href="{{ it.link }}">{{ it.file_name }}</a></td><td>{{ it.size }}</td><td>{{ it.status_label }}</td><td>{{ it.finding_count }}</td></tr>{% endfor %}
 </table>
 
 <h2>{{ t.limitations }}</h2>

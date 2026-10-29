@@ -1,0 +1,61 @@
+{
+  "audit": {
+    "first_seq": 17,
+    "last_seq": 19
+  },
+  "case": {
+    "case_dir": "/tmp/tmp.sVTkOe7IbL/case",
+    "case_id": "SAMPLE-1",
+    "intake_utc": "2026-10-29T11:00:57.109Z",
+    "role": "intake",
+    "status": "registered"
+  },
+  "findings": [],
+  "hashes": {
+    "md5": "5c35e7e28125724f3636c3411172c118",
+    "sha256": "610bdf98c4ccec8d49afb7586306b475062d899d878e9bcf0e53921759f8ef14"
+  },
+  "item": {
+    "detected_type": null,
+    "error": null,
+    "evidence_id": "E0005",
+    "extension": "txt",
+    "file_name": "whatsapp-chat.txt",
+    "index": 5,
+    "modified_utc": "2026-10-29T11:00:57Z",
+    "path": "/tmp/tmp.sVTkOe7IbL/evidence/whatsapp-chat.txt",
+    "size": 340,
+    "status": "ok"
+  },
+  "limitations": [
+    "SIGNATURE_TABLE_LIMITED",
+    "TIMESTAMPS_FROM_FILESYSTEM",
+    "CLEAN_RESULT_IS_NOT_AUTHENTICITY",
+    "TIMESTAMP_PROVES_EXISTENCE_ONLY"
+  ],
+  "run": {
+    "actor": "Examiner Intake",
+    "algorithms": [
+      "sha256",
+      "md5"
+    ],
+    "cancelled": false,
+    "case_id": "SAMPLE-1",
+    "elapsed_ms": 5,
+    "finished_utc": "2026-10-29T11:00:57.111Z",
+    "frontend": "cli",
+    "jurisdiction": "co",
+    "langs": [
+      "en"
+    ],
+    "pdf_signed_by": null,
+    "pdf_signer_certificate_sha256": null,
+    "run_id": "20261029T110057Z-48a8f9",
+    "started_utc": "2026-10-29T11:00:57.105Z"
+  },
+  "schema": "rakvor.item-technical/1",
+  "tool": {
+    "name": "rv-hashinv",
+    "version": "0.3.1"
+  }
+}

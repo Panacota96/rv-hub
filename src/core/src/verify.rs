@@ -8,7 +8,8 @@
 //!
 //! Entries after the last anchored one cannot be proven complete; the report says how many there are.
 //! Without a timestamp or a case record, truncation is not detectable and the report says so.
-//! Same rules and wording as the Python profile (`core/verify.py`).
+//! Same rules and wording as the Python profile (`core/verify.py`). The review log (`review.jsonl`) is checked
+//! when present, as rv-imgauth's verify-log does.
 
 use crate::audit;
 use crate::case::{CASE_FILE, CASE_LOG, normalize};
@@ -32,6 +33,8 @@ pub struct LogVerification {
     /// One line on truncation: what anchors the end of the log, or [`NO_ANCHOR`].
     pub truncation: String,
     pub warnings: Vec<String>,
+    /// Entries of the run's review.jsonl (rakvor.review/1), when there is one and it verifies.
+    pub review_entries: Option<u64>,
 }
 
 fn read_entries(path: &Path) -> Vec<Value> {
@@ -106,6 +109,14 @@ pub fn verify_log(path: &Path) -> Result<LogVerification, String> {
     let heads = audit::heads(path);
     v.problems
         .extend(crate::trust::verify_timestamps(&dir, &heads));
+    // The review log (viewing after the run, rv-imgauth), when present: chain and anchor to this run's
+    // run_finished entry (same rule as rv-imgauth's verify-log).
+    match crate::review::verify(&dir) {
+        Ok(n) => v.review_entries = n,
+        Err(p) => v
+            .problems
+            .extend(p.into_iter().map(|x| format!("review.jsonl: {x}"))),
+    }
 
     // Every timestamp the log says it obtained must still be next to it (deleting the token files is how a
     // truncation below the last timestamp would be hidden).

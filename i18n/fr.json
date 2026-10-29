@@ -1,9 +1,9 @@
 {
   "lang": "fr",
   "labels": {
-    "title_statistics": "Rapport statistique de l'exécution",
-    "title_technical": "Revue technique",
-    "title_summary": "Synthèse pour le client",
+    "title_statistics": "Rapport de vérification de l'affaire",
+    "title_technical": "Vérification technique",
+    "title_summary": "Synthèse de la vérification",
     "tool": "Outil",
     "version": "Version",
     "run_id": "ID d'exécution",
@@ -48,22 +48,22 @@
     "none": "Aucun",
     "unknown": "inconnu",
     "method": "Méthode",
-    "method_text": "Chaque fichier a été ouvert en lecture seule, haché en une seule passe avec les algorithmes choisis et comparé à une table de signatures de fichiers. Chaque action a été inscrite dans un journal d'audit chaîné par empreintes.",
+    "method_text": "RV Hub a lu le dossier de l'affaire sans le modifier : les chaînes d'empreintes du journal de l'affaire et des journaux d'audit et de revue de chaque exécution ont été recalculées, les liens de chaque exécution avec le journal de l'affaire et ses jetons d'horodatage ont été contrôlés et (avec --rehash) chaque fichier de scellé enregistré a été haché à nouveau et comparé au registre. Lorsque l'outil de l'exécution était installé et signé par Rakvor, son verify-log a été sollicité pour le même verdict. Chaque action a été inscrite dans un journal d'audit chaîné par empreintes.",
     "conclusion": "Conclusion",
     "what_we_did": "Ce que nous avons fait",
     "what_we_found": "Ce que nous avons constaté",
     "next_steps": "Prochaine étape recommandée",
-    "next_ok": "Aucune action n'est nécessaire pour ce fichier.",
-    "next_attention": "Examinez les constatations avec votre expert avant de vous appuyer sur ce fichier.",
-    "next_problem": "Ne vous appuyez pas sur ce fichier tant que l'expert n'a pas expliqué le problème.",
+    "next_ok": "Aucune action n'est nécessaire pour cet élément.",
+    "next_attention": "Examinez les constatations avec votre expert.",
+    "next_problem": "Ne vous appuyez pas sur cette partie de l'affaire tant que l'expert n'a pas expliqué le problème.",
     "status_ok": "Aucun problème",
     "status_attention": "À examiner",
     "status_problem": "Problème détecté",
-    "summary_ok": "Le fichier a été haché et vérifié. Les contrôles appliqués n'ont relevé aucun problème.",
-    "summary_attention": "Le fichier a été haché et vérifié. Certains points méritent attention.",
-    "summary_problem": "Le fichier n'a pas pu être entièrement examiné ou présente un problème sérieux.",
+    "summary_ok": "Cet élément a été vérifié. Les contrôles appliqués n'ont relevé aucun signe d'altération.",
+    "summary_attention": "Cet élément a été vérifié. Certains points méritent attention.",
+    "summary_problem": "Cet élément ne passe pas la vérification : il a été altéré, il manque ou il n'a pas pu être vérifié.",
     "fingerprint": "Empreinte numérique",
-    "fingerprint_text": "Cette empreinte identifie le contenu exact du fichier. Toute modification, même d'un seul caractère, produirait une valeur différente.",
+    "fingerprint_text": "Cette empreinte identifie le contenu exact du fichier vérifié. Toute modification, même d'un seul caractère, produirait une valeur différente.",
     "timestamp": "Horodatage qualifié (RFC 3161)",
     "timestamp_ok": "Obtenu",
     "timestamp_pending": "En attente — le service d'horodatage était injoignable ; ajoutez-le plus tard avec la commande timestamp",
@@ -84,14 +84,55 @@
     "case_status_verified": "Vérifié : identique à l'élément enregistré",
     "case_status_mismatch": "NE CORRESPOND PAS à l'élément enregistré",
     "case_status_not_in_registry": "Absent du registre de l'affaire",
-    "case_verification": "Dossier de l'affaire",
+    "case_verification": "Vérification de l'affaire",
     "registered": "Avec un ID d'élément de la réception",
     "added": "Nouvellement enregistrés par cette analyse",
     "verified": "Vérifiés par rapport au registre",
     "mismatched": "Différents du registre",
     "unregistered": "Absents du registre",
     "intake_date": "Enregistré à la réception (UTC)",
-    "case_dir": "Dossier de l'affaire"
+    "case_dir": "Dossier de l'affaire",
+    "kind": "Nature",
+    "kind_case_log": "Journal de l'affaire",
+    "kind_run": "Exécution",
+    "kind_evidence": "Fichier de scellé",
+    "case_linked": "Inscrite au journal de l'affaire",
+    "case_linked_yes": "oui (run_started / run_finished)",
+    "case_linked_no": "non : le journal de l'affaire ne passe pas la vérification et n'a pas été étendu",
+    "runs": "Exécutions",
+    "runs_intact": "Exécutions intactes",
+    "runs_broken": "Exécutions au journal rompu",
+    "runs_not_in_case_log": "Exécutions absentes du journal de l'affaire",
+    "reviews_broken": "Journaux de revue rompus",
+    "evidence_checked": "Scellés hachés à nouveau",
+    "evidence_matched": "Scellés conformes au registre",
+    "evidence_mismatched": "Scellés différents du registre",
+    "evidence_missing": "Scellés introuvables",
+    "crosscheck_agreed": "Contre-vérifications concordantes",
+    "crosscheck_disagreed": "Contre-vérifications divergentes",
+    "crosscheck_unavailable": "Contre-vérifications non faites",
+    "fact_tool": "Outil",
+    "fact_version": "Version de l'outil",
+    "fact_run_id": "ID d'exécution",
+    "fact_run_dir": "Dossier de l'exécution",
+    "fact_entries": "Entrées d'audit",
+    "fact_review_entries": "Entrées de revue",
+    "fact_timestamp": "Horodatage",
+    "fact_verify_log": "Verdict verify-log (hub)",
+    "fact_truncation": "Troncature",
+    "fact_crosscheck": "Contre-vérification par l'outil",
+    "fact_case_log_entries": "Entrées du journal de l'affaire",
+    "fact_registry_items": "Éléments enregistrés",
+    "fact_registry_sha256": "SHA-256 du registre",
+    "fact_case_id": "ID de l'affaire",
+    "fact_registered_path": "Chemin enregistré",
+    "fact_located_at": "Fichier lu",
+    "fact_algorithms": "Algorithmes comparés",
+    "fact_run_status": "État de l'exécution",
+    "fact_case_link": "Lien avec le journal de l'affaire",
+    "fact_problem": "Problème",
+    "fact_warning": "Avertissement",
+    "fact_as_found": "Les empreintes couvrent"
   },
   "severity": {
     "high": "Élevée",
@@ -100,31 +141,6 @@
     "info": "Information"
   },
   "findings": {
-    "EMPTY_FILE": {
-      "title": "Fichier vide",
-      "shows": "Le fichier ne contient aucune donnée (0 octet).",
-      "does_not_prove": "Cela n'indique pas si le fichier a été vidé volontairement ou créé vide."
-    },
-    "EXTENSION_MISMATCH": {
-      "title": "L'extension ne correspond pas au contenu",
-      "shows": "Le nom se termine par .%{extension}, mais le contenu commence par la signature d'un fichier %{detected}.",
-      "does_not_prove": "Renommer un fichier est courant et souvent anodin ; cela ne prouve pas à lui seul une volonté de dissimulation."
-    },
-    "EXECUTABLE_CONTENT": {
-      "title": "Contenu exécutable sous un autre nom",
-      "shows": "Le contenu est un programme %{detected} alors que le nom se termine par .%{extension}.",
-      "does_not_prove": "Cela ne montre pas que le programme est malveillant ; il faut l'analyser dans un environnement isolé."
-    },
-    "DUPLICATE": {
-      "title": "Contenu en double",
-      "shows": "Un contenu identique (même %{algorithm}) figure dans %{count} fichiers : %{others}.",
-      "does_not_prove": "Des empreintes identiques montrent un contenu identique, pas qui a copié le fichier ni quand."
-    },
-    "UNREADABLE": {
-      "title": "Fichier illisible",
-      "shows": "La lecture a échoué : %{error}.",
-      "does_not_prove": "Cela ne prouve pas que le fichier est endommagé ; des droits d'accès ou un verrou peuvent en être la cause."
-    },
     "EVIDENCE_HASH_MISMATCH_WITH_CASE": {
       "title": "Diffère de l'élément enregistré dans l'affaire",
       "shows": "Le %{algorithm} de ce fichier est %{actual}, mais l'élément %{evidence_id} a été enregistré à la réception avec %{expected} : le fichier examiné n'est pas identique bit à bit à l'élément enregistré.",
@@ -135,16 +151,86 @@
       "shows": "Aucun élément de l'affaire %{case_id} n'a été enregistré avec ce chemin ou ce contenu ; sa continuité depuis la réception ne peut donc pas être établie.",
       "does_not_prove": "Que le fichier soit altéré ou sans intérêt ; il peut simplement ne pas être passé par la réception."
     },
-    "REGISTRY_PATH_CONTENT_CHANGED": {
-      "title": "Le chemin enregistré contient désormais un autre contenu",
-      "shows": "Ce chemin a déjà été enregistré comme %{previous_id} avec un autre contenu ; le contenu actuel reçoit un nouvel ID d'élément.",
-      "does_not_prove": "Quelle version est l'originale ni pourquoi le contenu a changé."
+    "CASE_LOG_BROKEN": {
+      "title": "Journal de l'affaire rompu",
+      "shows": "Le journal de l'affaire (case-log.jsonl), case.json ou l'empreinte du registre des scellés ne passent pas la vérification : %{problem}.",
+      "does_not_prove": "Qui a modifié le fichier ni quand ; les journaux propres à chaque exécution sont vérifiés à part et peuvent rester intacts."
+    },
+    "RUN_LOG_BROKEN": {
+      "title": "Journal de l'exécution rompu",
+      "shows": "Le journal d'audit de l'exécution %{run} ne passe pas la vérification : %{problem}.",
+      "does_not_prove": "Ce que la modification a changé ni qui l'a faite ; les rapports de cette exécution ne sont pas fiables tant que ce n'est pas expliqué."
+    },
+    "REVIEW_LOG_BROKEN": {
+      "title": "Journal de revue rompu",
+      "shows": "Le journal de revue (review.jsonl) de l'exécution %{run} ne passe pas la vérification : %{problem}.",
+      "does_not_prove": "Que le journal d'audit ou les rapports de l'exécution aient changé ; seul l'historique de ce qui a été consulté après l'exécution est en doute."
+    },
+    "RUN_NOT_IN_CASE_LOG": {
+      "title": "Exécution absente du journal de l'affaire",
+      "shows": "Le dossier %{run} contient une exécution que le journal de l'affaire n'a jamais annoncée (aucune entrée run_started).",
+      "does_not_prove": "Que le contenu de l'exécution soit faux ; elle a pu être copiée depuis une autre affaire ou ses entrées supprimées du journal."
+    },
+    "TOOL_VERIFY_DISAGREES": {
+      "title": "La vérification de l'outil lui-même diverge",
+      "shows": "RV Hub a trouvé les journaux de l'exécution %{run} à l'état %{hub}, mais %{tool} verify-log a répondu %{tool_verdict} (code de sortie %{exit_code}).",
+      "does_not_prove": "Lequel des deux a raison ; une divergence signifie que les deux implémentations du vérificateur diffèrent et doit être examinée avant de s'appuyer sur l'affaire."
+    },
+    "EVIDENCE_REHASH_MISMATCH": {
+      "title": "Le scellé diffère du registre",
+      "shows": "L'élément %{evidence_id} (%{path}) a maintenant %{algorithm} %{actual}, mais a été enregistré avec %{expected} : le fichier n'est pas identique bit à bit à l'élément enregistré.",
+      "does_not_prove": "Qui a modifié le fichier ni quand ; une autre copie portant le même nom a pu être trouvée."
+    },
+    "EVIDENCE_MISSING": {
+      "title": "Scellé enregistré introuvable",
+      "shows": "L'empreinte de l'élément %{evidence_id} (enregistré à %{path}) n'a pas pu être recalculée : %{reason}.",
+      "does_not_prove": "Que l'élément ait été perdu ou détruit ; il peut être conservé ailleurs (indiquez son dossier avec --evidence-dir)."
+    },
+    "UNKNOWN_LOG_FORMAT": {
+      "title": "Format de journal inconnu",
+      "shows": "L'exécution %{run} contient %{file}, un journal que RV Hub ne sait pas vérifier.",
+      "does_not_prove": "Que le fichier ait été altéré ni qu'il soit anodin ; il n'est simplement pas vérifié."
+    },
+    "TIMESTAMP_PENDING": {
+      "title": "Horodatage en attente",
+      "shows": "L'exécution %{run} n'a pas encore d'horodatage RFC 3161 : l'autorité était injoignable à la fin de l'exécution.",
+      "does_not_prove": "Que le journal soit faux ; tant qu'un horodatage n'est pas ajouté avec `timestamp`, rien d'extérieur à l'affaire ne prouve quand le journal existait."
+    },
+    "CROSSCHECK_UNAVAILABLE": {
+      "title": "Contre-vérification par l'outil non faite",
+      "shows": "Les journaux de l'exécution %{run} n'ont pas été vérifiés aussi par %{tool} lui-même : %{reason}.",
+      "does_not_prove": "Un problème quelconque de l'exécution ; la vérification propre de RV Hub reste valable."
+    },
+    "RUN_LOG_INTACT": {
+      "title": "Journal de l'exécution intact",
+      "shows": "Le journal d'audit de l'exécution %{run} (%{entries} entrées) est une chaîne sans rupture, reliée au journal de l'affaire comme enregistré.",
+      "does_not_prove": "Que les résultats de l'analyse soient exacts ni que le scellé soit authentique ; seulement que la trace de l'exécution n'a pas changé depuis son écriture."
+    },
+    "TOOL_SIGNED_RAKVOR": {
+      "title": "Signé par Rakvor",
+      "shows": "%{exe} porte une signature de code valide qui remonte au certificat racine Rakvor.",
+      "does_not_prove": "Que le programme soit exempt de défauts ; seulement qu'il s'agit de la version signée par Rakvor, inchangée."
+    },
+    "TOOL_SIGNED_OTHER_ROOT": {
+      "title": "Signé sous une autre racine",
+      "shows": "%{exe} est signé, mais sa chaîne de certificats aboutit à une autre racine (SHA-256 %{root_sha256}), pas à la racine Rakvor.",
+      "does_not_prove": "Que le programme soit malveillant ; ce n'est pas la version Rakvor et ses résultats ne doivent pas être présentés comme ceux de Rakvor."
+    },
+    "TOOL_SIGNATURE_INVALID": {
+      "title": "Signature invalide",
+      "shows": "La signature de code de %{exe} ne se vérifie pas : %{reason}.",
+      "does_not_prove": "Qui a modifié le programme ni pourquoi ; ne l'utilisez pas sur des scellés avant de le réinstaller depuis une version vérifiée."
+    },
+    "TOOL_UNSIGNED": {
+      "title": "Non signé",
+      "shows": "%{exe} ne porte aucune signature de code (par exemple une version de développement).",
+      "does_not_prove": "Que le programme soit défaillant ou malveillant ; seulement que rien ne montre qu'il s'agit de la version publiée par Rakvor."
     }
   },
   "limitations": {
-    "SIGNATURE_TABLE_LIMITED": "La détection du type repose sur une table limitée de signatures courantes ; les types inconnus sont signalés comme inconnus, non comme suspects.",
-    "TIMESTAMPS_FROM_FILESYSTEM": "Les dates de modification proviennent du système de fichiers de la copie examinée et peuvent différer de la source d'origine.",
-    "CLEAN_RESULT_IS_NOT_AUTHENTICITY": "Un résultat sans constatation ne prouve pas qu'un fichier est authentique ni qu'il n'a pas été modifié avant son acquisition.",
+    "VERIFICATION_PROVES_INTEGRITY_NOT_CONTENT": "La vérification montre que le journal de l'affaire, les journaux des exécutions et (avec --rehash) les fichiers des scellés n'ont pas changé depuis leur enregistrement ; elle ne montre pas que les constatations des outils sont exactes ni que les scellés sont authentiques.",
+    "SIGNATURE_CHECK_WINDOWS_ONLY": "Les signatures de code des outils ne sont vérifiées que sous Windows (Authenticode) ; ailleurs elles sont indiquées comme non vérifiées.",
+    "CROSSCHECK_NEEDS_INSTALLED_TOOLS": "Les journaux d'une exécution ne sont aussi vérifiés par l'outil lui-même que s'il est installé sur ce poste et signé par Rakvor ; sinon seule la vérification de RV Hub s'applique.",
     "TIMESTAMP_PROVES_EXISTENCE_ONLY": "Un horodatage qualifié prouve que le journal d'audit existait sous cette forme exacte à l'heure indiquée ; il ne prouve pas que la copie examinée correspond à la source d'origine."
   },
   "brand": {
@@ -177,17 +263,10 @@
     "intake_date": "Enregistré à la réception (UTC)"
   },
   "ui": {
-    "window_title": "Rakvor",
+    "window_title": "RV Hub",
     "audit_note": "Chaque action est inscrite dans un journal d'audit infalsifiable.",
-    "evidence": "1. Éléments de preuve",
-    "evidence_help": "Ajoutez un fichier, plusieurs fichiers ou des dossiers entiers (traitement en masse). Vous pouvez aussi les glisser dans cette fenêtre.",
-    "add_files": "Ajouter des fichiers…",
-    "add_folder": "Ajouter un dossier…",
-    "path_hint": "…ou saisissez / collez un chemin puis Entrée",
-    "add_path": "Ajouter le chemin",
-    "remove": "Retirer la sélection",
-    "no_evidence": "Aucun élément ajouté.",
-    "subfolders": "Inclure les sous-dossiers",
+    "evidence": "1. Dossier de l'affaire",
+    "evidence_help": "Choisissez le dossier de l'affaire à vérifier (celui qui contient case.json). Vous pouvez aussi le glisser sur cette fenêtre. Rien n'y est modifié : RV Hub n'y ajoute que sa propre exécution.",
     "hashes": "2. Algorithmes d'empreinte (1 ou 2)",
     "hash_tip_two": "Deux algorithmes sont déjà sélectionnés : décochez-en un d'abord.",
     "hash_tip_one": "Au moins un algorithme est requis.",
@@ -206,16 +285,16 @@
     "tsa": "Horodatage qualifié",
     "sign_cert": "Certificat de signature (.p12/.pfx)",
     "sign_pass": "Mot de passe du certificat",
-    "start": "Lancer l'analyse",
+    "start": "Lancer la vérification",
     "cancel": "Annuler",
     "cancelling": "Annulation : fin du fichier en cours, puis écriture des rapports partiels…",
-    "files": "fichiers",
+    "files": "éléments",
     "elapsed": "Temps écoulé",
     "remaining": "Temps restant (estimation)",
     "now": "En cours",
     "done": "Terminé",
     "cancelled": "Annulé — résultats partiels",
-    "failed": "L'analyse a échoué",
+    "failed": "La vérification a échoué",
     "errors": "erreurs",
     "findings": "constatations",
     "open_report": "Ouvrir le rapport",
@@ -223,8 +302,23 @@
     "warnings": "Avertissements",
     "lang_all": "Les trois (EN + ES + FR)",
     "case_dir": "Dossier de l'affaire",
-    "case_dir_hint": "facultatif : dossier partagé de l'affaire (relie les outils d'une même affaire)",
-    "out_from_case": "Dossier de sortie : fixé par le dossier de l'affaire",
-    "evidence_ids": "ID des éléments"
+    "case_dir_hint": "p. ex. E:\\AFFAIRE-014",
+    "out_from_case": "L'exécution de vérification est écrite dans le dossier de l'affaire",
+    "rehash": "Hacher aussi à nouveau les scellés enregistrés",
+    "evidence_dir": "Copies des scellés dans",
+    "evidence_dir_hint": "facultatif : dossier où se trouvent maintenant les scellés",
+    "crosscheck": "Demander aussi à l'outil de chaque exécution de vérifier ses journaux (outils installés et signés par Rakvor)",
+    "out_dir_broken": "Dossier de sortie si le journal de l'affaire est rompu",
+    "codes": "Codes des constatations"
+  },
+  "suggest": {
+    "title": "Prochaines étapes suggérées",
+    "no_case": "Pas encore de dossier d'affaire : ouvrez-le ou créez-le avec l'outil de réception.",
+    "no_evidence": "Aucun scellé n'est encore enregistré : enregistrez-les avec l'outil de réception.",
+    "pdf_not_analysed": "Des fichiers PDF enregistrés n'ont pas encore été analysés.",
+    "images_not_analysed": "Des images enregistrées (JPEG, PNG, HEIC, WebP) n'ont pas encore été analysées.",
+    "chats_not_converted": "Des exports de messagerie enregistrés n'ont pas encore été convertis en RSMF.",
+    "not_examined": "Des éléments enregistrés que cet outil accepte n'ont pas encore été examinés par lui.",
+    "timestamp_pending": "Certaines exécutions attendent encore leur horodatage : lancez `timestamp` une fois en ligne."
   }
 }

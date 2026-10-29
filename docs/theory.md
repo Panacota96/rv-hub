@@ -223,7 +223,7 @@ nothing. Every report prints these limitations:
 
 | Process | Implementation | Key constants (value in this commit) |
 | --- | --- | --- |
-| Input collection | [src/core/src/input.rs](../src/core/src/input.rs) | folders 1 level unless `--recursive`; symbolic links never followed; paths made absolute and lexically normalised, de-duplicated, sorted by that string bytewise (UTF-8; same rule as the Python profile), numbered from 1; a UTF-8 BOM at the start of an `--input-list` file is ignored |
+| Input collection | [src/core/src/checks.rs](../src/core/src/checks.rs) | folders 1 level unless `--recursive`; symbolic links never followed; paths made absolute and lexically normalised, de-duplicated, sorted by that string bytewise (UTF-8; same rule as the Python profile), numbered from 1; a UTF-8 BOM at the start of an `--input-list` file is ignored |
 | Log verification | [src/core/src/verify.rs](../src/core/src/verify.rs) | chain + timestamps + truncation anchors (timestamp `covers_seq`, case log `run_finished`) |
 | Hashing | [src/core/src/hash.rs](../src/core/src/hash.rs) | `CHUNK` = 1 MiB (1 048 576 bytes); `MAX_SELECTED` = 2; head kept for detection = first 4 096 bytes; known answers for `"abc"` |
 | Pipeline | [src/core/src/run.rs](../src/core/src/run.rs) | progress events every 150 ms; run id = `YYYYMMDDTHHMMSSZ-` + 6 hex of SHA-256(clock, pid, host) |
@@ -237,7 +237,7 @@ nothing. Every report prints these limitations:
 <!-- forge:domain -->
 | Domain process | Implementation | Key constants |
 | --- | --- | --- |
-| Type detection, extension mismatch, executables, empty files | [src/core/src/analyzer.rs](../src/core/src/analyzer.rs) | 15 signatures; text extensions `txt csv log xml json html` |
+| Type detection, extension mismatch, executables, empty files | [src/core/src/findings.rs](../src/core/src/findings.rs) | 15 signatures; text extensions `txt csv log xml json html` |
 | Duplicates, intake registration | [src/core/src/report/mod.rs](../src/core/src/report/mod.rs) `duplicate_groups`; [src/core/src/run.rs](../src/core/src/run.rs) `register_items` | primary (first) algorithm; size > 0 |
 | Role in the case folder | [src/core/src/lib.rs](../src/core/src/lib.rs) `CASE_ROLE` | `Intake` |
 <!-- /forge:domain -->
@@ -333,7 +333,7 @@ hash_reader(r, algos)                                        src/core/src/hash.r
 <!-- forge:domain -->
 ## B4 Type detection by magic bytes and extension mismatch
 
-### Signature table ([analyzer.rs](../src/core/src/analyzer.rs) `SIGNATURES`, first match wins)
+### Signature table ([checks.rs](../src/core/src/checks.rs) `SIGNATURES`, first match wins)
 
 | # | Detected type | Offset | Magic bytes | Expected extensions | Executable |
 | --: | --- | --: | --- | --- | :-: |
@@ -367,7 +367,7 @@ name "foto-vacaciones.jpg" → extension "jpg" (lower-cased text after the last 
                                                                  detected = "PDF document", extension = "jpg"
 ```
 
-### Decision ([analyzer.rs](../src/core/src/analyzer.rs) `analyze`)
+### Decision ([checks.rs](../src/core/src/checks.rs) `analyze`)
 
 ```mermaid
 flowchart TB
@@ -732,7 +732,7 @@ Measured for this page: the Rust and Python builds of this tool, run on the samp
 identical digests, detected types and findings (compared on every `technical.json`). Item numbers are identical
 too: both profiles make each path absolute and lexically normalised and sort by that string **bytewise (UTF-8)**,
 so `a-b/x.txt` comes before `a/x.txt` ('-' 0x2D < '/' 0x2F) and `B.txt` before `a.txt`. The cross-profile test
-compares the numbering of such a folder ([input.rs](../src/core/src/input.rs) `items_are_sorted_by_normalised_path_bytes`;
+compares the numbering of such a folder ([run.rs](../src/core/src/run.rs) `items_are_sorted_by_normalised_path_bytes`;
 `cross_language_case_verification` with `RV_CROSS_PROJECT`), and CI verifies a case folder written by the Python
 profile ([tests/golden/](../tests/golden/regenerate.py)). File names that are not valid UTF-8 are outside this
 contract.

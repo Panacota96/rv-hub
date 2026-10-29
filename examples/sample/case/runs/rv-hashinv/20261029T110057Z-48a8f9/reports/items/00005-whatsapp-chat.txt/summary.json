@@ -1,0 +1,23 @@
+{
+  "case_id": "SAMPLE-1",
+  "findings": [],
+  "fingerprint": {
+    "algorithm": "sha256",
+    "value": "610bdf98c4ccec8d49afb7586306b475062d899d878e9bcf0e53921759f8ef14"
+  },
+  "item": {
+    "evidence_id": "E0005",
+    "file_name": "whatsapp-chat.txt",
+    "index": 5
+  },
+  "run_id": "20261029T110057Z-48a8f9",
+  "schema": "rakvor.item-summary/1",
+  "status": "ok",
+  "text": {
+    "en": {
+      "next_step": "No action needed for this file.",
+      "status": "No issues found",
+      "summary": "The file was hashed and checked. The checks applied found no issues."
+    }
+  }
+}

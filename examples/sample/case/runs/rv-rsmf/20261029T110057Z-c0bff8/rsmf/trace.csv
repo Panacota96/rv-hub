@@ -1,0 +1,6 @@
+export,source_file,line,line_end,native_id,source_time,utc,rsmf_file,event_id,conversation,kind,attachments
+whatsapp-chat.txt,whatsapp-chat.txt,1,1,,"12/03/2026, 09:14",2026-03-12T08:14:00Z,001-whatsapp-chat-txt-000001/whatsapp-chat-f83511/2026-03-12.rsmf,e-000001,c-38b058f83511,disclaimer,0
+whatsapp-chat.txt,whatsapp-chat.txt,2,2,,"12/03/2026, 09:15",2026-03-12T08:15:00Z,001-whatsapp-chat-txt-000001/whatsapp-chat-f83511/2026-03-12.rsmf,e-000002,c-38b058f83511,message,0
+whatsapp-chat.txt,whatsapp-chat.txt,3,3,,"12/03/2026, 09:17",2026-03-12T08:17:00Z,001-whatsapp-chat-txt-000001/whatsapp-chat-f83511/2026-03-12.rsmf,e-000003,c-38b058f83511,message,0
+whatsapp-chat.txt,whatsapp-chat.txt,4,4,,"12/03/2026, 18:02",2026-03-12T17:02:00Z,001-whatsapp-chat-txt-000001/whatsapp-chat-f83511/2026-03-12.rsmf,e-000004,c-38b058f83511,message,0
+whatsapp-chat.txt,whatsapp-chat.txt,5,5,,"13/03/2026, 08:45",2026-03-13T07:45:00Z,001-whatsapp-chat-txt-000001/whatsapp-chat-f83511/2026-03-13.rsmf,e-000005,c-38b058f83511,message,0

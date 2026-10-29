@@ -1,0 +1,23 @@
+{
+  "case_id": "SAMPLE-1",
+  "findings": [],
+  "fingerprint": {
+    "algorithm": "sha256",
+    "value": "666ed73f0863f60ec48123834935c56c7ec98487834fa366fc0d7be8a1fa03c5"
+  },
+  "item": {
+    "evidence_id": "E0001",
+    "file_name": "captura.png",
+    "index": 1
+  },
+  "run_id": "20261029T110057Z-48a8f9",
+  "schema": "rakvor.item-summary/1",
+  "status": "ok",
+  "text": {
+    "en": {
+      "next_step": "No action needed for this file.",
+      "status": "No issues found",
+      "summary": "The file was hashed and checked. The checks applied found no issues."
+    }
+  }
+}

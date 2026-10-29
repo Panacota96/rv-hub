@@ -1,0 +1,42 @@
+{
+  "schema": "rv-hub.expected-findings/1",
+  "description": "What `rv-hub verify` must report on the sample case and on each variant written by tests/samples/make_tampered.py. Every variant is verified with: --case-dir <variant>/case --evidence-dir <variant>/evidence --crosscheck off, plus `args`. `codes`: every finding code of the run with its count (findings_by_code of statistics.json), nothing else.",
+  "case": "examples/sample/case",
+  "variants": {
+    "clean": {
+      "args": ["--rehash"],
+      "exit": 0,
+      "codes": {"RUN_LOG_INTACT": 4}
+    },
+    "case_log_line_edited": {
+      "args": [],
+      "exit": 3,
+      "codes": {"CASE_LOG_BROKEN": 1, "RUN_LOG_INTACT": 4}
+    },
+    "run_audit_entry_edited": {
+      "args": [],
+      "exit": 3,
+      "codes": {"RUN_LOG_BROKEN": 1, "RUN_LOG_INTACT": 3}
+    },
+    "run_folder_deleted": {
+      "args": [],
+      "exit": 3,
+      "codes": {"RUN_LOG_BROKEN": 1, "RUN_LOG_INTACT": 3}
+    },
+    "run_unlinked": {
+      "args": [],
+      "exit": 3,
+      "codes": {"RUN_NOT_IN_CASE_LOG": 1, "RUN_LOG_INTACT": 3}
+    },
+    "review_reanchored": {
+      "args": [],
+      "exit": 3,
+      "codes": {"REVIEW_LOG_BROKEN": 1, "RUN_LOG_INTACT": 3}
+    },
+    "evidence_byte_changed": {
+      "args": ["--rehash"],
+      "exit": 3,
+      "codes": {"EVIDENCE_REHASH_MISMATCH": 1, "RUN_LOG_INTACT": 4}
+    }
+  }
+}

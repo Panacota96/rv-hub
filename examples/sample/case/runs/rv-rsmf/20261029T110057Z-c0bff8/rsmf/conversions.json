@@ -1,0 +1,47 @@
+{
+  "exports": [
+    {
+      "conversations": 1,
+      "events": 5,
+      "export": "whatsapp-chat.txt",
+      "files": [
+        {
+          "attachments": 0,
+          "conversation": "whatsapp-chat",
+          "day": "2026-03-12",
+          "events": 4,
+          "file": "001-whatsapp-chat-txt-000001/whatsapp-chat-f83511/2026-03-12.rsmf",
+          "missing_attachments": 0,
+          "part": 0,
+          "sha256": "2ea561276f2d9d25e1c51c310643e61ecf62c5cb8326c779fba36293c292a941",
+          "valid": true
+        },
+        {
+          "attachments": 0,
+          "conversation": "whatsapp-chat",
+          "day": "2026-03-13",
+          "events": 1,
+          "file": "001-whatsapp-chat-txt-000001/whatsapp-chat-f83511/2026-03-13.rsmf",
+          "missing_attachments": 0,
+          "part": 0,
+          "sha256": "fdbb4796981a45aeb185fb0d9830ef3e846329f28088483bc66a9c9d4c30f2e3",
+          "valid": true
+        }
+      ],
+      "item_index": 1,
+      "source": "whatsapp"
+    }
+  ],
+  "rsmf_version": "2.0.0",
+  "shortcode_table": "relativity-supported-emoji checked 2026-10-27 (Server 2024 page)",
+  "totals": {
+    "attachments_missing": 0,
+    "attachments_packed": 0,
+    "conversations": 1,
+    "events": 5,
+    "exports": 1,
+    "exports_failed": 0,
+    "files": 2,
+    "files_invalid": 0
+  }
+}

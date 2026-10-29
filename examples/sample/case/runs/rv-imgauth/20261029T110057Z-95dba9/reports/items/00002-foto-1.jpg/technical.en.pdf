@@ -1,0 +1,373 @@
+%PDF-1.4
+%‚„œ”
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [7 0 R 9 0 R 11 0 R 13 0 R] /Count 4 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Courier /Encoding /WinAnsiEncoding >>
+endobj
+6 0 obj
+<< /Title (Technical review) /Producer (rv-imgauth 0.1.0) /Creator (rv-imgauth 0.1.0) /CreationDate (D:20261029110057Z) >>
+endobj
+7 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R >> /XObject << /Im1 15 0 R >> >> /Contents 8 0 R >>
+endobj
+8 0 obj
+<< /Length 6054 >>
+stream
+0.051 0.067 0.090 rg 0 780.00 595 62 re f
+0.165 0.361 1.000 rg 0.00 777.80 198.33 2.2 re f
+0.420 0.000 1.000 rg 198.33 777.80 198.33 2.2 re f
+0.000 0.898 1.000 rg 396.67 777.80 198.33 2.2 re f
+0.102 0.122 0.149 rg 0.165 0.361 1.000 RG 1.6 w 50 790 42 42 re B
+0.902 0.902 0.902 rg BT /F2 17 Tf 58.50 805.00 Td (RV) Tj ET
+0.000 0.898 1.000 rg 60.00 798.00 22 2 re f
+0.902 0.902 0.902 rg BT /F2 13 Tf 4 Tc 106.00 812.00 Td (RAKVOR) Tj ET 0 Tc
+0.000 0.898 1.000 rg BT /F1 7.5 Tf 106.00 799.00 Td (FORENSICS | INCIDENT RESPONSE | SECURITY) Tj ET
+0.051 0.067 0.090 rg BT /F2 18 Tf 50.00 719.70 Td (Technical review) Tj ET
+0.278 0.329 0.404 rg BT /F1 10 Tf 50.00 706.20 Td (Item #2 \267 foto-1.jpg \267 Run ID: 20261029T110057Z-95dba9) Tj ET
+0.165 0.361 1.000 RG 2 w 50 698.20 m 545 698.20 l S
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 676.05 Td (Path) Tj ET
+0.051 0.067 0.090 rg BT /F3 8 Tf 215.00 676.05 Td (/tmp/tmp.sVTkOe7IbL/evidence/foto-1.jpg) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 660.90 Td (Size \(bytes\)) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 660.90 Td (1483) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 645.75 Td (Last modified \(UTC\)) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 645.75 Td (2026-10-29T11:00:57Z) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 630.60 Td (Extension) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 630.60 Td (.jpg) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 615.45 Td (Detected type \(signature\)) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 615.45 Td (JPEG image) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 600.30 Td (Status) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 600.30 Td (Needs attention) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 585.15 Td (Case) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 585.15 Td (SAMPLE-1) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 570.00 Td (Evidence ID) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 570.00 Td (E0003) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 554.85 Td (Case registry) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 554.85 Td (Verified: identical to the registered evidence) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 539.70 Td (Registered at intake \(UTC\)) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 539.70 Td (2026-10-29T11:00:57.109Z) Tj ET
+0.051 0.067 0.090 rg BT /F2 12 Tf 50.00 510.50 Td (Hashes) Tj ET
+0.894 0.906 0.925 RG 0.6 w 50 506.50 m 545 506.50 l S
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 490.35 Td (sha256) Tj ET
+0.051 0.067 0.090 rg BT /F3 8 Tf 215.00 490.35 Td (2c131e2942ef56ad7a4a6ecdce4740846e5c76f9d04fa46ac80b3753dad6b0cb) Tj ET
+0.051 0.067 0.090 rg BT /F2 12 Tf 50.00 461.15 Td (Findings) Tj ET
+0.894 0.906 0.925 RG 0.6 w 50 457.15 m 545 457.15 l S
+0.051 0.067 0.090 rg BT /F2 10 Tf 50.00 433.65 Td ([Low]  Little or no camera metadata  \(METADATA_STRIPPED\)) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 60.00 421.50 Td (What it shows) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 225.00 421.50 Td (The JPEG file carries no camera metadata \(no make, model or capture date\).) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 60.00 406.35 Td (What it does not prove) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 225.00 406.35 Td (Messengers, social networks, screenshots and privacy tools remove metadata) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 225.00 394.20 Td (routinely; its absence says nothing about the content.) Tj ET
+0.051 0.067 0.090 rg BT /F2 10 Tf 50.00 369.70 Td ([Informational]  Standard \(IJG\) compression tables  \(QT_STANDARD_IJG\)) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 60.00 357.55 Td (What it shows) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 225.00 357.55 Td (The quantization tables are the IJG standard tables at quality 85.) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 60.00 342.40 Td (What it does not prove) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 225.00 342.40 Td (Very many programs and devices use these tables; they identify a family of) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 225.00 330.25 Td (encoders, not one program or camera.) Tj ET
+0.051 0.067 0.090 rg BT /F2 10 Tf 50.00 305.75 Td ([Informational]  Compression tables not in the database  \(QT_UNKNOWN\)) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 60.00 293.60 Td (What it shows) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 225.00 293.60 Td (No entry of the fingerprint databases matches these tables \(SHA-256) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 225.00 281.45 Td (43920728cfe021cebc3e0bf197ec4338c16eec09bf89e4b7a5cac6f67651ebfa\).) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 60.00 266.30 Td (What it does not prove) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 225.00 266.30 Td (The database covers few devices and apps; an unknown table says nothing) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 225.00 254.15 Td (about authenticity. Add known originals with `fingerprints learn`.) Tj ET
+0.051 0.067 0.090 rg BT /F2 12 Tf 50.00 224.95 Td (Image analysis) Tj ET
+0.894 0.906 0.925 RG 0.6 w 50 220.95 m 545 220.95 l S
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 204.80 Td (Status) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 204.80 Td (Completed) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 189.65 Td (Format) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 189.65 Td (JPEG) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 174.50 Td (Dimensions \(pixels\)) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 174.50 Td (96 \327 64) Tj ET
+0.051 0.067 0.090 rg BT /F2 12 Tf 50.00 145.30 Td (Original image \(decoded preview\)) Tj ET
+0.894 0.906 0.925 RG 0.6 w 50 141.30 m 545 141.30 l S
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 50.00 126.47 Td (Lossless PNG of the decoded pixels, exactly as the analyses saw them \(stored orientation; EXIF rotation not applied\).) Tj ET
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 50.00 113.65 Td (The maps below have the same size and can be laid over it.) Tj ET
+0.894 0.906 0.925 RG 0.6 w 50 44 m 545 44 l S
+0.278 0.329 0.404 rg BT /F1 7.5 Tf 50 32 Td (Generated by rv-imgauth 0.1.0 \267 20261029T110057Z-95dba9  \227  Page 1 of 4) Tj ET
+0.278 0.329 0.404 rg BT /F1 6.8 Tf 50 22 Td (We uncover the hidden. We reconstruct what happened. We protect what matters.) Tj ET
+endstream
+endobj
+9 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R >> /XObject << /Im1 15 0 R >> >> /Contents 10 0 R >>
+endobj
+10 0 obj
+<< /Length 3828 >>
+stream
+0.051 0.067 0.090 rg 0 780.00 595 62 re f
+0.165 0.361 1.000 rg 0.00 777.80 198.33 2.2 re f
+0.420 0.000 1.000 rg 198.33 777.80 198.33 2.2 re f
+0.000 0.898 1.000 rg 396.67 777.80 198.33 2.2 re f
+0.102 0.122 0.149 rg 0.165 0.361 1.000 RG 1.6 w 50 790 42 42 re B
+0.902 0.902 0.902 rg BT /F2 17 Tf 58.50 805.00 Td (RV) Tj ET
+0.000 0.898 1.000 rg 60.00 798.00 22 2 re f
+0.902 0.902 0.902 rg BT /F2 13 Tf 4 Tc 106.00 812.00 Td (RAKVOR) Tj ET 0 Tc
+0.000 0.898 1.000 rg BT /F1 7.5 Tf 106.00 799.00 Td (FORENSICS | INCIDENT RESPONSE | SECURITY) Tj ET
+q 450.00 0 0 300.00 50.00 444.00 cm /Im1 Do Q
+0.278 0.329 0.404 rg BT /F1 8 Tf 50.00 433.20 Td (maps/original.png \(96x64\) \227 reduced copy for print; the full-resolution file is in the item folder) Tj ET
+0.051 0.067 0.090 rg BT /F2 12 Tf 50.00 403.00 Td (Metadata summary) Tj ET
+0.894 0.906 0.925 RG 0.6 w 50 399.00 m 545 399.00 l S
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 50.00 384.17 Td (Key fields only; metadata.json in the item folder holds every tag read. Metadata is written by the device or program) Tj ET
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 50.00 371.35 Td (that saved the file and can be edited or forged.) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 354.20 Td (Tags read) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 354.20 Td (0) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 339.05 Td (Tags per group) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 339.05 Td (\227) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 323.90 Td (GPS tags) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 323.90 Td (absent) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 308.75 Td (MakerNote) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 308.75 Td (absent) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 293.60 Td (XMP packet) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 293.60 Td (absent) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 278.45 Td (Embedded thumbnail) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 278.45 Td (absent) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 263.30 Td (ICC profile \(SHA-256\)) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 263.30 Td (\227) Tj ET
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 50.00 247.48 Td (No metadata field was found.) Tj ET
+0.051 0.067 0.090 rg BT /F2 12 Tf 50.00 218.28 Td (Structure summary) Tj ET
+0.894 0.906 0.925 RG 0.6 w 50 214.28 m 545 214.28 l S
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 50.00 199.45 Td (Top-level segments in file order \(JPEG markers, PNG chunks, RIFF chunks or HEIF boxes\); structure.json holds the) Tj ET
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 50.00 186.63 Td (full tree with byte offsets.) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 169.48 Td (Top-level segments) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 169.48 Td (12) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 154.33 Td (frame \(SOF\)) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 154.33 Td (SOF0) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 139.18 Td (chroma subsampling) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 139.18 Td (4:2:0) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 124.03 Td (components) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 124.03 Td (3) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 108.88 Td (restart interval) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 108.88 Td (0) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 93.73 Td (quantization tables) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 93.73 Td (2) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 78.58 Td (Huffman tables) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 78.58 Td (4) Tj ET
+0.894 0.906 0.925 RG 0.6 w 50 44 m 545 44 l S
+0.278 0.329 0.404 rg BT /F1 7.5 Tf 50 32 Td (Generated by rv-imgauth 0.1.0 \267 20261029T110057Z-95dba9  \227  Page 2 of 4) Tj ET
+0.278 0.329 0.404 rg BT /F1 6.8 Tf 50 22 Td (We uncover the hidden. We reconstruct what happened. We protect what matters.) Tj ET
+endstream
+endobj
+11 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R >> /XObject << /Im1 15 0 R >> >> /Contents 12 0 R >>
+endobj
+12 0 obj
+<< /Length 6903 >>
+stream
+0.051 0.067 0.090 rg 0 780.00 595 62 re f
+0.165 0.361 1.000 rg 0.00 777.80 198.33 2.2 re f
+0.420 0.000 1.000 rg 198.33 777.80 198.33 2.2 re f
+0.000 0.898 1.000 rg 396.67 777.80 198.33 2.2 re f
+0.102 0.122 0.149 rg 0.165 0.361 1.000 RG 1.6 w 50 790 42 42 re B
+0.902 0.902 0.902 rg BT /F2 17 Tf 58.50 805.00 Td (RV) Tj ET
+0.000 0.898 1.000 rg 60.00 798.00 22 2 re f
+0.902 0.902 0.902 rg BT /F2 13 Tf 4 Tc 106.00 812.00 Td (RAKVOR) Tj ET 0 Tc
+0.000 0.898 1.000 rg BT /F1 7.5 Tf 106.00 799.00 Td (FORENSICS | INCIDENT RESPONSE | SECURITY) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 737.85 Td (bytes after EOI) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 737.85 Td (0) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 722.70 Td (comments \(COM\)) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 722.70 Td (0) Tj ET
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 50.00 706.87 Td (Marker / chunk / box sequence:) Tj ET
+0.051 0.067 0.090 rg BT /F3 8 Tf 50.00 693.07 Td (SOI \267 APP0/JFIF \267 DQT \3272 \267 SOF0 \267 DHT \3274 \267 SOS \267 EOI) Tj ET
+0.051 0.067 0.090 rg BT /F2 12 Tf 50.00 666.87 Td (Quantization tables) Tj ET
+0.894 0.906 0.925 RG 0.6 w 50 662.87 m 545 662.87 l S
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 50.00 648.05 Td (Values in natural \(row-major\) order, as stored in the DQT segments. The IJG comparison names a standard libjpeg) Tj ET
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 50.00 635.22 Td (quality only on an exact match; otherwise the nearest quality and its distance \(sum of absolute differences\) are given,) Tj ET
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 50.00 622.40 Td (which is not a quality percentage.) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 605.25 Td (IJG comparison) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 605.25 Td (IJG-standard q=85) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 590.10 Td (Database match) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 590.10 Td (no entry in the loaded databases) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 574.95 Td (Table hash \(SHA-256\)) Tj ET
+0.051 0.067 0.090 rg BT /F3 8 Tf 215.00 574.95 Td (43920728cfe021cebc3e0bf197ec4338c16eec09bf89e4b7a5cac6f67651ebfa) Tj ET
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 50.00 559.12 Td (Table 0 \267 8-bit \267 Used by components: 1) Tj ET
+0.051 0.067 0.090 rg BT /F3 8 Tf 50.00 545.32 Td (5   3   3   5   7  12  15  18) Tj ET
+0.051 0.067 0.090 rg BT /F3 8 Tf 50.00 534.52 Td (4   4   4   6   8  17  18  17) Tj ET
+0.051 0.067 0.090 rg BT /F3 8 Tf 50.00 523.72 Td (4   4   5   7  12  17  21  17) Tj ET
+0.051 0.067 0.090 rg BT /F3 8 Tf 50.00 512.92 Td (4   5   7   9  15  26  24  19) Tj ET
+0.051 0.067 0.090 rg BT /F3 8 Tf 50.00 502.12 Td (5   7  11  17  20  33  31  23) Tj ET
+0.051 0.067 0.090 rg BT /F3 8 Tf 50.00 491.32 Td (7  11  17  19  24  31  34  28) Tj ET
+0.051 0.067 0.090 rg BT /F3 8 Tf 50.00 480.52 Td (15  19  23  26  31  36  36  30) Tj ET
+0.051 0.067 0.090 rg BT /F3 8 Tf 50.00 469.72 Td (22  28  29  29  34  30  31  30) Tj ET
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 50.00 456.90 Td (Table 1 \267 8-bit \267 Used by components: 2, 3) Tj ET
+0.051 0.067 0.090 rg BT /F3 8 Tf 50.00 443.10 Td (5   5   7  14  30  30  30  30) Tj ET
+0.051 0.067 0.090 rg BT /F3 8 Tf 50.00 432.30 Td (5   6   8  20  30  30  30  30) Tj ET
+0.051 0.067 0.090 rg BT /F3 8 Tf 50.00 421.50 Td (7   8  17  30  30  30  30  30) Tj ET
+0.051 0.067 0.090 rg BT /F3 8 Tf 50.00 410.70 Td (14  20  30  30  30  30  30  30) Tj ET
+0.051 0.067 0.090 rg BT /F3 8 Tf 50.00 399.90 Td (30  30  30  30  30  30  30  30) Tj ET
+0.051 0.067 0.090 rg BT /F3 8 Tf 50.00 389.10 Td (30  30  30  30  30  30  30  30) Tj ET
+0.051 0.067 0.090 rg BT /F3 8 Tf 50.00 378.30 Td (30  30  30  30  30  30  30  30) Tj ET
+0.051 0.067 0.090 rg BT /F3 8 Tf 50.00 367.50 Td (30  30  30  30  30  30  30  30) Tj ET
+0.051 0.067 0.090 rg BT /F2 12 Tf 50.00 341.30 Td (Fingerprint databases) Tj ET
+0.894 0.906 0.925 RG 0.6 w 50 337.30 m 545 337.30 l S
+0.961 0.969 0.984 rg 50.00 318.55 495.00 14.75 re f
+0.278 0.329 0.404 rg BT /F2 7.5 Tf 53.00 323.55 Td (Role) Tj ET
+0.278 0.329 0.404 rg BT /F2 7.5 Tf 94.75 323.55 Td (Database) Tj ET
+0.278 0.329 0.404 rg BT /F2 7.5 Tf 166.31 323.55 Td (Version) Tj ET
+0.278 0.329 0.404 rg BT /F2 7.5 Tf 219.99 323.55 Td (Entries) Tj ET
+0.278 0.329 0.404 rg BT /F2 7.5 Tf 267.70 323.55 Td (Status) Tj ET
+0.278 0.329 0.404 rg BT /F2 7.5 Tf 309.45 323.55 Td (SHA-256) Tj ET
+0.894 0.906 0.925 RG 0.4 w 50 318.55 m 545 318.55 l S
+0.051 0.067 0.090 rg BT /F1 7.5 Tf 53.00 308.80 Td (starter) Tj ET
+0.051 0.067 0.090 rg BT /F1 7.5 Tf 94.75 308.80 Td (rakvor-starter) Tj ET
+0.051 0.067 0.090 rg BT /F1 7.5 Tf 166.31 308.80 Td (0) Tj ET
+0.051 0.067 0.090 rg BT /F1 7.5 Tf 219.99 308.80 Td (0) Tj ET
+0.051 0.067 0.090 rg BT /F1 7.5 Tf 267.70 308.80 Td (loaded) Tj ET
+0.051 0.067 0.090 rg BT /F3 7.5 Tf 309.45 308.80 Td (e0b0c87e4b79e5c5402e920d343436056c25bb959a5bb757a7d) Tj ET
+0.051 0.067 0.090 rg BT /F1 7.5 Tf 309.45 299.05 Td (0519b95ab4be8) Tj ET
+0.894 0.906 0.925 RG 0.4 w 50 294.05 m 545 294.05 l S
+0.051 0.067 0.090 rg BT /F1 7.5 Tf 53.00 284.30 Td (local) Tj ET
+0.051 0.067 0.090 rg BT /F1 7.5 Tf 94.75 284.30 Td (\227) Tj ET
+0.051 0.067 0.090 rg BT /F1 7.5 Tf 166.31 284.30 Td (\227) Tj ET
+0.051 0.067 0.090 rg BT /F1 7.5 Tf 219.99 284.30 Td (\227) Tj ET
+0.051 0.067 0.090 rg BT /F1 7.5 Tf 267.70 284.30 Td (absent) Tj ET
+0.051 0.067 0.090 rg BT /F1 7.5 Tf 309.45 284.30 Td (\227) Tj ET
+0.894 0.906 0.925 RG 0.4 w 50 279.30 m 545 279.30 l S
+0.051 0.067 0.090 rg BT /F2 12 Tf 50.00 247.10 Td (Analysis maps) Tj ET
+0.894 0.906 0.925 RG 0.6 w 50 243.10 m 545 243.10 l S
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 50.00 228.27 Td (No analysis map was written for this item.) Tj ET
+0.051 0.067 0.090 rg BT /F2 12 Tf 50.00 199.07 Td (Copy-move shift vectors) Tj ET
+0.894 0.906 0.925 RG 0.6 w 50 195.07 m 545 195.07 l S
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 50.00 180.25 Td (Copy-move detection was not run \(--copy-move off, or the pixels were not decoded\).) Tj ET
+0.051 0.067 0.090 rg BT /F2 12 Tf 50.00 151.05 Td (Extracted files) Tj ET
+0.894 0.906 0.925 RG 0.6 w 50 147.05 m 545 147.05 l S
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 130.90 Td (structure.json \(structure, 10889 B\)) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 130.90 Td (sha256:) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 118.75 Td (41402f2c9c24d7b2ee0d2a46db75207d37612b7f0a126bca60baabf4f9d675c4) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 101.60 Td (metadata.json \(metadata, 123 B\)) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 101.60 Td (sha256:) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 89.45 Td (f07be8fa2c6e0057dc23806739e3091b649abb03e6cb9fe24458075adcbee13c) Tj ET
+0.894 0.906 0.925 RG 0.6 w 50 44 m 545 44 l S
+0.278 0.329 0.404 rg BT /F1 7.5 Tf 50 32 Td (Generated by rv-imgauth 0.1.0 \267 20261029T110057Z-95dba9  \227  Page 3 of 4) Tj ET
+0.278 0.329 0.404 rg BT /F1 6.8 Tf 50 22 Td (We uncover the hidden. We reconstruct what happened. We protect what matters.) Tj ET
+endstream
+endobj
+13 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R >> /XObject << /Im1 15 0 R >> >> /Contents 14 0 R >>
+endobj
+14 0 obj
+<< /Length 6225 >>
+stream
+0.051 0.067 0.090 rg 0 780.00 595 62 re f
+0.165 0.361 1.000 rg 0.00 777.80 198.33 2.2 re f
+0.420 0.000 1.000 rg 198.33 777.80 198.33 2.2 re f
+0.000 0.898 1.000 rg 396.67 777.80 198.33 2.2 re f
+0.102 0.122 0.149 rg 0.165 0.361 1.000 RG 1.6 w 50 790 42 42 re B
+0.902 0.902 0.902 rg BT /F2 17 Tf 58.50 805.00 Td (RV) Tj ET
+0.000 0.898 1.000 rg 60.00 798.00 22 2 re f
+0.902 0.902 0.902 rg BT /F2 13 Tf 4 Tc 106.00 812.00 Td (RAKVOR) Tj ET 0 Tc
+0.000 0.898 1.000 rg BT /F1 7.5 Tf 106.00 799.00 Td (FORENSICS | INCIDENT RESPONSE | SECURITY) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 737.85 Td (maps/original.png \(original_preview,) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 725.70 Td (4603 B\)) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 737.85 Td (sha256:) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 725.70 Td (74b0017f5fb59449249ce61c3c350806a9e638c33ad79612f9f8396be883238a) Tj ET
+0.051 0.067 0.090 rg BT /F2 12 Tf 50.00 696.50 Td (Method) Tj ET
+0.894 0.906 0.925 RG 0.6 w 50 692.50 m 545 692.50 l S
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 50.00 677.67 Td (Each file was opened read-only and hashed in a single pass with the selected algorithms, and its real type was) Tj ET
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 50.00 664.85 Td (identified from its signature. JPEG, HEIC, PNG and WebP images were then re-read in an isolated process and the) Tj ET
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 50.00 652.02 Td (bytes read were hashed again and compared with the first pass. The image analysis read the file structure and) Tj ET
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 50.00 639.20 Td (metadata, compared the JPEG quantization tables with the IJG standard and the fingerprint databases, looked for) Tj ET
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 50.00 626.37 Td (double JPEG compression, wrote the selected visual maps \(error level, noise, JPEG ghosts\), searched for) Tj ET
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 50.00 613.55 Td (copied-and-moved regions, compared the embedded thumbnail with the main image and, when reference images) Tj ET
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 50.00 600.72 Td (were given, compared the image with them. HEIC pixels are not decoded \(structure and metadata only\). Every action) Tj ET
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 50.00 587.90 Td (and every file written was recorded in a hash-chained audit log.) Tj ET
+0.051 0.067 0.090 rg BT /F2 12 Tf 50.00 558.70 Td (Audit trail) Tj ET
+0.894 0.906 0.925 RG 0.6 w 50 554.70 m 545 554.70 l S
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 538.55 Td (Audit entries) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 538.55 Td (#13 \226 #20) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 523.40 Td (Log folder) Tj ET
+0.051 0.067 0.090 rg BT /F3 8 Tf 215.00 523.40 Td (/tmp/tmp.sVTkOe7IbL/case/runs/rv-imgauth/20261029T110057Z-95dba9/log) Tj ET
+0.051 0.067 0.090 rg BT /F3 8 Tf 215.00 511.25 Td (s) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 496.10 Td (Digital signature) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 496.10 Td (This PDF is not digitally signed.) Tj ET
+0.051 0.067 0.090 rg BT /F2 12 Tf 50.00 466.90 Td (Limitations) Tj ET
+0.894 0.906 0.925 RG 0.6 w 50 462.90 m 545 462.90 l S
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 52.00 448.07 Td (\225) Tj ET
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 64.00 448.07 Td (An image without findings is not proven authentic: careful edits can leave none of the traces these checks look for,) Tj ET
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 64.00 435.25 Td (and it is impossible to prove a negative \(SWGDE 18-I-001\).) Tj ET
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 52.00 422.42 Td (\225) Tj ET
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 64.00 422.42 Td (Error level, noise and ghost maps are visual aids for a trained examiner; the tool gives them no score and draws) Tj ET
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 64.00 409.60 Td (no conclusion from them.) Tj ET
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 52.00 396.77 Td (\225) Tj ET
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 64.00 396.77 Td (Double JPEG compression shows the image was saved more than once; ordinary sharing and exporting do this.) Tj ET
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 52.00 383.95 Td (\225) Tj ET
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 64.00 383.95 Td (The compression-table database covers few devices and apps \(built from Rakvor's own captures plus local) Tj ET
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 64.00 371.12 Td (learning\); an absent or matching entry is weak evidence on its own.) Tj ET
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 52.00 358.30 Td (\225) Tj ET
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 64.00 358.30 Td (Copy-move detection compares blocks at the same scale and orientation on a downscaled image: scaled, rotated) Tj ET
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 64.00 345.47 Td (or small copies are not found.) Tj ET
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 52.00 332.65 Td (\225) Tj ET
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 64.00 332.65 Td (Error rates of these checks have not yet been measured on a documented validation corpus; the findings are) Tj ET
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 64.00 319.82 Td (signals to be weighed by the examiner.) Tj ET
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 52.00 307.00 Td (\225) Tj ET
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 64.00 307.00 Td (Modification times come from the file system of the examined copy and may differ from the original source.) Tj ET
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 52.00 294.17 Td (\225) Tj ET
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 64.00 294.17 Td (A trusted timestamp proves the audit log existed in this exact form at the stated time; it does not prove that the) Tj ET
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 64.00 281.35 Td (examined copy matches the original source.) Tj ET
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 52.00 268.52 Td (\225) Tj ET
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 64.00 268.52 Td (Type detection uses a limited table of common file signatures; unknown types are reported as unknown, not as) Tj ET
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 64.00 255.70 Td (suspicious.) Tj ET
+0.894 0.906 0.925 RG 0.6 w 50 44 m 545 44 l S
+0.278 0.329 0.404 rg BT /F1 7.5 Tf 50 32 Td (Generated by rv-imgauth 0.1.0 \267 20261029T110057Z-95dba9  \227  Page 4 of 4) Tj ET
+0.278 0.329 0.404 rg BT /F1 6.8 Tf 50 22 Td (We uncover the hidden. We reconstruct what happened. We protect what matters.) Tj ET
+endstream
+endobj
+15 0 obj
+<< /Type /XObject /Subtype /Image /Width 96 /Height 64 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /FlateDecode /DecodeParms << /Predictor 15 /Colors 3 /BitsPerComponent 8 /Columns 96 >> /Length 4546 >>
+stream
+xÌ¿†$Yñ∆ÒˇwÓç»ÃßrKcÆm€∂m€∂m€∂miåûñJØû23"Ó˘v∑jz¶á;k’Øæ¸k}B¶¥H+EÇ!MI/,≤,≠&≤d‘÷ï˛ì‰Ãπ#Gƒ!ZJ+48≤)í0aÖåLÄLòîÃj)  Nßç!É02êˇYbÇ%¥&÷0°ƒ	ÄH˛sQß∞Eã QbgÄRJ M-£Òüe$VA&r8!íêk–•	H•X¸g°Nê`•ï¬ADFI¬Df@Zë"#ˇi“eùL·ÑH\qÅ@¬†ÄÄ∆ÍTÄÑD∆ôÑêC*√	—\J„?â£5FCR°Ñ&	HàTÜ¿‚?	∆	a©Vud–líH≈ A …e±Ñ{\p@pÖGêòT‡öJ»‡?U§L`»$,5t°æi™¨Q6wSh
+¿≥ñÖ‰?âKx‹c•@ç¡$ÅjX©bBNHH˛≥P¡Äú·ê‘ËÏ>Èä!¶†·ô≥õ"≠lÊ?I…¨ô26çéå	Mêh†√	§EBòˇ4T»Äbdd¨™IWr#¶Ω™aÕô1+{„0EJ2¡çõÛi<⁄¶UWè”-éVCÃLµsí	G*PC		…"™)	≤K Ñ#õ≤xÏ9j√Ω◊û∫êGÁÜ£9„lªÓC˛sè√Ó˘Æﬂ<v‚·˜]ºß÷3›Ã.9MS 4X¸'¢¶·$ûR¥ :4Õù'éﬂ˚^o}˝©˘∆Ã;*qóŸ}…¬éIë€è∫4l7˛¿è˛˛ÖC7mP
+·A§# ¶‘
+˜P¯œBµ∞π"åùhÇÊ∂Z‹sfkgsº´[üwõ®óÎù≤¸ÁXó∫wT¢€ôÕW∑ë7w≥G!Ê”∏∆Å v*˘œEÕ≤48»"âÊŒÆÓ‰Íû~⁄â√Æ[mÃ∫≤5_P◊√Ííˇù◊ãò∆¶Y?nñåY$ÌØW]â$Bë.aÉí˛≥Q≠ñ»ê™)ônht•Wa>´Û¨n9ÆΩ?€XX¡éP€Ó˙iÙ˙`ôákodJRtÛYNkÄT\¿¸Á¢äÉ∞¢â1XW‰Fª~∫0ﬁ∫êeÏ;kÛ∞/Z-ŸÛüCVÏÁ¬;S€ÿËN°„km‡’8•D (≤ BÑ©fˇâ®%C∆¢	ÉïrXŸäÎlFQ◊K9m¶UKB=àˇA)≠ˆ≥„óñ≈ƒîeï&“ ¶§¨SÓZ'Ó√SFÇA‹œ<∑îî·()9 -öHa()ÒLÜ@òZ[Ÿ‘YjSã,•¨◊m#7 ® [â`+'ÇÄ‰?K$^MÀu?-À 1∫Û⁄Âz›M-öÍÿOcÒ¨∂NY@·5 ¥ K *Ä
+ì”N”ê#∞R≠v”ºfÑs*y‘ÂX<ïåd#£6A§jÄb◊íaë—»‚ƒ Äí%2 -·9Ndë¸ßi°1räúJk•9õËJFd@9‘â1l'åä!H0N-Qä√vkÈ÷lÖ R%∆‚Y¨¨¸Ob1SIúrB8äÎ∆–E$Æ∏Ö)¶d
+OA$£4-»¥’GhDá≠hé—>ÏàÍY#·¨-0@ì"∞J“†â ˇ,	≤2’¨L—§Jâ≈Ç	eB äëlï6üVÛl=Í¨æQì“¨$j?¬:=(÷•é]ÁZ’iY»)ªF@ﬂêe4!#ê2®¸èì`»îS	ä£¥iRZLµM3∆Õq83¥ù6në€¥„9.rö9Åa>Â|ÈŒ«Ï|lÌz62_)∆ö	ÇŸD±"#≈Xh¢@B00â ˇ$Çö‘ÑH+≠¥¿a"q‚¶ÑiûÎMè€π>>7õcmΩ`‹Ãaª≠Êm]=Bf≠á—übq°lûÁßÈ¬∏>[uûŸQ(ö¬≈A i—† Ê~T˛')Iﬂ¬(∫∞Hå ±–JKõm8>ÆØü÷◊è´3”—5ZÕΩî⁄C£ŸÓ4Ô’ùÙ∞=◊≠èV≠[N‹—œˇÜ≠{66áTR}äŒÿ&ÖïI;¶Ú?âµ©*Ë"	àIZju≤÷ùW[yx›∏∫y\›2ß}TW:÷©Ñf•¬·h9™π√=„3\öÀ&ú? âK≥n=ö,A»»»XX§»Q˘&†8JFX·ceãFΩ∫¥9ÏﬂÌQ—nlÀ´KÛÈ®h•
+ÄÜPâ¶hR÷ò1öËT•ç~9<≠≠wgã°0BA% RÑ±¿ %U˘&¡ íGJ-å«:l˘f∆áå√ÀÂ©ı˛¨vLÈjJ@ Äó•A∆ çi}√xDÒ∫µ·btÉ*a€%±∞π"%†dT˛'±òÇ± Gq»XSızcΩˇ ∆«‰xÛjyÕ—ﬁ<èZ7¨$MÓd¬âg4B—Å	ãsÁ1/kØeŒá÷÷ehQS]“2"¡âäê£Ú?IãÃ™)≤$Äe—fπ>=.oâÈÊq}Ìp∏òéB”†ú¢â§L ÑÄú@8Å‘$¶$µπƒµYvõ∆⁄:Ø»QX≈B∆∞ ¨®¸Obòbj—J"GìÇik4˘¶\ù∫·`dTû9[´Kk	°¨·Ç´\‰ßpê0IçrBd+ù}b‘µ∞Á~•q’’1:)√cû)QÂ•I+eÀdê¶f.∆Èz˚‘zË«£∆z›áTÊS?#◊˝≤©Åâ ¿	ÄA ¬ ,C¶CwRÛì·ãS€-ç⁄' ]"cë ¥†Ú?åhb
+e	5Ÿò¶S©Õaò 0Œ|ÿE∑éÌ√nÉròåµ•∞¥T"¬ÅCû·é+˜c[v”¸DÏd˙ûa§VbûF Rêäj•»Æ ôD
+(ÄÕŸí0$X¸ßíÈIå*crı0o√F[-ºÏºNµRjUu∆ÑP	˜ëÉ$∞ï(E Q@≈@òaz¢◊¥Í€P⁄ÍT)[YEië§pòX)ÍT∆ötS•9úR≈aòÍr≠u◊ŒjÅë	ÇˇëQ&¶Zá≈‹ãÖ◊Î{+/›xÃ±{©ƒ™∂ÏñQîqëº@ÄRÅ˜≥ Sö¬!gå˝ÃeVbuˆTÏﬂ¥sÍÍvFÈ&Jñ$ƒTΩH∂j*!ä%CDD8Dë√ @ó¥@ H˛”Ñ$	∞[dÎ[Œ«°ñç©Ï[»5à)b,	YùrrÖ≈Ûó@*ÉH◊ñjë5áçÊçiY∫¥%S2R†ÜS≠H¬ 	»Å%¢d©≠´≠´-‘BNî©‰?I‰T&≥Óß’búéö#K?Õ:b‘lå’lä0Î §Ñ	…ã¨IHJèç“eù∑Yó•6ïîLÄ≈∫§	†∫’$,5ECò$¬¶πÜK8Ä»¨eí¸Á»häµΩÆûjk’íJ∏ÀÓpxäl¢fÛØí–äRéZ)9ØŸWJòp@ M¥¬˝z™F&í@§ ä	∑‚,n%ëì•ê3Ê?Iä&&“Ÿ
+
+J•+û)£∂N.Ü±‰Tî∞hYS!˘WhëFI!w Æ¥Z(r»ßº.! 6‹*Di,RYúÇê≈diäêí4aìPR¸'1J◊dfjSdîÊ:-£f‘$Â)r
+¬ÆM5i‚E•!Gîå≤VD¶√îî`ñö(Œ*`§2∞H‰mà:∏OF"Q1Çˇ4IuŒG∂◊±πéŸD˚·√iÍßòMå]é5ëQL…êÒ"
+Sß1P±ÇÉó‰Å$-á5Z∂¿ kê22 $∞HHu#[+Mvì
+&(≤¯O‚∞Íƒ©Å≠AãëJh?⁄æ¶©¿H
+∞ú≈)w $/öbG[wäŒq@Ï÷8_ΩRKM·
+§HT≤ÜHπVèÖ@∞§T≤Lò˛‰˘£cã”è9∑ﬂŒŒ÷·•UQ_òÖÉˇ4ÕûÍâ≥ª]ùüûé˙Ué_sÏéßﬂ≥^‘’hµúïËT»íñeÛØ…fÙmcn.vıﬁ‚qñRMXtS-òBµx!0	Å√‘Ë∫;Óª˚«~ˆ/€˙ˆKÁéü<—÷•ƒ¬Õ¸gIJ¬Ft7ÏÓKõ;„.mvb˚éÂ¡l6€…âÒ(õC¥dZ¸´‰0 %ªnYggªzæñu	áS@f$∏¶ä¶†7Ÿ¿»‘Ù¨ƒ÷bÛ!óVªï[∑,µhÙ√ ¬ñ˘œ2e;lkœÛ˘±©T´Ìá]y⁄êÛçµ *£˙».¶)%˛5¥ûB˝|Ÿoú+˝]Q.îò—¨L"ï2}C`U©ôÄIX$œtt4t˝÷rh%∫©éGGQ|úË≤Æ#ˇY¶2;5ﬂPŸœTø\ÆªÌY´˝)ÓÓ∫„≠W9—;ΩR`9ïEñyMQÈg„l„¬lv∑∫sö’ÖUãi¬¬— π`eUv8íH"ïÿ"—T∫~6õ∑iŸÃDYMÃc´ÑFéÃ¿ñ8∏∏:∂ÿÏ”%4MπAù<õÿ‹Ô π‹é“u°ÍiUáUq¡ãlR]mÏÏ÷çªj‹^ ≈≤=i—'VåABêòÀ≤‚À
+ì(£ía∫$≠KN]±Ÿk&∆¶Ç¸gâ≠≈1E7‘ı|ﬁu´Ê’ƒµ;6NÛîgîCGπé$◊õ¥b#^tCîã˝÷ù±∏5⁄Ωuæ*€©æ¥QM-HÅRô@
+@∏⁄s¿&iICì»–∞ΩΩ9t„™-á’Z•µÃãŸÛü%(u›⁄R„à!=∂^sÕôé÷%Ó,m?«Ï«à>ß&7âÕıæÏü°Óé“ÌŒ∂ßzL-‘ˆ§&Æh" YM ©î (◊´Éiö67cv„¥'K©ö¿‚?ãskØn>KÂ¨Ô;’6iˇh&©ü„—aÔ:ü´e∂±<‹hSóôJ¿J·0Ä,©òSƒeT\òm›ûıNu¢åu3‘ì#ì‘Xdò +ì+®#`e@7ìiä¢‘Ÿjù–œt2ìPÕú§@¸'	%iÃL“¨ô¨–ú¡m AÜ~˚Æ∫8Tﬁ:„∆Ó‡±óN¨ˆ≠ú4¶ílùSÕù∫¥¶RÜ∫ÿõœ/ïÓº}O,nùm^Í7≥ô¥√Ó5‚`™∆≠ <K8™5qø0 (`
+ÄKò+¨‰?MäíäE“Ñï©”îH•ucËRxÈ<'ˆEﬂ∑3¶Ñkd)≠dF6Å¢.˚Ù˚1ªXfU.¡9˙ΩŸ‚®t &òÄ&.À0X\f%ÄU˘∆e &@FÄ™*∏µ—ŸZª'¥∑±±5ÔNd≥∂[ˆŒÏr>úïã•%›§Efüc¨âQˇ
+T˛'1§ ,0W»îñà‚"K-b†úãæ–éO:6ÂN∫S¶Û)ó"KTCÛö}-HFH^TT˛á± Ä GÄ ‰	Ñ""P“¨YóîG—Œï¨È S(™Mﬂ™¢NÍVÑãÏVÉ0/2*ˇ√$ 0WÑë"¬v:m!€8jäU‰≤9ãÈ°"°Í“BDé≤›ä˘◊†Ú?è!F&†îP√à§MH&'„8H(R6:´0vn≈Z](8h`^dT˛'Iaa!Û\2SBRâí"±¡≠I
+Ñ°…§’ÕZí§ÌÊñ9Që;/**ˇ ÜD` ) àÑ¥m,•àË—( » £r,†ÑÑdOíaÒØAÂõÉEäp»!ñL8ÄM≤ÄìHà08ôïˇI¬$dÆ0d$Ä,ÄL@$]" Å0ÖmPrô¯∑°Ú?èÃôÀêóî)ÇgíP¶∞H	6ôa˛U®¸ÊYR\f í˚Öπ"≈X Såú	-ò"-RÑë)F&/**ˇ√ Ûlóê	 a	©H≤A
+ã ”!éÑ∞¯W†Ú?â 2Äå4 ó•»Qê¶bïTÇõÑQ °ê	 êêº®®¸Ô$#RA#R	aHe1ëQ2¬JÖâ¶ ÅQÚØ¿?Û‡›
+endstream
+endobj
+xref
+0 16
+0000000000 65535 f 
+0000000015 00000 n 
+0000000064 00000 n 
+0000000141 00000 n 
+0000000238 00000 n 
+0000000340 00000 n 
+0000000435 00000 n 
+0000000573 00000 n 
+0000000746 00000 n 
+0000006851 00000 n 
+0000007025 00000 n 
+0000010905 00000 n 
+0000011080 00000 n 
+0000018035 00000 n 
+0000018210 00000 n 
+0000024487 00000 n 
+trailer
+<< /Size 16 /Root 1 0 R /Info 6 0 R >>
+startxref
+29277
+%%EOF

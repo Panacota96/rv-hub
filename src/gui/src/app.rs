@@ -21,10 +21,10 @@ const UI_LANGS: [(&str, &str); 3] = [("en", "English"), ("es", "Español"), ("fr
 
 enum Msg {
     Event(Event),
-    Done(Result<RunSummary, String>),
+    Done(Box<Result<RunSummary, rv_hub_core::case::CaseError>>),
 }
 
-pub struct HashInvApp {
+pub struct HubApp {
     state: GuiState,
     rx: Option<Receiver<Msg>>,
     cancel: Arc<AtomicBool>,
@@ -56,9 +56,9 @@ pub fn apply_theme(ctx: &egui::Context) {
     ctx.set_visuals(v);
 }
 
-impl HashInvApp {
+impl HubApp {
     pub fn new() -> Self {
-        HashInvApp {
+        HubApp {
             state: GuiState::default(),
             rx: None,
             cancel: Arc::new(AtomicBool::new(false)),
@@ -69,11 +69,18 @@ impl HashInvApp {
         }
     }
 
-    /// Starts with evidence already selected (paths given to the executable).
-    pub fn with_inputs(paths: impl IntoIterator<Item = PathBuf>) -> Self {
+    /// Starts with a case folder already chosen (`--case-dir DIR`, or a folder given to the executable).
+    pub fn with_args(args: impl IntoIterator<Item = std::ffi::OsString>) -> Self {
         let mut app = Self::new();
-        for p in paths {
-            app.state.add_input(p);
+        let args: Vec<std::ffi::OsString> = args.into_iter().collect();
+        let dir = match args.iter().position(|a| a == "--case-dir") {
+            Some(i) => args.get(i + 1).cloned(),
+            None => args.first().cloned(),
+        };
+        if let Some(d) = dir {
+            app.case_entry = PathBuf::from(d).display().to_string();
+            let entry = app.case_entry.clone();
+            app.state.set_case_dir(&entry);
         }
         app
     }
@@ -102,7 +109,7 @@ impl HashInvApp {
                 r2.request_repaint();
             };
             let result = rv_hub_core::run(&cfg, &mut sink, &cancel);
-            let _ = tx.send(Msg::Done(result));
+            let _ = tx.send(Msg::Done(Box::new(result)));
             repaint.request_repaint();
         });
     }
@@ -122,9 +129,10 @@ impl HashInvApp {
                     }
                     self.state.apply(&e)
                 }
-                Msg::Done(Ok(_)) => finished = true,
-                Msg::Done(Err(e)) => {
-                    self.state.fail(e);
+                Msg::Done(r) => {
+                    if let Err(e) = *r {
+                        self.state.fail(e.message);
+                    }
                     finished = true;
                 }
             }
@@ -211,79 +219,17 @@ impl HashInvApp {
         ui.label(egui::RichText::new(text).color(CYAN).strong().size(15.0));
     }
 
-    fn evidence_section(&mut self, ui: &mut egui::Ui, enabled: bool) {
+    fn case_section(&mut self, ui: &mut egui::Ui, enabled: bool) {
         Self::section_title(ui, self.state.tr("evidence"));
         ui.label(self.state.tr("evidence_help"));
         ui.add_enabled_ui(enabled, |ui| {
-            ui.horizontal(|ui| {
-                #[cfg(windows)]
-                {
-                    if ui.button(self.state.tr("add_files")).clicked() {
-                        if let Some(files) = rfd::FileDialog::new().pick_files() {
-                            for f in files {
-                                self.state.add_input(f);
-                            }
-                        }
-                    }
-                    if ui.button(self.state.tr("add_folder")).clicked() {
-                        if let Some(d) = rfd::FileDialog::new().pick_folder() {
-                            self.state.add_input(d);
-                        }
-                    }
-                }
-                let hint = self.state.tr("path_hint");
-                let entry = ui.add(
-                    egui::TextEdit::singleline(&mut self.state.path_entry)
-                        .hint_text(hint)
-                        .desired_width(320.0),
-                );
-                let enter = entry.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
-                if ui.button(self.state.tr("add_path")).clicked() || enter {
-                    self.state.add_typed_path();
-                }
-            });
-            let dropped: Vec<PathBuf> = ui.ctx().input(|i| {
-                i.raw
-                    .dropped_files
-                    .iter()
-                    .map(|f| f.path().to_path_buf())
-                    .filter(|p| !p.as_os_str().is_empty())
-                    .collect()
-            });
-            for p in dropped {
-                self.state.add_input(p);
-            }
-            let mut remove = None;
-            egui::ScrollArea::vertical()
-                .max_height(100.0)
-                .id_salt("inputs")
-                .show(ui, |ui| {
-                    if self.state.inputs.is_empty() {
-                        ui.weak(self.state.tr("no_evidence"));
-                    }
-                    for (i, p) in self.state.inputs.iter().enumerate() {
-                        ui.horizontal(|ui| {
-                            if ui.small_button("x").clicked() {
-                                remove = Some(i);
-                            }
-                            ui.monospace(p.display().to_string());
-                        });
-                    }
-                });
-            if let Some(i) = remove {
-                self.state.remove_input(i);
-            }
-            let mut rec = self.state.recursive;
-            if ui.checkbox(&mut rec, self.state.tr("subfolders")).changed() {
-                self.state.set_recursive(rec);
-            }
             ui.horizontal(|ui| {
                 ui.label(self.state.tr("case_dir"));
                 let hint = self.state.tr("case_dir_hint");
                 let r = ui.add(
                     egui::TextEdit::singleline(&mut self.case_entry)
                         .hint_text(hint)
-                        .desired_width(320.0),
+                        .desired_width(360.0),
                 );
                 if r.lost_focus() {
                     let entry = self.case_entry.clone();
@@ -298,6 +244,43 @@ impl HashInvApp {
                     }
                 }
             });
+            // A folder dropped on the window is taken as the case folder.
+            let dropped: Option<PathBuf> = ui.ctx().input(|i| {
+                i.raw
+                    .dropped_files
+                    .iter()
+                    .map(|f| f.path().to_path_buf())
+                    .find(|p| p.is_dir())
+            });
+            if let Some(d) = dropped {
+                self.case_entry = d.display().to_string();
+                self.state.set_case_dir(&self.case_entry.clone());
+            }
+            let mut rehash = self.state.rehash;
+            if ui.checkbox(&mut rehash, self.state.tr("rehash")).changed() {
+                self.state.set_rehash(rehash);
+            }
+            ui.add_enabled_ui(self.state.rehash, |ui| {
+                ui.horizontal(|ui| {
+                    ui.label(self.state.tr("evidence_dir"));
+                    let mut d = self.state.evidence_dir.clone();
+                    let hint = self.state.tr("evidence_dir_hint");
+                    let r = ui.add(
+                        egui::TextEdit::singleline(&mut d)
+                            .hint_text(hint)
+                            .desired_width(300.0),
+                    );
+                    if r.lost_focus() {
+                        self.state.set_evidence_dir(&d);
+                    } else {
+                        self.state.evidence_dir = d;
+                    }
+                });
+            });
+            let mut x = self.state.crosscheck;
+            if ui.checkbox(&mut x, self.state.tr("crosscheck")).changed() {
+                self.state.set_crosscheck(x);
+            }
         });
     }
 
@@ -346,6 +329,7 @@ impl HashInvApp {
             tr("lang_all"),
         );
         let l_locked = tr("out_from_case");
+        let l_broken = tr("out_dir_broken");
         ui.add_enabled_ui(enabled, |ui| {
             egui::Grid::new("report-grid")
                 .num_columns(2)
@@ -378,25 +362,24 @@ impl HashInvApp {
                     }
                     ui.end_row();
                     ui.label(l_out);
+                    // Rule (state.rs): the case folder decides where the run is written.
+                    let mut shown = self.state.out_dir_display();
+                    ui.add_enabled(
+                        false,
+                        egui::TextEdit::singleline(&mut shown).desired_width(300.0),
+                    )
+                    .on_disabled_hover_text(&l_locked);
+                    ui.end_row();
+                    ui.label(l_broken);
                     ui.horizontal(|ui| {
-                        if self.state.out_locked() {
-                            // Rule (state.rs): the case folder decides where the run is written.
-                            let mut shown = self.state.out_dir_display();
-                            ui.add_enabled(
-                                false,
-                                egui::TextEdit::singleline(&mut shown).desired_width(300.0),
-                            )
-                            .on_disabled_hover_text(&l_locked);
-                        } else {
-                            ui.add(
-                                egui::TextEdit::singleline(&mut self.state.out_dir)
-                                    .desired_width(300.0),
-                            );
-                            #[cfg(windows)]
-                            if ui.button(&l_browse).clicked() {
-                                if let Some(d) = rfd::FileDialog::new().pick_folder() {
-                                    self.state.out_dir = d.display().to_string();
-                                }
+                        ui.add(
+                            egui::TextEdit::singleline(&mut self.state.out_dir)
+                                .desired_width(300.0),
+                        );
+                        #[cfg(windows)]
+                        if ui.button(&l_browse).clicked() {
+                            if let Some(d) = rfd::FileDialog::new().pick_folder() {
+                                self.state.out_dir = d.display().to_string();
                             }
                         }
                         let _ = &l_browse;
@@ -574,24 +557,12 @@ impl HashInvApp {
                         o.low,
                         o.info
                     ));
-                    let lines = self.state.evidence_lines();
-                    if !lines.is_empty() {
-                        egui::CollapsingHeader::new(format!(
-                            "{} ({})",
-                            self.state.tr("evidence_ids"),
-                            lines.len()
-                        ))
-                        .default_open(true)
-                        .show(ui, |ui| {
-                            egui::ScrollArea::vertical()
-                                .max_height(120.0)
-                                .id_salt("evidence-ids")
-                                .show(ui, |ui| {
-                                    for l in &lines {
-                                        ui.monospace(l);
-                                    }
-                                });
-                        });
+                    if !self.state.codes.is_empty() {
+                        ui.label(format!(
+                            "{}: {}",
+                            self.state.tr("codes"),
+                            self.state.codes.join(", ")
+                        ));
                     }
                     ui.horizontal(|ui| {
                         if ui.button(self.state.tr("open_report")).clicked() {
@@ -620,7 +591,7 @@ impl HashInvApp {
     }
 }
 
-impl Default for HashInvApp {
+impl Default for HubApp {
     fn default() -> Self {
         Self::new()
     }
@@ -635,7 +606,7 @@ fn open_path(p: &Path) {
     let _ = std::process::Command::new("xdg-open").arg(p).spawn();
 }
 
-impl eframe::App for HashInvApp {
+impl eframe::App for HubApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         if !self.themed {
             apply_theme(ui.ctx());
@@ -650,7 +621,7 @@ impl eframe::App for HashInvApp {
             egui::ScrollArea::vertical().show(ui, |ui| {
                 self.header(ui);
                 let enabled = !self.state.is_running();
-                self.evidence_section(ui, enabled);
+                self.case_section(ui, enabled);
                 self.hashing_section(ui, enabled);
                 self.report_section(ui, enabled);
                 self.trust_section(ui, enabled);

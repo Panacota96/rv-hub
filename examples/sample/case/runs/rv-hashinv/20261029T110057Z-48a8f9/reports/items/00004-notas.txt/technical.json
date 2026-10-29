@@ -1,0 +1,61 @@
+{
+  "audit": {
+    "first_seq": 14,
+    "last_seq": 16
+  },
+  "case": {
+    "case_dir": "/tmp/tmp.sVTkOe7IbL/case",
+    "case_id": "SAMPLE-1",
+    "intake_utc": "2026-10-29T11:00:57.109Z",
+    "role": "intake",
+    "status": "registered"
+  },
+  "findings": [],
+  "hashes": {
+    "md5": "92313eceef74c9a6d291d793d02ccbd9",
+    "sha256": "a8886a29cdac18bf1a954ff29785e7b2937756ff58839d2ccd645923306f2b80"
+  },
+  "item": {
+    "detected_type": null,
+    "error": null,
+    "evidence_id": "E0004",
+    "extension": "txt",
+    "file_name": "notas.txt",
+    "index": 4,
+    "modified_utc": "2026-10-29T11:00:57Z",
+    "path": "/tmp/tmp.sVTkOe7IbL/evidence/notas.txt",
+    "size": 101,
+    "status": "ok"
+  },
+  "limitations": [
+    "SIGNATURE_TABLE_LIMITED",
+    "TIMESTAMPS_FROM_FILESYSTEM",
+    "CLEAN_RESULT_IS_NOT_AUTHENTICITY",
+    "TIMESTAMP_PROVES_EXISTENCE_ONLY"
+  ],
+  "run": {
+    "actor": "Examiner Intake",
+    "algorithms": [
+      "sha256",
+      "md5"
+    ],
+    "cancelled": false,
+    "case_id": "SAMPLE-1",
+    "elapsed_ms": 5,
+    "finished_utc": "2026-10-29T11:00:57.111Z",
+    "frontend": "cli",
+    "jurisdiction": "co",
+    "langs": [
+      "en"
+    ],
+    "pdf_signed_by": null,
+    "pdf_signer_certificate_sha256": null,
+    "run_id": "20261029T110057Z-48a8f9",
+    "started_utc": "2026-10-29T11:00:57.105Z"
+  },
+  "schema": "rakvor.item-technical/1",
+  "tool": {
+    "name": "rv-hashinv",
+    "version": "0.3.1"
+  }
+}

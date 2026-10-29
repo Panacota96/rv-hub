@@ -1,0 +1,66 @@
+{
+  "case_id": "SAMPLE-1",
+  "findings": [
+    {
+      "code": "METADATA_STRIPPED",
+      "params": {
+        "format": "JPEG"
+      },
+      "severity": "low",
+      "text": {
+        "en": {
+          "does_not_prove": "Messengers, social networks, screenshots and privacy tools remove metadata routinely; its absence says nothing about the content.",
+          "shows": "The JPEG file carries no camera metadata (no make, model or capture date).",
+          "title": "Little or no camera metadata"
+        }
+      }
+    },
+    {
+      "code": "QT_STANDARD_IJG",
+      "params": {
+        "quality": "85"
+      },
+      "severity": "info",
+      "text": {
+        "en": {
+          "does_not_prove": "Very many programs and devices use these tables; they identify a family of encoders, not one program or camera.",
+          "shows": "The quantization tables are the IJG standard tables at quality 85.",
+          "title": "Standard (IJG) compression tables"
+        }
+      }
+    },
+    {
+      "code": "QT_UNKNOWN",
+      "params": {
+        "hash": "43920728cfe021cebc3e0bf197ec4338c16eec09bf89e4b7a5cac6f67651ebfa"
+      },
+      "severity": "info",
+      "text": {
+        "en": {
+          "does_not_prove": "The database covers few devices and apps; an unknown table says nothing about authenticity. Add known originals with `fingerprints learn`.",
+          "shows": "No entry of the fingerprint databases matches these tables (SHA-256 43920728cfe021cebc3e0bf197ec4338c16eec09bf89e4b7a5cac6f67651ebfa).",
+          "title": "Compression tables not in the database"
+        }
+      }
+    }
+  ],
+  "fingerprint": {
+    "algorithm": "sha256",
+    "value": "2c131e2942ef56ad7a4a6ecdce4740846e5c76f9d04fa46ac80b3753dad6b0cb"
+  },
+  "item": {
+    "evidence_id": "E0003",
+    "file_name": "foto-1.jpg",
+    "index": 2
+  },
+  "run_id": "20261029T110057Z-95dba9",
+  "schema": "rakvor.item-summary/1",
+  "status": "attention",
+  "text": {
+    "en": {
+      "next_step": "Review the findings below with your examiner before relying on this file.",
+      "status": "Needs attention",
+      "summary": "The file was hashed and checked. Some points need attention."
+    }
+  }
+}
