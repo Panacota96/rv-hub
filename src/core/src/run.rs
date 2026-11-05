@@ -747,8 +747,6 @@ fn pipeline(
                 tally.runs += 1;
                 if it.findings.iter().any(|f| f.code == fnd::RUN_LOG_BROKEN) {
                     tally.runs_broken += 1;
-                } else if it.findings.iter().any(|f| f.code == fnd::RUN_LOG_INTACT) {
-                    tally.runs_intact += 1;
                 }
                 if it
                     .findings
@@ -769,6 +767,10 @@ fn pipeline(
                         _ => {}
                     }
                     it.crosscheck = Some(x);
+                }
+                // Counted after the cross-check: a disagreement withdraws RUN_LOG_INTACT.
+                if it.findings.iter().any(|f| f.code == fnd::RUN_LOG_INTACT) {
+                    tally.runs_intact += 1;
                 }
             }
             Plan::Evidence(e) => {
@@ -1184,6 +1186,8 @@ fn crosscheck(
         }
         Some(tv) => {
             x.outcome = "disagrees".into();
+            // Two verifiers disagree on this run: it is not reported as intact.
+            it.findings.retain(|f| f.code != fnd::RUN_LOG_INTACT);
             it.findings.push(
                 Finding::of(fnd::TOOL_VERIFY_DISAGREES)
                     .with("tool", run.tool.clone())

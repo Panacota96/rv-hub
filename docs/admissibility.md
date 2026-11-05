@@ -291,8 +291,9 @@ These are stated here so that nobody has to find them by cross-examination. Each
 8. **`evidence/registry.csv` is not covered** by the registry digest (only `registry.json` is).
 9. **Launch hash-then-start gap:** the executable is hashed, its signature checked and then started in separate
    accesses; a process able to swap the file in between is not excluded ([theory.md B3](theory.md#b3-launch)).
-10. **`RUN_LOG_INTACT` is decided before the cross-check**, so it can sit next to `TOOL_VERIFY_DISAGREES` on the same
-    run; read every code ([reports.md](reports.md#finding-codes)).
+10. **`RUN_LOG_INTACT` reflects the hub's own checks.** It is withdrawn when the run's own tool disagrees
+    (`TOOL_VERIFY_DISAGREES`), but it is still given when the tool could not be asked (`CROSSCHECK_UNAVAILABLE`);
+    read every code ([reports.md](reports.md#finding-codes)).
 
 ## Consolidated gap list
 

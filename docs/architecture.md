@@ -154,9 +154,10 @@ Run items carry two verdicts. **Full** is exactly `verify::verify_log` (chain, t
 truncation against the timestamp and the case log): what rv-hashinv, rv-rsmf and rv-certcheck's `verify-log`
 answer. **Chain** leaves out the truncation check against the case log: what rv-pdfauth and rv-imgauth's current
 `verify-log` answer ([rv-hub#21](https://github.com/Panacota96/rv-hub/issues/21)). The cross-check accepts the
-tool's verdict when it equals either, for every tool; anything else is `TOOL_VERIFY_DISAGREES` (high). The hub's
-own findings never depend on the tool. `RUN_LOG_INTACT` is decided in `checks::check_run`, before the cross-check
-adds its finding, so both can appear on one run ([theory.md B6](theory.md#b6-the-cross-check-rule-two-verdicts)).
+tool's verdict when it equals the full one, or, for rv-pdfauth and rv-imgauth only (no truncation check), the
+chain-only one; anything else is `TOOL_VERIFY_DISAGREES` (high). The hub's own findings never depend on the tool,
+except that `RUN_LOG_INTACT`, decided in `checks::check_run`, is withdrawn by the cross-check when it raises
+`TOOL_VERIFY_DISAGREES` for that run ([theory.md B6](theory.md#b6-the-cross-check-rule-two-verdicts)).
 
 Tools for the cross-check: `RunConfig::tools` when the front-end passes them (the GUI passes its Tools-tab
 inventory, added folders included), else `tools::discover(DiscoverOptions::from_env(vec![]))` (the CLI: registry,
@@ -174,7 +175,7 @@ install folder, `PATH`; no added folders), plus `--tool-exe` overrides, which ar
 | `UNKNOWN_LOG_FORMAT` | medium | another `*.jsonl` in a run's `logs/` |
 | `TIMESTAMP_PENDING` | low | `timestamp_pending` without a later `timestamp_obtained` |
 | `CROSSCHECK_UNAVAILABLE` | info | tool not installed / not Rakvor-signed / failed / run folder missing |
-| `RUN_LOG_INTACT` | info | a run item with no high finding from the hub's own checks (before the cross-check) |
+| `RUN_LOG_INTACT` | info | a run item with no high finding from the hub's own checks; withdrawn when the run's tool disagrees (`TOOL_VERIFY_DISAGREES`) |
 
 The hub never writes another tool's file: only `runs/rv-hub/<RUN-ID>/` and its two case-log entries
 (`role: analysis`, `purpose: verification`). The case log is hashed as found, before those entries; since it is

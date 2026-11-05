@@ -368,9 +368,9 @@ problem:
 | Unknown logs | any other `*.jsonl` in `logs/` → `UNKNOWN_LOG_FORMAT` (medium); it is not checked |
 | Intact | when the run item has no high finding at this point → `RUN_LOG_INTACT` (info) |
 
-Note on ordering: `RUN_LOG_INTACT` is decided **before** the cross-check, so a run can carry both `RUN_LOG_INTACT`
-and `TOOL_VERIFY_DISAGREES`; the run tally (`runs_intact`) also counts it as intact. Read the item's full code list,
-not `RUN_LOG_INTACT` alone.
+Note on ordering: `RUN_LOG_INTACT` is decided before the cross-check; when the cross-check then raises
+`TOOL_VERIFY_DISAGREES` for the run, `RUN_LOG_INTACT` is withdrawn and the run is not counted in `runs_intact` (the
+tally is taken after the cross-check). Read the item's full code list, not `RUN_LOG_INTACT` alone.
 
 When the case log fails (`case::verify_log_and_registry` is `Err`), the hub **does not append** to it: the
 verification run writes `case_not_extended` and goes to `--out` (`run.rs` `open_target`). Otherwise it appends
