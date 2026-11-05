@@ -235,11 +235,8 @@ mod tests {
         ];
         let c = cards(&tools);
         // Every discovered tool, then every other known tool (not hard-coded: the core's table).
-        let mut known: Vec<&str> = KNOWN_TOOLS.to_vec();
-        if !known.contains(&"rv-certcheck") {
-            known.push("rv-certcheck");
-        }
-        assert_eq!(c.len(), known.len());
+        assert!(KNOWN_TOOLS.contains(&"rv-certcheck"));
+        assert_eq!(c.len(), KNOWN_TOOLS.len());
         assert_eq!(c[0].tool, "rv-certcheck");
         assert_eq!(c[0].title, "RV CertCheck");
         assert!(c[0].can_launch());

@@ -807,9 +807,7 @@ pub const UI_KEYS: &[&str] = &[
 #[doc(hidden)]
 pub mod testing {
     use rv_hub_core::signature::SignatureStatus;
-    use rv_hub_core::tools::{
-        Accepts, Describe, DescribeSource, Source, ToolInfo, ToolRole, builtin,
-    };
+    use rv_hub_core::tools::{DescribeSource, Source, ToolInfo, builtin};
     use std::path::Path;
 
     /// A discovered tool under `dir/<tool>/` with small fake executables written there.
@@ -826,28 +824,6 @@ pub mod testing {
         t.cli_sha256 = rv_hub_core::tools::sha256_of(&cli);
         t.gui_sha256 = rv_hub_core::tools::sha256_of(&gui);
         t
-    }
-
-    /// What `rv-certcheck describe --json` reports (used until the core's built-in table knows the tool).
-    pub fn certcheck_describe(tool: &str) -> Describe {
-        let mut d = builtin("rv-pdfauth").expect("known tool");
-        d.tool = tool.into();
-        d.title = "RV CertCheck".into();
-        d.version = Some("0.2.0".into());
-        d.role = ToolRole::Analysis;
-        d.main_verb = "check".into();
-        d.accepts = Accepts {
-            extensions: [
-                "cer", "crt", "pem", "der", "p7b", "p7c", "crl", "tsr", "tst",
-            ]
-            .iter()
-            .map(|e| e.to_string())
-            .collect(),
-            signatures: vec![],
-        };
-        d.cli_exe = format!("{tool}.exe");
-        d.gui_exe = format!("{tool}-gui.exe");
-        d
     }
 
     /// The five Rakvor tools as discovered on a workstation (no files on disk): screenshots and tests.
@@ -907,7 +883,7 @@ pub mod testing {
         version: &str,
         source: Source,
     ) -> ToolInfo {
-        let describe = builtin(tool).unwrap_or_else(|| certcheck_describe(tool));
+        let describe = builtin(tool).expect("known tool");
         ToolInfo {
             tool: tool.into(),
             title: describe.title.clone(),
