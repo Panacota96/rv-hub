@@ -181,7 +181,12 @@ mod tests {
                 Tone::Green,
                 false,
             ),
-            (SignatureStatus::Unsigned, Badge::Unsigned, Tone::Amber, true),
+            (
+                SignatureStatus::Unsigned,
+                Badge::Unsigned,
+                Tone::Amber,
+                true,
+            ),
             (
                 SignatureStatus::SignedOtherRoot {
                     root_sha256: "ab".into(),
@@ -224,20 +229,33 @@ mod tests {
     fn tool_cards_from_a_fake_discovery() {
         let d = tempfile::tempdir().unwrap();
         let tools = vec![
+            fake_tool(d.path(), "rv-certcheck", SignatureStatus::SignedRakvor),
             fake_tool(d.path(), "rv-hashinv", SignatureStatus::SignedRakvor),
             fake_tool(d.path(), "rv-pdfauth", SignatureStatus::Unsigned),
         ];
         let c = cards(&tools);
-        assert_eq!(c.len(), 4, "two found + two not installed");
+        // Every discovered tool, then every other known tool (not hard-coded: the core's table).
+        let mut known: Vec<&str> = KNOWN_TOOLS.to_vec();
+        if !known.contains(&"rv-certcheck") {
+            known.push("rv-certcheck");
+        }
+        assert_eq!(c.len(), known.len());
+        assert_eq!(c[0].tool, "rv-certcheck");
+        assert_eq!(c[0].title, "RV CertCheck");
+        assert!(c[0].can_launch());
+        let c: Vec<ToolCard> = c[1..].to_vec();
         assert_eq!(c[0].tool, "rv-hashinv");
         assert_eq!(c[0].badge, Badge::SignedRakvor);
         assert_eq!(c[0].version.as_deref(), Some("1.0.0"));
         assert_eq!(c[0].sources, vec!["src_user"]);
-        assert_eq!(c[0].tool_index, Some(0));
+        assert_eq!(c[0].tool_index, Some(1));
         assert!(c[0].can_launch() && c[0].path.starts_with(&d.path().display().to_string()));
         assert_eq!(c[1].badge, Badge::Unsigned);
         let missing: Vec<&str> = c[2..].iter().map(|c| c.tool.as_str()).collect();
-        assert_eq!(missing, ["rv-imgauth", "rv-rsmf"]);
+        assert!(
+            missing.starts_with(&["rv-imgauth", "rv-rsmf"]),
+            "{missing:?}"
+        );
         assert!(c[2..].iter().all(|c| !c.installed && !c.can_launch()));
         assert_eq!(c[2].title, "RV ImgAuth");
         // Nothing found: four dimmed cards.

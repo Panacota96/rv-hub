@@ -153,7 +153,10 @@ mod tests {
 
         let mut s = Settings::default();
         assert!(s.add_folder(Path::new("E:\\rakvor-portable")));
-        assert!(!s.add_folder(Path::new("E:\\rakvor-portable")), "no duplicate");
+        assert!(
+            !s.add_folder(Path::new("E:\\rakvor-portable")),
+            "no duplicate"
+        );
         for i in 0..10 {
             s.add_recent(Path::new(&format!("C:\\cases\\{i}")));
         }

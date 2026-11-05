@@ -13,7 +13,7 @@ pub mod verify;
 
 pub use case::{CaseModel, EvidenceLine, RunLine, SuggestionLine};
 pub use settings::Settings;
-pub use tools::{Badge, ToolCard, Tone};
+pub use tools::{Badge, Tone, ToolCard};
 pub use verify::{GuiState, ItemLine, LANG_CHOICES, Outcome, Phase, Progress};
 
 use rv_hub_core::launch::{self, LaunchError, Launched, Spawner};
@@ -76,7 +76,9 @@ pub struct PendingLaunch {
 impl PendingLaunch {
     /// i18n `ui` key of the risk for an untrusted executable.
     pub fn risk_key(&self) -> Option<&'static str> {
-        self.untrusted.as_ref().and_then(|s| Badge::of(s).risk_key())
+        self.untrusted
+            .as_ref()
+            .and_then(|s| Badge::of(s).risk_key())
     }
 }
 
@@ -322,8 +324,10 @@ impl HubState {
     pub fn apply_discovery(&mut self, tools: Vec<ToolInfo>) {
         let inventory: Vec<Value> = tools
             .iter()
-            .map(|t| json!({"tool": t.tool, "version": t.version, "dir": t.dir.display().to_string(),
-                            "signature": tools::card_signature(t).key()}))
+            .map(|t| {
+                json!({"tool": t.tool, "version": t.version, "dir": t.dir.display().to_string(),
+                            "signature": tools::card_signature(t).key()})
+            })
             .collect();
         self.cards = tools::cards(&tools);
         self.tools = tools;
@@ -380,7 +384,12 @@ impl HubState {
 
     /// Launch clicked on a tool card or a suggestion. With a case open, the tool opens on it; without one it
     /// opens with no case, asked first. Anything but Rakvor-signed is asked first too, stating the risk.
-    pub fn request_launch(&mut self, tool_index: usize, origin: &str, env: &LaunchEnv) -> LaunchStep {
+    pub fn request_launch(
+        &mut self,
+        tool_index: usize,
+        origin: &str,
+        env: &LaunchEnv,
+    ) -> LaunchStep {
         let target = match self.case_dir() {
             Some(d) => LaunchTarget::Case(d),
             None => LaunchTarget::NoCase,
@@ -502,10 +511,7 @@ impl HubState {
             }
             Err(e) => {
                 let err = e.to_string();
-                self.audit(
-                    "ui_launch_failed",
-                    json!({"tool": tool.tool, "error": err}),
-                );
+                self.audit("ui_launch_failed", json!({"tool": tool.tool, "error": err}));
                 let msg = self.trf("launch_failed", &[("tool", &tool.title), ("error", &err)]);
                 self.say(Tone::Red, msg.clone());
                 LaunchStep::Refused(msg)
@@ -603,7 +609,12 @@ impl HubState {
 
     /// One-click launch of a suggestion's tool.
     pub fn launch_suggestion(&mut self, index: usize, env: &LaunchEnv) -> LaunchStep {
-        let Some(s) = self.case.as_ref().and_then(|c| c.suggestions.get(index)).cloned() else {
+        let Some(s) = self
+            .case
+            .as_ref()
+            .and_then(|c| c.suggestions.get(index))
+            .cloned()
+        else {
             return LaunchStep::Refused(String::new());
         };
         let Some(t) = s.tool_index else {
@@ -653,10 +664,7 @@ impl HubState {
     /// Open report clicked: the report to open (audited).
     pub fn report_to_open(&mut self) -> Option<PathBuf> {
         let p = self.verify.outcome.as_ref()?.report.clone();
-        self.audit(
-            "ui_report_opened",
-            json!({"path": p.display().to_string()}),
-        );
+        self.audit("ui_report_opened", json!({"path": p.display().to_string()}));
         Some(p)
     }
 
@@ -799,20 +807,96 @@ pub const UI_KEYS: &[&str] = &[
 #[doc(hidden)]
 pub mod testing {
     use rv_hub_core::signature::SignatureStatus;
-    use rv_hub_core::tools::{DescribeSource, Source, ToolInfo, builtin};
+    use rv_hub_core::tools::{
+        Accepts, Describe, DescribeSource, Source, ToolInfo, ToolRole, builtin,
+    };
     use std::path::Path;
 
     /// A discovered tool under `dir/<tool>/` with small fake executables written there.
     pub fn fake_tool(dir: &Path, tool: &str, status: SignatureStatus) -> ToolInfo {
         let d = dir.join(tool);
         std::fs::create_dir_all(&d).unwrap();
-        let (cli, gui) = (d.join(format!("{tool}.exe")), d.join(format!("{tool}-gui.exe")));
+        let (cli, gui) = (
+            d.join(format!("{tool}.exe")),
+            d.join(format!("{tool}-gui.exe")),
+        );
         std::fs::write(&cli, format!("{tool} cli")).unwrap();
         std::fs::write(&gui, format!("{tool} gui")).unwrap();
         let mut t = preview_tool(&d, tool, status, "1.0.0", Source::UserFolder);
         t.cli_sha256 = rv_hub_core::tools::sha256_of(&cli);
         t.gui_sha256 = rv_hub_core::tools::sha256_of(&gui);
         t
+    }
+
+    /// What `rv-certcheck describe --json` reports (used until the core's built-in table knows the tool).
+    pub fn certcheck_describe(tool: &str) -> Describe {
+        let mut d = builtin("rv-pdfauth").expect("known tool");
+        d.tool = tool.into();
+        d.title = "RV CertCheck".into();
+        d.version = Some("0.2.0".into());
+        d.role = ToolRole::Analysis;
+        d.main_verb = "check".into();
+        d.accepts = Accepts {
+            extensions: [
+                "cer", "crt", "pem", "der", "p7b", "p7c", "crl", "tsr", "tst",
+            ]
+            .iter()
+            .map(|e| e.to_string())
+            .collect(),
+            signatures: vec![],
+        };
+        d.cli_exe = format!("{tool}.exe");
+        d.gui_exe = format!("{tool}-gui.exe");
+        d
+    }
+
+    /// The five Rakvor tools as discovered on a workstation (no files on disk): screenshots and tests.
+    /// `root` is shown as is (e.g. a Windows path on any platform): the folders are `<root>\\<title>`.
+    pub fn five_tools(root: &str) -> Vec<ToolInfo> {
+        let p = |t: &str| std::path::PathBuf::from(format!("{root}\\{t}"));
+        let reg = |id: &str| Source::Registry { app_id: id.into() };
+        let mut v = vec![
+            preview_tool(
+                &p("RV HashInv"),
+                "rv-hashinv",
+                SignatureStatus::SignedRakvor,
+                "0.3.1",
+                reg("{RV-HASHINV}"),
+            ),
+            preview_tool(
+                &p("RV PDFAuth"),
+                "rv-pdfauth",
+                SignatureStatus::SignedRakvor,
+                "0.4.0",
+                reg("{RV-PDFAUTH}"),
+            ),
+            preview_tool(
+                &p("RV ImgAuth"),
+                "rv-imgauth",
+                SignatureStatus::Unsigned,
+                "0.2.2",
+                Source::UserFolder,
+            ),
+            preview_tool(
+                &p("RV RSMF"),
+                "rv-rsmf",
+                SignatureStatus::NotChecked {
+                    reason: "not Windows: Authenticode signatures are checked on Windows only"
+                        .into(),
+                },
+                "0.5.0",
+                Source::LocalPrograms,
+            ),
+            preview_tool(
+                &p("RV CertCheck"),
+                "rv-certcheck",
+                SignatureStatus::SignedRakvor,
+                "0.2.0",
+                Source::LocalPrograms,
+            ),
+        ];
+        v.sort_by(|a, b| a.tool.cmp(&b.tool));
+        v
     }
 
     /// A tool as discovery would report it, without any file on disk (screenshots).
@@ -823,7 +907,7 @@ pub mod testing {
         version: &str,
         source: Source,
     ) -> ToolInfo {
-        let describe = builtin(tool).expect("known tool");
+        let describe = builtin(tool).unwrap_or_else(|| certcheck_describe(tool));
         ToolInfo {
             tool: tool.into(),
             title: describe.title.clone(),
@@ -997,7 +1081,10 @@ mod tests {
         assert!(s.pending.as_ref().unwrap().untrusted.is_none());
         assert!(matches!(s.confirm_pending(&env), LaunchStep::Started(_)));
         assert!(rec.0.borrow()[0].1.is_empty());
-        assert!(s.audited_actions().contains(&"ui_launch_without_case_confirmed"));
+        assert!(
+            s.audited_actions()
+                .contains(&"ui_launch_without_case_confirmed")
+        );
         // Case open + Rakvor-signed: started at once with --case-dir CASE.
         s.open_case(&case.display().to_string());
         assert!(matches!(
@@ -1013,7 +1100,10 @@ mod tests {
                 rv_hub_core::case::normalize(&case).into_os_string()
             ]
         );
-        assert!(!s.audited_actions().contains(&"ui_launch_untrusted_confirmed"));
+        assert!(
+            !s.audited_actions()
+                .contains(&"ui_launch_untrusted_confirmed")
+        );
         // Signature changed since discovery: the core refuses, the dialog opens with the new status.
         let bad = StaticVerifier::always(SignatureStatus::Invalid {
             reason: "tampered".into(),
@@ -1071,7 +1161,10 @@ mod tests {
         let (exe, args) = rec.0.borrow()[0].clone();
         assert!(exe.ends_with("rv-hashinv-gui.exe"));
         assert_eq!(args[0], OsString::from("--case-dir"));
-        assert_eq!(args[1], rv_hub_core::case::normalize(&new_case).into_os_string());
+        assert_eq!(
+            args[1],
+            rv_hub_core::case::normalize(&new_case).into_os_string()
+        );
         assert!(!new_case.exists(), "the hub never creates the case");
         assert!(s.case.as_ref().is_some_and(|c| !c.is_case));
         assert!(s.audited_actions().contains(&"ui_create_case_clicked"));
@@ -1114,7 +1207,10 @@ mod tests {
         let actions = s.audited_actions();
         assert!(actions.contains(&"ui_case_opened") && actions.contains(&"ui_case_refreshed"));
         assert_eq!(
-            actions.iter().filter(|a| **a == "ui_case_refreshed").count(),
+            actions
+                .iter()
+                .filter(|a| **a == "ui_case_refreshed")
+                .count(),
             1,
             "a focus refresh is not a user action"
         );
@@ -1152,7 +1248,10 @@ mod tests {
         };
         assert_eq!(line.tool_index, Some(0));
         let en = s.suggestion_text(&line);
-        assert!(en.starts_with("Registered PDF files") && en.contains("E0002"), "{en}");
+        assert!(
+            en.starts_with("Registered PDF files") && en.contains("E0002"),
+            "{en}"
+        );
         s.set_ui_lang("fr");
         assert_ne!(s.suggestion_text(&line), en);
         assert!(s.suggestion_text(&line).contains("E0002"));
@@ -1265,16 +1364,32 @@ mod tests {
         s.verify_finished();
         let items = &s.verify.items;
         assert_eq!(items[0].kind, rv_hub_core::report::ItemKind::CaseLog);
-        assert!(items.iter().filter(|i| i.kind == rv_hub_core::report::ItemKind::Run).count() >= 4);
+        assert!(
+            items
+                .iter()
+                .filter(|i| i.kind == rv_hub_core::report::ItemKind::Run)
+                .count()
+                >= 4
+        );
         assert!(items.iter().all(|i| i.status == "ok"), "{items:?}");
         assert!(items.iter().any(|i| i.label.starts_with("rv-pdfauth / ")));
         assert!(
-            s.case.as_ref().unwrap().runs.iter().any(|r| r.tool == "rv-hub"),
+            s.case
+                .as_ref()
+                .unwrap()
+                .runs
+                .iter()
+                .any(|r| r.tool == "rv-hub"),
             "the verification run appears in the case view"
         );
         let rf = s.run_folder_to_open().unwrap();
         assert!(rf.starts_with(case.join("runs/rv-hub")) && !rf.ends_with("logs"));
-        assert!(s.report_to_open().unwrap().to_string_lossy().ends_with(".html"));
+        assert!(
+            s.report_to_open()
+                .unwrap()
+                .to_string_lossy()
+                .ends_with(".html")
+        );
     }
 
     #[test]
@@ -1286,7 +1401,10 @@ mod tests {
         {
             let mut s = hub(d.path());
             assert!(s.add_folder(&format!("\"{}\"", portable.display())));
-            assert!(!s.add_folder(&portable.display().to_string()), "already added");
+            assert!(
+                !s.add_folder(&portable.display().to_string()),
+                "already added"
+            );
             assert!(!s.add_folder(&d.path().join("missing").display().to_string()));
             s.set_ui_lang("es");
             s.open_case(&case.display().to_string());
