@@ -282,8 +282,9 @@ These are stated here so that nobody has to find them by cross-examination. Each
    ([theory.md B6](theory.md#b6-the-cross-check-rule-two-verdicts)).
 5. **There are no validated error rates**, and no per-release validation record (plan, acceptance criteria, results,
    sign-off). The tests and the sample variants are evidence towards one, not a substitute.
-6. **Timestamp tokens are checked for the hash they cover, not for who issued them.** The hub does not verify the
-   TSA's CMS signature or certificate chain; use OpenSSL or rv-certcheck for that
+6. **Who issued a timestamp token is proven only up to the CA bundle you supply.** The hub verifies the TSA's CMS
+   signature on every token, but validates the TSA certificate chain only with `--tsa-ca` ("chain not checked"
+   otherwise), and never checks revocation
    ([theory.md B9](theory.md#b9-timestamps-what-the-hub-checks-and-what-it-does-not)).
 7. **The dashboard and suggestions are not verified.** They read the tools' reports as they are, and suggestions
    read evidence only at its registered path.
@@ -304,7 +305,7 @@ These are stated here so that nobody has to find them by cross-examination. Each
 | HG3 | Integrity, not content | all content claims | Limitation printed in every report (H11) | — (by design) |
 | HG4 | `verify-log` semantics differ between tools; chain-level fallback applies to every tool | CO-P14, US-2 | Read the cross-check reason in the technical report | rv-hub#21: one semantics across the tools; then drop the fallback for tools that check the case log |
 | HG5 | No validated error rates, no per-release validation record | CO-P15, CO-P16, CO-J8, 27041, ISO-12, US-6, US-12, UK-1 | H12 sample and variants; CI | Validation report per release (17025 §7.2.2.4, SWGDE §6), independent tester, separate dataset (G6) |
-| HG6 | TSA signature on tokens not verified by the hub | EU-4, CO-L9 | Verify tokens with OpenSSL or rv-certcheck ([forensic-audit.md](forensic-audit.md#timestamps)) | Verify the CMS signature and TSA chain in `trust::verify_timestamps` |
+| HG6 | TSA chain validated only with `--tsa-ca`; no revocation check of the TSA certificate | EU-4, CO-L9 | Pass `--tsa-ca` with the TSA's roots; check revocation with OpenSSL or rv-certcheck ([forensic-audit.md](forensic-audit.md#timestamps)) | Offline CRL/OCSP response checking |
 | HG7 | `--tool-exe` accepts any signature | CO-P9 | Recorded as `override: true`; state it in the report | Show overrides in the statistics report |
 | HG8 | Suggestions use registered paths only | none (not a finding) | Treat suggestions as prompts | Use `--evidence-dir`-style lookup in `case` |
 | G1 | Not accredited (COFRAC / ONAC) | ISO-18 | State "not accredited" | Roadmap |
@@ -331,8 +332,9 @@ These are stated here so that nobody has to find them by cross-examination. Each
    does not affect the conclusions.
 6. **Read every code** of each run item, not only `RUN_LOG_INTACT`; read the cross-check reason ("same verdict at
    chain level" means the tool does not check the case log).
-7. **Timestamps:** check each token's TSA signature independently (OpenSSL or rv-certcheck), and note whether the TSA
-   is qualified (EU) or an ECD (Colombia).
+7. **Timestamps:** verify with `--tsa-ca <the TSA's roots>` so the TSA chain is validated (not only its signature),
+   check revocation independently (OpenSSL or rv-certcheck), and note whether the TSA is qualified (EU) or an ECD
+   (Colombia).
 8. **Keep** the verification run folder (`runs/rv-hub/<RUN-ID>/`), the hub session log of the launches
    (`%LOCALAPPDATA%\Rakvor\RV Hub\logs\`), and the hub release used.
 9. **State the limits** in the expert report: integrity not content; Windows-only signature check; the cross-check

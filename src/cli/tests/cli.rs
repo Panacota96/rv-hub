@@ -733,12 +733,50 @@ fn trust_timestamp_and_signed_reports_with_test_pki() {
         .stdout(predicate::str::contains("timestamp: ok"));
     let run = only_dir(&case.join("runs/rv-hub"));
     let logs = run.join("logs");
+    // The TSA's CMS signature is checked; the chain only with --tsa-ca.
     bin()
         .arg("verify-log")
         .arg(&logs)
         .assert()
         .code(0)
-        .stdout(predicate::str::contains("covers entry"));
+        .stdout(predicate::str::contains("covers entry"))
+        .stdout(predicate::str::contains("TSA signature valid"))
+        .stdout(predicate::str::contains("chain not checked"));
+    bin()
+        .arg("verify-log")
+        .arg(&logs)
+        .arg("--tsa-ca")
+        .arg(pki.path().join("ca.pem"))
+        .assert()
+        .code(0)
+        .stdout(predicate::str::contains(
+            "chain validated to O=Rakvor TEST,CN=Rakvor TEST CA",
+        ))
+        .stdout(predicate::str::contains("chain not checked").not());
+    // Another CA does not vouch for this TSA.
+    let other = tempfile::tempdir().unwrap();
+    let made = std::process::Command::new(python())
+        .arg(root().join("tests/fake_tsa.py"))
+        .arg("certs")
+        .arg(other.path())
+        .status()
+        .unwrap();
+    assert!(made.success());
+    bin()
+        .arg("verify-log")
+        .arg(&logs)
+        .arg("--tsa-ca")
+        .arg(other.path().join("ca.pem"))
+        .assert()
+        .code(3)
+        .stdout(predicate::str::contains("chain not validated"));
+    bin()
+        .arg("verify-log")
+        .arg(&logs)
+        .arg("--tsa-ca")
+        .arg(other.path().join("missing.pem"))
+        .assert()
+        .code(1);
     // The case jurisdiction (co) decides the custody form: Spanish + English.
     let item = run
         .join("reports/items")
@@ -770,17 +808,53 @@ fn trust_timestamp_and_signed_reports_with_test_pki() {
             l
         );
     }
-    // A second verification sees the timestamp of the first and checks its token.
+    // A second verification sees the timestamp of the first and checks its token: chain not checked
+    // without --tsa-ca, validated with the right CA, refused with another one.
     verify(&case).args(["--crosscheck", "off"]).assert().code(0);
+    verify(&case)
+        .args(["--crosscheck", "off", "--tsa-ca"])
+        .arg(pki.path().join("ca.pem"))
+        .assert()
+        .code(0);
+    verify(&case)
+        .args(["--crosscheck", "off", "--tsa-ca"])
+        .arg(other.path().join("ca.pem"))
+        .assert()
+        .code(3)
+        .stdout(predicate::str::contains("RUN_LOG_BROKEN"));
+    verify(&case)
+        .args(["--crosscheck", "off", "--tsa-ca"])
+        .arg(other.path().join("missing.pem"))
+        .assert()
+        .code(1);
     let tsr = std::fs::read_dir(&logs)
         .unwrap()
         .map(|e| e.unwrap().path())
         .find(|p| p.extension().is_some_and(|x| x == "tsr"))
         .unwrap();
     let mut b = std::fs::read(&tsr).unwrap();
+    // The last byte of a token is the last byte of the TSA's RSA signature value.
     let last = b.len() - 1;
     b[last] ^= 0xff;
-    std::fs::write(&tsr, b).unwrap();
+    std::fs::write(&tsr, &b).unwrap();
+    bin()
+        .arg("verify-log")
+        .arg(&logs)
+        .assert()
+        .code(3)
+        .stdout(predicate::str::contains("missing or altered"));
+    // Even with the recorded token digest updated to match, the signature check catches it.
+    let meta_path = tsr.with_extension("json");
+    let mut meta: Value =
+        serde_json::from_str(&std::fs::read_to_string(&meta_path).unwrap()).unwrap();
+    meta["token_sha256"] = rv_hub_core::hash::hash_bytes(&b, rv_hub_core::HashAlgo::Sha256).into();
+    std::fs::write(&meta_path, meta.to_string()).unwrap();
+    bin()
+        .arg("verify-log")
+        .arg(&logs)
+        .assert()
+        .code(3)
+        .stdout(predicate::str::contains("signature value does not verify"));
     verify(&case)
         .args(["--crosscheck", "off"])
         .assert()

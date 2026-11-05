@@ -22,6 +22,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
   cross-check with each run's own tool (`verify-log`, full and chain-only verdicts); reports in en/es/fr.
 - CLI commands `tools`, `case`, `launch`, `verify`, `describe`; GUI tabs Tools, Case and Verify.
 - Sample case made by the tools, with six tampered variants and their expected findings.
+- Timestamp tokens are verified like rv-pdfauth and rv-imgauth do: the TSA's CMS signature (ESS
+  signing-certificate, message digest, RSA signature, timeStamping key usage), and with `--tsa-ca` (`verify-log`,
+  `verify`) the TSA certificate chain at genTime; without it the output says "chain not checked".
 
 ### Documentation
 - README, theory (plain-language and expert parts), admissibility (draft pending legal review), usage,
@@ -33,5 +36,6 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 ### Known limitations
 - Signatures are checked on Windows only, without revocation.
 - The cross-check needs the tools installed and Rakvor-signed; the tools' `verify-log` commands differ (rv-hub#21).
-- Timestamp tokens are checked for the hash they cover, not for the TSA's signature.
+- Timestamp tokens: the TSA chain is validated only with `--tsa-ca`; revocation of the TSA certificate is not
+  checked; only RSA TSA signers are supported.
 - No Rakvor Suite installer yet (rv-hub#2; needs the `RAKVOR_SUITE_TOKEN` secret).

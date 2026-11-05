@@ -143,7 +143,15 @@ pub fn verdict_word(v: Verdict) -> &'static str {
 
 /// One run folder: its audit chain, links with the case log, timestamps, review log and unknown logs; sets the
 /// item's verify-log verdict. `case_id`: the case's id (for the case_linked check).
-pub fn check_run(dir: &Path, case_id: &str, run: &RunRef, item: &mut Item) {
+/// `tsa_anchors`: CA bundle (`--tsa-ca`) for the TSA certificate chain of the run's timestamp tokens; None =
+/// the TSA signature is checked, the chain is not.
+pub fn check_run(
+    dir: &Path,
+    case_id: &str,
+    run: &RunRef,
+    tsa_anchors: Option<&[x509_cert::Certificate]>,
+    item: &mut Item,
+) {
     let log_dir = run.log_dir(dir);
     let audit_path = log_dir.join("audit.jsonl");
     let label = run.rel.clone();
@@ -265,8 +273,13 @@ pub fn check_run(dir: &Path, case_id: &str, run: &RunRef, item: &mut Item) {
             }
         }
     }
-    for p in crate::trust::verify_timestamps(&log_dir, &audit::heads(&audit_path)) {
+    let tokens =
+        crate::trust::verify_timestamps_with(&log_dir, &audit::heads(&audit_path), tsa_anchors);
+    for p in tokens.problems {
         item.findings.push(broken(p));
+    }
+    for t in tokens.tokens {
+        item.fact("fact_timestamp_token", t);
     }
     let mut ts = "off";
     for e in &entries {
@@ -311,7 +324,7 @@ pub fn check_run(dir: &Path, case_id: &str, run: &RunRef, item: &mut Item) {
 
     // The verify-log verdict: the same function `<tool> verify-log` runs (chain, timestamps, truncation against
     // the case log, review log).
-    let verdict = match crate::verify::verify_log(&audit_path) {
+    let verdict = match crate::verify::verify_log_with(&audit_path, tsa_anchors) {
         Ok(v) => {
             if !v.truncation.is_empty() {
                 item.fact("fact_truncation", v.truncation.clone());
@@ -443,7 +456,7 @@ mod tests {
                 r.rel.clone(),
                 r.log_dir(&dir).join("audit.jsonl"),
             );
-            check_run(&dir, "SAMPLE-1", r, &mut it);
+            check_run(&dir, "SAMPLE-1", r, None, &mut it);
             let codes: Vec<&str> = it.findings.iter().map(|f| f.code.as_str()).collect();
             assert_eq!(codes, ["RUN_LOG_INTACT"], "{} {:?}", r.rel, it.facts);
             assert_eq!(it.verdict, Some(Verdict::Intact));
@@ -492,7 +505,7 @@ mod tests {
         let entries = read_entries(&dir.join(CASE_LOG));
         let run = &runs_of_case(dir, &entries)[0];
         let mut it = Item::new(2, ItemKind::Run, run.rel.clone(), logs.join("audit.jsonl"));
-        check_run(dir, "C-1", run, &mut it);
+        check_run(dir, "C-1", run, None, &mut it);
         let codes: Vec<&str> = it.findings.iter().map(|f| f.code.as_str()).collect();
         assert_eq!(
             codes,
@@ -514,7 +527,7 @@ mod tests {
         first.insert("entry_hash".into(), json!(h));
         std::fs::write(&rp, format!("{}\n", Value::Object(first))).unwrap();
         let mut it = Item::new(2, ItemKind::Run, run.rel.clone(), logs.join("audit.jsonl"));
-        check_run(dir, "C-1", run, &mut it);
+        check_run(dir, "C-1", run, None, &mut it);
         assert!(it.findings.iter().any(|f| f.code == "REVIEW_LOG_BROKEN"));
         assert!(!it.findings.iter().any(|f| f.code == "RUN_LOG_INTACT"));
         assert_eq!(it.verdict, Some(Verdict::Broken));

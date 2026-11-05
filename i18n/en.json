@@ -187,6 +187,7 @@
     "fact_entries": "Audit entries",
     "fact_review_entries": "Review entries",
     "fact_timestamp": "Timestamp",
+    "fact_timestamp_token": "Timestamp token",
     "fact_verify_log": "verify-log verdict (hub)",
     "fact_truncation": "Truncation",
     "fact_crosscheck": "Cross-check with the tool",

@@ -362,7 +362,7 @@ problem:
 | Chain | `audit::verify(audit.jsonl)` |
 | Case link | the run's `case_linked` entry exists, names this case, and its `case_log_head_at_start` equals the `entry_hash` of its `run_started` entry in the case log |
 | End of the run | entry #`audit_entries` (from `run_finished` in the case log) exists and its `entry_hash` equals the recorded `audit_head`; every later entry must be `timestamp_obtained` |
-| Timestamps | every `timestamp-<SEQ>.json` / `.tsr` pair: the covered entry exists, the token file has the recorded SHA-256, and the token's message imprint equals that entry's hash ([B9](#b9-timestamps-what-the-hub-checks-and-what-it-does-not)) |
+| Timestamps | every `timestamp-<SEQ>.json` / `.tsr` pair: the covered entry exists, the token file has the recorded SHA-256, the token's message imprint equals that entry's hash, the TSA's CMS signature verifies, and with `--tsa-ca` the TSA chain ([B9](#b9-timestamps-what-the-hub-checks-and-what-it-does-not)) |
 | Pending timestamp | `timestamp_pending` without a later `timestamp_obtained` → `TIMESTAMP_PENDING` (low) |
 | Review log | when `logs/review.jsonl` exists: each `seq` is 1, 2, …; entry #1 holds the `anchor_seq` / `anchor_hash` of this run's `run_finished`; every entry names this run; every `prev_entry_hash` links; every `entry_hash` matches → otherwise `REVIEW_LOG_BROKEN` (high) |
 | Unknown logs | any other `*.jsonl` in `logs/` → `UNKNOWN_LOG_FORMAT` (medium); it is not checked |
@@ -488,11 +488,21 @@ time). For each token the hub checks (`trust::verify_timestamps`): the covered e
 token's **message imprint equals that entry's hash**; it reads `genTime`. `verify-log` also requires every
 `timestamp_obtained` entry to still have its token file.
 
-The hub **does not verify the TSA's signature on the token, nor the TSA certificate chain**: `trust::parse_response`
-decodes the CMS structure and the TSTInfo, but does not check the CMS signature. A token can therefore be shown to
-cover the right hash, not that a trusted TSA issued it. Verify that independently with OpenSSL (the command is in
-[forensic-audit.md](forensic-audit.md#timestamps)) or with rv-certcheck, which validates RFC 3161 tokens (CMS
-signature, ESS signing-certificate and TSA chain).
+The hub also **verifies the TSA's CMS signature on the token** (`trust::verify_token`, the same code as
+rv-pdfauth and rv-imgauth): the content type is `id-ct-TSTInfo`; there is exactly one SignerInfo and its certificate
+is in the token; the signed attributes carry content-type, a message-digest that equals the digest of the TSTInfo,
+and an ESS signing-certificate (v1 or v2) that matches that certificate; the RSA PKCS#1 v1.5 signature over the
+signed attributes verifies; and the certificate has the `timeStamping` extended key usage (RFC 3161 §2.3). Any
+failure (an altered token, "signature value does not verify") makes the log not verify (exit 3,
+`RUN_LOG_BROKEN`).
+
+The **TSA certificate chain** is validated only when a CA bundle is given (`--tsa-ca` on `verify-log` and
+`verify`): a path is built from the TSA certificate, through the certificates in the token, to one of the bundle's
+certificates, checking each RSA signature, the validity period at the token's `genTime` and the CA flag of every
+issuer. Without `--tsa-ca` the output says "chain not checked": the token is then shown to be signed by the
+certificate it carries, not that this certificate belongs to a TSA you trust. **Revocation (CRL/OCSP) is never
+checked**, and only RSA signers are supported (an ECDSA token is reported as "signature not checked", which fails
+the log). OpenSSL or rv-certcheck remain an independent second check ([forensic-audit.md](forensic-audit.md#timestamps)).
 
 The hub's own verification run requests a timestamp by default (`--tsa-url`, default
 `http://timestamp.digicert.com`): that HTTP request is the only network access of `verify`. `--no-timestamp` or

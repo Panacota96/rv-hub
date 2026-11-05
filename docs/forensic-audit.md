@@ -109,8 +109,10 @@ the run records `timestamp_pending`; `rv-hub timestamp <log folder>` adds the to
 first and appends `timestamp_obtained`).
 
 When verifying a case, the hub checks every run's tokens: the covered entry still exists, the token file is
-unchanged, and the token's message imprint equals that entry's hash. **It does not check the TSA's signature or
-certificate chain.** Check those independently:
+unchanged, the token's message imprint equals that entry's hash, and the TSA's CMS signature verifies (ESS
+signing-certificate, message digest, RSA signature, `timeStamping` key usage). The **TSA certificate chain** is
+checked only with `--tsa-ca <CA bundle>` (`verify-log` and `verify`); without it the output says "chain not
+checked". **Revocation is never checked.** For an independent second check:
 
 ```bash
 # the covered entry's hash, from timestamp-<SEQ>.json ("head"), as hex

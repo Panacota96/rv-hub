@@ -70,6 +70,9 @@ pub struct RunConfig {
     /// Custody form when the case has no jurisdiction (the case's jurisdiction always wins).
     pub jurisdiction: String,
     pub tsa_url: Option<String>,
+    /// CA bundle (`--tsa-ca`, PEM or DER) to validate the TSA certificate chain of every run's timestamp
+    /// tokens. None: the TSA signature is checked, the chain is not.
+    pub tsa_ca: Option<PathBuf>,
     pub sign_cert: Option<PathBuf>,
     /// Never logged.
     pub sign_password: Option<String>,
@@ -101,6 +104,7 @@ impl Default for RunConfig {
             tool_version: crate::TOOL_VERSION.into(),
             jurisdiction: "co".into(),
             tsa_url: None,
+            tsa_ca: None,
             sign_cert: None,
             sign_password: None,
             out_dir: PathBuf::from("rakvor-out"),
@@ -326,6 +330,13 @@ pub fn run(
         )));
     }
     let (case_id, jurisdiction) = preflight(cfg)?;
+    // Read before anything is written: an unreadable bundle stops the run (exit 1).
+    let tsa_anchors = cfg
+        .tsa_ca
+        .as_deref()
+        .map(crate::trust::load_ca_bundle)
+        .transpose()
+        .map_err(|e| CaseError::new(CaseErrorKind::Io, format!("--tsa-ca: {e}")))?;
     let mut cfg = cfg.clone();
     cfg.evidence_ids = case::parse_evidence_ids(&cfg.evidence_ids)?;
     cfg.jurisdiction = jurisdiction;
@@ -352,6 +363,7 @@ pub fn run(
         case_log_bytes.as_deref(),
         &runs,
         registry,
+        tsa_anchors.as_deref(),
     );
     if let Some((case, writer, run_rel, _, _)) = &target.link {
         finish_case(case, writer, run_rel, &cfg, &target.log_dir, &result, sink);
@@ -417,6 +429,7 @@ fn pipeline(
     case_log_bytes: Option<&[u8]>,
     runs: &[RunRef],
     registry: Result<Vec<case::RegistryItem>, String>,
+    tsa_anchors: Option<&[x509_cert::Certificate]>,
 ) -> Result<RunSummary, String> {
     let started = Instant::now();
     let started_utc = utc_now();
@@ -437,6 +450,8 @@ fn pipeline(
             "crosscheck": if cfg.crosscheck == CrossCheckMode::Auto { "auto" } else { "off" },
             "tool_overrides": cfg.tool_overrides.iter().map(|(k, v)| (k.clone(), json!(v.display().to_string()))).collect::<serde_json::Map<_, _>>(),
             "jurisdiction": cfg.jurisdiction, "tsa_url": cfg.tsa_url,
+            "tsa_ca": cfg.tsa_ca.as_ref().map(|p| p.display().to_string()),
+            "tsa_ca_sha256": cfg.tsa_ca.as_ref().and_then(|p| std::fs::read(p).ok()).map(|b| hash_bytes(&b, HashAlgo::Sha256)),
             "sign_cert": cfg.sign_cert.as_ref().map(|p| p.display().to_string()),
             "out_dir": cfg.out_dir.display().to_string(),
         }),
@@ -728,7 +743,7 @@ fn pipeline(
                 checks::check_case_log(dir, case_entries, &mut it);
             }
             Plan::Run(r) => {
-                checks::check_run(dir, case_id, r, &mut it);
+                checks::check_run(dir, case_id, r, tsa_anchors, &mut it);
                 tally.runs += 1;
                 if it.findings.iter().any(|f| f.code == fnd::RUN_LOG_BROKEN) {
                     tally.runs_broken += 1;

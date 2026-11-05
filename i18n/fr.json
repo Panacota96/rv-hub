@@ -187,6 +187,7 @@
     "fact_entries": "Entrées d'audit",
     "fact_review_entries": "Entrées de revue",
     "fact_timestamp": "Horodatage",
+    "fact_timestamp_token": "Jeton d'horodatage",
     "fact_verify_log": "Verdict verify-log (hub)",
     "fact_truncation": "Troncature",
     "fact_crosscheck": "Contre-vérification par l'outil",

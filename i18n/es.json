@@ -187,6 +187,7 @@
     "fact_entries": "Entradas de auditoría",
     "fact_review_entries": "Entradas de revisión",
     "fact_timestamp": "Sello de tiempo",
+    "fact_timestamp_token": "Token de sello de tiempo",
     "fact_verify_log": "Veredicto verify-log (hub)",
     "fact_truncation": "Truncamiento",
     "fact_crosscheck": "Verificación cruzada con la herramienta",

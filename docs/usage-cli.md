@@ -76,7 +76,9 @@ DESCRIPTION:
        - its links with the case log: case_linked <-> run_started, and the audit head that the
          case log recorded at run_finished (a run folder the case log never announced is a
          finding);
-       - its RFC 3161 timestamp tokens (logs/timestamp-<SEQ>.tsr), or a pending timestamp;
+       - its RFC 3161 timestamp tokens (logs/timestamp-<SEQ>.tsr): imprint and the TSA's CMS
+         signature; the TSA certificate chain only with --tsa-ca (otherwise "chain not
+         checked"); or a pending timestamp;
     3. with --rehash, every registered evidence file, read again and compared with the
        registry digests (--evidence-dir: where the copies are now, looked up by file name).
   Cross-check (--crosscheck auto|off): with auto (default) each run is also verified by the
@@ -177,6 +179,14 @@ Options:
           Default: http://timestamp.digicert.com
           Example: --tsa-url https://freetsa.org/tsr
 
+      --tsa-ca <PEM>
+          CA bundle (PEM or DER) that the TSA certificate of every run's timestamp tokens must chain
+          to,
+          at the token's genTime. Its path and SHA-256 are recorded in run_started.
+          Default: none (each token's TSA signature is checked, its chain is not: "chain not
+          checked")
+          Example: --tsa-ca C:\certs\tsa-roots.pem
+
       --no-timestamp
           Do not request a trusted timestamp (offline labs). Also set by RV_NO_TIMESTAMP=1.
           Default: off (a timestamp is requested)
@@ -211,7 +221,8 @@ EXAMPLES:
 
 EXIT CODES:
   0    Completed; no high-severity finding (the case verifies).
-  1    Runtime error (case log locked by another tool, output not writable, ...).
+  1    Runtime error (case log locked by another tool, output not writable, --tsa-ca unreadable,
+       ...).
   2    Usage error (unknown option, bad value, not a case folder, --case of another case,
        unknown evidence id, malformed --tool-exe).
   3    Completed with at least one high-severity finding: a broken case log, run log or review
@@ -502,7 +513,7 @@ FORENSIC NOTES:
 ```text
 Verify an audit log (audit.jsonl): edited, deleted or re-ordered entries, and truncation
 
-Usage: rv-hub verify-log <LOG>
+Usage: rv-hub verify-log [OPTIONS] <LOG>
 
 Arguments:
   <LOG>
@@ -511,6 +522,13 @@ Arguments:
           Example: rakvor-out/logs/20261019T101500Z-a1b2c3
 
 Options:
+      --tsa-ca <PEM>
+          CA bundle (PEM with one or more certificates, or one DER certificate) that the TSA
+          certificate of every timestamp token must chain to, at the token's genTime.
+          
+          Default: none (the TSA signature is checked, the chain is not).
+          Example: --tsa-ca C:\certs\tsa-roots.pem
+
   -h, --help
           Print help (see a summary with '-h')
 
@@ -519,6 +537,10 @@ CHECKS:
     breaks it;
   - every timestamp token (timestamp-<SEQ>.tsr) covers the hash of the entry it names, and every
     timestamp_obtained entry still has its token file;
+  - the TSA's CMS signature of every token: signer certificate in the token, ESS
+    signing-certificate binding, message digest over TSTInfo, RSA signature, timeStamping key
+    usage. With --tsa-ca, also the TSA certificate chain up to that CA bundle at the token's
+    genTime; without it the output says "chain not checked". Revocation is never checked;
   - review.jsonl in the same folder (viewing after the run, written by rv-imgauth), when present,
     is an intact chain anchored to the run's run_finished entry ("review entries: N");
   - truncation: a chain alone cannot show that entries were removed from its end. The log must
@@ -532,12 +554,14 @@ EXAMPLES:
   rv-hub verify-log rakvor-out/logs/20261019T101500Z-a1b2c3/audit.jsonl
   rv-hub verify-log rakvor-out/logs/20261019T101500Z-a1b2c3
   rv-hub verify-log E:\CASE-014\runs\rv-hub\20261019T101500Z-a1b2c3\logs
+  rv-hub verify-log rakvor-out/logs/20261019T101500Z-a1b2c3 --tsa-ca digicert-tsa-roots.pem
 
 EXIT CODES:
   0  The chain is intact and agrees with its timestamps and case record (if any).
-  1  The log cannot be read.
+  1  The log or the --tsa-ca file cannot be read.
   3  The chain is broken (an entry was edited, deleted or re-ordered), a timestamp does not
-     match, or the log is shorter than its timestamp or case record says (truncated).
+     match or does not verify (altered token, invalid TSA signature, chain not trusted by
+     --tsa-ca), or the log is shorter than its timestamp or case record says (truncated).
 ```
 
 ## rv-hub self-test
