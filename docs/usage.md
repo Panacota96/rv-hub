@@ -207,6 +207,7 @@ The technical report of a broken run says what failed, e.g.
 | `UNKNOWN_LOG_FORMAT` | medium | A log the hub does not know; not checked. Identify which tool wrote it. |
 | `TIMESTAMP_PENDING` | low | Run `<tool> timestamp <run>/logs` (or `rv-hub timestamp` for a hub run) when online. |
 | `CROSSCHECK_UNAVAILABLE` | info | Install the tool (signed) on the verifying workstation, or accept that only the hub's check applies; state it. |
+| `TOOL_CHANGED_SINCE_DISCOVERY` | medium | The tool's executable changed (or lost its Rakvor signature) after it was discovered, so it was not run. Refresh the Tools tab (or re-run the CLI, which discovers anew), check the new executable, and verify again. |
 | `RUN_LOG_INTACT` | info | The run's record is unchanged. Read the other codes of the same run too. |
 
 The cross-check reason "same verdict at chain level; this tool's verify-log does not check truncation against the

@@ -58,6 +58,7 @@ pub const EVIDENCE_MISSING: &str = "EVIDENCE_MISSING";
 pub const UNKNOWN_LOG_FORMAT: &str = "UNKNOWN_LOG_FORMAT";
 pub const TIMESTAMP_PENDING: &str = "TIMESTAMP_PENDING";
 pub const CROSSCHECK_UNAVAILABLE: &str = "CROSSCHECK_UNAVAILABLE";
+pub const TOOL_CHANGED_SINCE_DISCOVERY: &str = "TOOL_CHANGED_SINCE_DISCOVERY";
 pub const RUN_LOG_INTACT: &str = "RUN_LOG_INTACT";
 // Tool inventory (`signature::finding`).
 pub const TOOL_SIGNED_RAKVOR: &str = "TOOL_SIGNED_RAKVOR";
@@ -66,7 +67,7 @@ pub const TOOL_SIGNATURE_INVALID: &str = "TOOL_SIGNATURE_INVALID";
 pub const TOOL_UNSIGNED: &str = "TOOL_UNSIGNED";
 
 /// Every code RV Hub emits, with its severity (plan §1 "New finding codes" + the tool inventory table).
-pub const CODES: [(&str, Severity); 15] = [
+pub const CODES: [(&str, Severity); 16] = [
     (CASE_LOG_BROKEN, Severity::High),
     (RUN_LOG_BROKEN, Severity::High),
     (REVIEW_LOG_BROKEN, Severity::High),
@@ -77,6 +78,7 @@ pub const CODES: [(&str, Severity); 15] = [
     (UNKNOWN_LOG_FORMAT, Severity::Medium),
     (TIMESTAMP_PENDING, Severity::Low),
     (CROSSCHECK_UNAVAILABLE, Severity::Info),
+    (TOOL_CHANGED_SINCE_DISCOVERY, Severity::Medium),
     (RUN_LOG_INTACT, Severity::Info),
     (TOOL_SIGNED_RAKVOR, Severity::Info),
     (TOOL_SIGNED_OTHER_ROOT, Severity::High),

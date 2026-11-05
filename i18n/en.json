@@ -272,6 +272,11 @@
       "shows": "The logs of run %{run} were not also verified by %{tool} itself: %{reason}.",
       "does_not_prove": "Any problem with the run; RV Hub's own verification of the run still applies."
     },
+    "TOOL_CHANGED_SINCE_DISCOVERY": {
+      "title": "Tool changed since discovery",
+      "shows": "%{tool} (%{exe}) is not the executable that was discovered and checked, so it was not run for the cross-check of run %{run}: %{reason}.",
+      "does_not_prove": "That the executable is malicious (it may be an update installed meanwhile), or any problem with the run; RV Hub's own verification of the run still applies. Discover the tools again (Tools tab, Refresh) and verify again."
+    },
     "RUN_LOG_INTACT": {
       "title": "Run log intact",
       "shows": "The audit log of run %{run} (%{entries} entries) is an unbroken chain, linked to the case log as recorded.",

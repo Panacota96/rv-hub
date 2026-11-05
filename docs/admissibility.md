@@ -293,7 +293,9 @@ These are stated here so that nobody has to find them by cross-examination. Each
    SHA-256 it found in its own audit log (`registry_csv_sha256`), so a later change is visible, not an earlier one.
 9. **Launch swap window (Linux, macOS):** on Windows the executable is locked against writes, renames and deletes
    from the hash to the start; elsewhere it is re-hashed just before the start, and a swap in the short window
-   between that hash and the start is not excluded ([theory.md B3](theory.md#b3-launch)).
+   between that hash and the start is not excluded ([theory.md B3](theory.md#b3-launch)). The cross-check runs a
+   discovered tool under the same protection (a tool changed since discovery is not run:
+   `TOOL_CHANGED_SINCE_DISCOVERY`), with the same residual window outside Windows.
 10. **`RUN_LOG_INTACT` reflects the hub's own checks** (and needs the hub's full verify-log verdict to be intact). It is withdrawn when the run's own tool disagrees
     (`TOOL_VERIFY_DISAGREES`), but it is still given when the tool could not be asked (`CROSSCHECK_UNAVAILABLE`);
     read every code ([reports.md](reports.md#finding-codes)).

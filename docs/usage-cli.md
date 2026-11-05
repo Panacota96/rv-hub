@@ -85,7 +85,9 @@ DESCRIPTION:
   run's own tool (<tool> verify-log <run>/logs) when that tool is installed (or found in an
   --add-folder folder) and signed by Rakvor, or given with --tool-exe NAME=PATH; a different verdict
   is a high-severity finding
-  (TOOL_VERIFY_DISAGREES), a tool that cannot be asked is CROSSCHECK_UNAVAILABLE (info).
+  (TOOL_VERIFY_DISAGREES), a tool that cannot be asked is CROSSCHECK_UNAVAILABLE (info). A
+  discovered tool is re-hashed and its signature re-checked just before it is run; one that
+  changed since discovery is not run (TOOL_CHANGED_SINCE_DISCOVERY, medium).
   Outputs: the verification is itself a run. Reports and a hash-chained audit log go to
   <CASE>/runs/rv-hub/<RUN-ID>/ and the run is recorded in the case log; when the case log
   itself is broken it is never extended and the outputs go to --out instead.

@@ -272,6 +272,11 @@
       "shows": "Los registros de la ejecución %{run} no fueron verificados también por %{tool}: %{reason}.",
       "does_not_prove": "Ningún problema en la ejecución; la verificación propia de RV Hub sigue siendo válida."
     },
+    "TOOL_CHANGED_SINCE_DISCOVERY": {
+      "title": "Herramienta modificada desde su detección",
+      "shows": "%{tool} (%{exe}) no es el ejecutable que se detectó y comprobó, por lo que no se ejecutó para la verificación cruzada de la ejecución %{run}: %{reason}.",
+      "does_not_prove": "Que el ejecutable sea malicioso (puede ser una actualización instalada entretanto), ni ningún problema en la ejecución; la verificación propia de RV Hub sigue siendo válida. Vuelva a detectar las herramientas (pestaña Herramientas, Actualizar) y verifique de nuevo."
+    },
     "RUN_LOG_INTACT": {
       "title": "Registro de la ejecución íntegro",
       "shows": "El registro de auditoría de la ejecución %{run} (%{entries} entradas) es una cadena sin rupturas, vinculada al registro del caso tal como consta.",

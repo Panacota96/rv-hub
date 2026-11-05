@@ -21,7 +21,7 @@ use crate::hash::{HashAlgo, hash_bytes, hash_reader, validate_selection};
 use crate::report::{
     self, AuditRef, CaseInfo, CrossCheck, Item, ItemKind, RunInfo, RunTotals, Tally, Verdict,
 };
-use crate::signature::OsVerifier;
+use crate::signature::{OsVerifier, SignatureVerifier};
 use crate::time::{utc_compact, utc_now};
 use crate::tools::{self, ToolInfo};
 use serde_json::{Value, json};
@@ -36,6 +36,29 @@ pub enum CrossCheckMode {
     /// Ask each run's own tool when it is discovered and Rakvor-signed, or given in `tool_overrides`.
     Auto,
     Off,
+}
+
+/// The signature check used for tool discovery and re-done just before a cross-check executable is run
+/// (default: the operating system's, [`OsVerifier`]).
+#[derive(Clone)]
+pub struct CrossCheckVerifier(pub std::sync::Arc<dyn SignatureVerifier>);
+
+impl CrossCheckVerifier {
+    pub fn new(v: impl SignatureVerifier + 'static) -> CrossCheckVerifier {
+        CrossCheckVerifier(std::sync::Arc::new(v))
+    }
+}
+
+impl Default for CrossCheckVerifier {
+    fn default() -> Self {
+        CrossCheckVerifier::new(OsVerifier)
+    }
+}
+
+impl std::fmt::Debug for CrossCheckVerifier {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("CrossCheckVerifier")
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -53,6 +76,8 @@ pub struct RunConfig {
     pub tool_overrides: BTreeMap<String, PathBuf>,
     /// Discovered tools for the cross-check. None = discover them now (only with `CrossCheckMode::Auto`).
     pub tools: Option<Vec<ToolInfo>>,
+    /// Signature check for discovery and for the re-check of a discovered executable before its cross-check.
+    pub signature_verifier: CrossCheckVerifier,
     /// Folders also searched (with their subfolders) when the tools are discovered now (`--add-folder`).
     pub add_folders: Vec<PathBuf>,
     pub crosscheck_timeout: Duration,
@@ -94,6 +119,7 @@ impl Default for RunConfig {
             crosscheck: CrossCheckMode::Auto,
             tool_overrides: BTreeMap::new(),
             tools: None,
+            signature_verifier: CrossCheckVerifier::default(),
             add_folders: vec![],
             crosscheck_timeout: Duration::from_secs(120),
             algorithms: vec![HashAlgo::Sha256],
@@ -525,7 +551,7 @@ fn pipeline(
         (Some(t), _) => t.clone(),
         (None, CrossCheckMode::Auto) => tools::discover(
             &tools::DiscoverOptions::from_env(cfg.add_folders.clone()),
-            &OsVerifier,
+            cfg.signature_verifier.0.as_ref(),
         ),
     };
     if cfg.crosscheck == CrossCheckMode::Auto {
@@ -1069,6 +1095,8 @@ fn crosscheck(
     }
     // Version of the executable that answers (None for --tool-exe, or when discovery could not tell).
     let mut exe_version: Option<String> = None;
+    // The discovered tool whose CLI answers (None for --tool-exe): it is re-checked against discovery below.
+    let mut discovered: Option<&ToolInfo> = None;
     let exe = if let Some(p) = cfg.tool_overrides.get(&run.tool) {
         Some(p.clone())
     } else {
@@ -1079,6 +1107,7 @@ fn crosscheck(
         match found.iter().find(|t| t.cli_signature.is_rakvor()) {
             Some(t) => {
                 exe_version = t.version.clone();
+                discovered = Some(t);
                 t.cli_exe.clone()
             }
             None => {
@@ -1117,12 +1146,76 @@ fn crosscheck(
         .map_err(io)?;
         return Ok(x);
     }
+    // A discovered executable is checked again, as the launcher does: opened (on Windows locked against writes,
+    // renames and deletes until it has run), re-hashed and compared with the hash taken at discovery, its
+    // signature re-checked, and re-hashed at its path just before the start. The GUI passes tools discovered
+    // earlier, so the file may have been replaced since.
+    let mut held = None;
+    if let Some(t) = discovered {
+        let checked = (|| -> Result<crate::launch::Locked, String> {
+            let lock = crate::launch::lock_exe(&exe)
+                .map_err(|e| format!("cannot open {}: {e}", exe.display()))?;
+            let actual = lock
+                .sha256()
+                .ok_or_else(|| format!("cannot read {}", exe.display()))?;
+            x.exe_sha256 = Some(actual.clone());
+            match &t.cli_sha256 {
+                Some(e) if e.eq_ignore_ascii_case(&actual) => {}
+                Some(e) => {
+                    return Err(format!(
+                        "its SHA-256 is now {actual}, at discovery it was {e}"
+                    ));
+                }
+                None => return Err("no SHA-256 was recorded for it at discovery".into()),
+            }
+            let sig = cfg.signature_verifier.0.verify(&exe);
+            if !sig.is_rakvor() {
+                return Err(format!("it is no longer Rakvor-signed ({})", sig.key()));
+            }
+            let now = tools::sha256_of(&exe).unwrap_or_default();
+            if !now.eq_ignore_ascii_case(&actual) {
+                return Err(format!(
+                    "it changed during the checks (SHA-256 {now} at the start)"
+                ));
+            }
+            Ok(lock)
+        })();
+        match checked {
+            Ok(lock) => held = Some(lock),
+            Err(why) => {
+                let reason = format!(
+                    "{} changed since it was discovered: {why}; it was not run",
+                    exe.display()
+                );
+                it.findings.push(
+                    Finding::of(fnd::TOOL_CHANGED_SINCE_DISCOVERY)
+                        .with("tool", run.tool.clone())
+                        .with("run", run.rel.clone())
+                        .with("exe", exe.display().to_string())
+                        .with("reason", why.clone()),
+                );
+                x.reason = Some(reason.clone());
+                it.fact("fact_crosscheck", format!("not done: {reason}"));
+                log.record(
+                    "crosscheck",
+                    Some(&run.rel),
+                    json!({"tool": run.tool, "exe": x.exe, "exe_sha256": x.exe_sha256,
+                           "discovered_sha256": t.cli_sha256, "outcome": "unavailable",
+                           "changed_since_discovery": true, "reason": reason}),
+                )
+                .map_err(io)?;
+                return Ok(x);
+            }
+        }
+    }
     let log_dir = run.log_dir(&cfg.case_dir);
     let args = [
         std::ffi::OsString::from("verify-log"),
         log_dir.clone().into_os_string(),
     ];
     let out = crate::proc::run(&exe, &args, cfg.crosscheck_timeout);
+    // Windows: the lock is held until the tool has answered.
+    drop(held);
     let (tool_verdict, reason) = match &out {
         Err(e) => (None, Some(format!("cannot start {}: {e}", exe.display()))),
         Ok(o) if o.timed_out => (
@@ -1330,6 +1423,82 @@ mod tests {
         let audit = std::fs::read_to_string(s.log_dir.join("audit.jsonl")).unwrap();
         assert!(audit.contains("\"case_not_extended\""));
         assert!(!s.case.unwrap().linked);
+    }
+
+    /// Review P1: an executable replaced after discovery is not run by the cross-check.
+    #[cfg(unix)]
+    #[test]
+    fn a_tool_replaced_since_discovery_is_not_run() {
+        use std::os::unix::fs::PermissionsExt;
+        let d = tempfile::tempdir().unwrap();
+        let case = sample_copy(d.path());
+        let bin = d.path().join("bin");
+        std::fs::create_dir_all(&bin).unwrap();
+        let exe = bin.join("rv-rsmf");
+        let write = |body: &str| {
+            std::fs::write(&exe, body).unwrap();
+            std::fs::set_permissions(&exe, std::fs::Permissions::from_mode(0o755)).unwrap();
+        };
+        write("#!/bin/sh\nexit 0\n");
+        let tool = ToolInfo {
+            tool: "rv-rsmf".into(),
+            title: "RV RSMF".into(),
+            dir: bin.clone(),
+            cli_exe: Some(exe.clone()),
+            gui_exe: None,
+            cli_sha256: tools::sha256_of(&exe),
+            gui_sha256: None,
+            sources: vec![],
+            version: Some("0.2.0".into()),
+            describe: tools::builtin("rv-rsmf").unwrap(),
+            describe_source: tools::DescribeSource::Builtin,
+            describe_problem: None,
+            cli_signature: crate::signature::SignatureStatus::SignedRakvor,
+            gui_signature: crate::signature::SignatureStatus::Unsigned,
+            warnings: vec![],
+        };
+        let mut c = cfg(&case, &d.path().join("out"));
+        c.crosscheck = CrossCheckMode::Auto;
+        c.tools = Some(vec![tool]);
+        c.signature_verifier = CrossCheckVerifier::new(crate::signature::StaticVerifier::always(
+            crate::signature::SignatureStatus::SignedRakvor,
+        ));
+
+        // Unchanged since discovery: the cross-check runs and agrees.
+        let s = run(&c, &mut |_| {}, &AtomicBool::new(false)).unwrap();
+        assert!(
+            !s.codes
+                .contains(&fnd::TOOL_CHANGED_SINCE_DISCOVERY.to_string()),
+            "{:?}",
+            s.codes
+        );
+
+        // Replaced after discovery (the GUI keeps the discovered tools): never run.
+        let marker = d.path().join("swapped-ran");
+        write(&format!(
+            "#!/bin/sh\ntouch '{}'\nexit 0\n",
+            marker.display()
+        ));
+        let s = run(&c, &mut |_| {}, &AtomicBool::new(false)).unwrap();
+        assert!(!marker.exists(), "the replaced executable was run");
+        assert!(
+            s.codes
+                .contains(&fnd::TOOL_CHANGED_SINCE_DISCOVERY.to_string()),
+            "{:?}",
+            s.codes
+        );
+        let audit = std::fs::read_to_string(s.log_dir.join("audit.jsonl")).unwrap();
+        let x: Value = audit
+            .lines()
+            .filter_map(|l| serde_json::from_str::<Value>(l).ok())
+            .find(|e| e["action"] == "crosscheck" && e["details"]["tool"] == "rv-rsmf")
+            .unwrap();
+        assert_eq!(x["details"]["outcome"], "unavailable");
+        assert_eq!(x["details"]["changed_since_discovery"], true);
+        assert_eq!(
+            x["details"]["exe_sha256"].as_str(),
+            tools::sha256_of(&exe).as_deref()
+        );
     }
 
     #[test]

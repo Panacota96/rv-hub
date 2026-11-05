@@ -428,6 +428,12 @@ With `--crosscheck auto` (`run.rs` `crosscheck`), for each run that is not the h
    their subfolders, recorded in `run_started.add_folders`); the GUI passes the tools of its Tools tab, added folders
    included;
 2. a run with no log folder (full verdict *not verifiable*) → `CROSSCHECK_UNAVAILABLE`;
+   a discovered executable (not a `--tool-exe` override) is then checked again, as at launch ([B3](#b3-launch)):
+   opened (on Windows with `FILE_SHARE_READ` only, held until it has answered), re-hashed and compared with the
+   SHA-256 taken at discovery (`ToolInfo::cli_sha256`), its signature re-checked (`SignedRakvor`), and re-hashed at
+   its path just before the start. Any difference → `TOOL_CHANGED_SINCE_DISCOVERY` (medium): it is not run, and the
+   audit log's `crosscheck` entry records `changed_since_discovery: true`, both hashes and the reason. This matters
+   in the GUI, which passes tools discovered earlier;
 3. `<exe> verify-log <CASE>/runs/<tool>/<RUN-ID>/logs`, 120 s limit. Exit 0 → *intact*, 3 → *broken*, anything
    else (other code, signal, timeout, cannot start) → `CROSSCHECK_UNAVAILABLE`;
 4. compare:

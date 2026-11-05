@@ -32,6 +32,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
   hub's other checks missed it, e.g. a timestamp token and its metadata both deleted while the `timestamp_obtained`
   entry remained), and `RUN_LOG_INTACT` is given only when the verify-log verdict is intact (so a broken case log
   no longer leaves `RUN_LOG_INTACT` on runs whose length it cannot vouch for).
+- Cross-check: a discovered tool's CLI is checked again just before it is run, as at launch (Windows lock with
+  `FILE_SHARE_READ`, re-hash compared with the discovery SHA-256, signature re-check, re-hash at the path before the
+  start). One that changed since discovery (the GUI reuses the Tools tab's inventory) is not run: new finding
+  `TOOL_CHANGED_SINCE_DISCOVERY` (medium), recorded in the audit log.
 
 ### Documentation
 - README, theory (plain-language and expert parts), admissibility (draft pending legal review), usage,

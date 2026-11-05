@@ -272,6 +272,11 @@
       "shows": "Les journaux de l'exécution %{run} n'ont pas été vérifiés aussi par %{tool} lui-même : %{reason}.",
       "does_not_prove": "Un problème quelconque de l'exécution ; la vérification propre de RV Hub reste valable."
     },
+    "TOOL_CHANGED_SINCE_DISCOVERY": {
+      "title": "Outil modifié depuis sa détection",
+      "shows": "%{tool} (%{exe}) n'est pas l'exécutable qui a été détecté et contrôlé ; il n'a donc pas été lancé pour la contre-vérification de l'exécution %{run} : %{reason}.",
+      "does_not_prove": "Que l'exécutable soit malveillant (il peut s'agir d'une mise à jour installée entre-temps), ni un problème quelconque de l'exécution ; la vérification propre de RV Hub reste valable. Détectez à nouveau les outils (onglet Outils, Actualiser) puis vérifiez à nouveau."
+    },
     "RUN_LOG_INTACT": {
       "title": "Journal de l'exécution intact",
       "shows": "Le journal d'audit de l'exécution %{run} (%{entries} entrées) est une chaîne sans rupture, reliée au journal de l'affaire comme enregistré.",

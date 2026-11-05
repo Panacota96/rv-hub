@@ -175,6 +175,7 @@ install folder, `PATH`, and the `--add-folder` folders), plus `--tool-exe` overr
 | `UNKNOWN_LOG_FORMAT` | medium | another `*.jsonl` in a run's `logs/` |
 | `TIMESTAMP_PENDING` | low | `timestamp_pending` without a later `timestamp_obtained` |
 | `CROSSCHECK_UNAVAILABLE` | info | tool not installed / not Rakvor-signed / failed / run folder missing |
+| `TOOL_CHANGED_SINCE_DISCOVERY` | medium | the discovered cross-check executable's SHA-256 differs from discovery, or it is no longer Rakvor-signed, just before its run: it is not run |
 | `RUN_LOG_INTACT` | info | a run item whose verify-log verdict is intact, with no high finding from the hub's own checks; withdrawn when the run's tool disagrees (`TOOL_VERIFY_DISAGREES`) |
 
 The hub never writes another tool's file: only `runs/rv-hub/<RUN-ID>/` and its two case-log entries
