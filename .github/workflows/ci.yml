@@ -50,10 +50,20 @@ jobs:
           python-version: "3.12"
       - name: Python helpers (independent verifiers + local test TSA/PKI for the trust tests)
         run: pip install blake3 jsonschema pyhanko
+      - name: Authenticode fixtures (Windows; throwaway test roots made now, removed at the end of the job)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        # tests/signing/make-fixtures.ps1: test root + other root (trusted), signed / unsigned / tampered /
+        # other-root copies of a tiny example program, paths exported as RV_SIGTEST_* for the next step.
+        run: |
+          cargo build --locked -q -p rv-hub-cli --example sig_fixture
+          ./tests/signing/make-fixtures.ps1 -Exe target/debug/examples/sig_fixture.exe -OutDir "$env:RUNNER_TEMP/sigtest"
       - name: Unit and integration tests (includes docs/usage-cli.md drift check and trust tests)
         shell: bash
         env:
           RV_TEST_PYTHON: python
+          # Windows: the Authenticode fixture tests must run (a missing fixture fails instead of skipping).
+          RV_SIGTEST_REQUIRED: ${{ runner.os == 'Windows' && '1' || '0' }}
         run: |
           set -o pipefail
           # Failures are also surfaced as annotations (readable through the API without downloading logs).
@@ -116,3 +126,7 @@ jobs:
             target/release/rv-hub.exe
             target/release/rv-hub-gui.exe
           retention-days: 14
+      - name: Remove the Authenticode test roots
+        if: always() && runner.os == 'Windows'
+        shell: pwsh
+        run: ./tests/signing/remove-test-roots.ps1
