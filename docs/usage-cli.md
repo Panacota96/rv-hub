@@ -289,6 +289,9 @@ DESCRIPTION:
     - %LOCALAPPDATA%\Programs\Rakvor\<tool>\ (source "install folder");
     - the folders of PATH (the five known tools only; source "PATH");
     - the folders given with --add-folder, and their subfolders (source "folder").
+  Another program named rv-* is run only from an --add-folder folder, or when it is
+  Rakvor-signed (so never from the registry, install folder or PATH where signatures cannot be
+  checked, e.g. Linux). RV Hub never runs itself.
   The same folder found twice is listed once. Each tool's own `describe --json` gives its
   version and what it accepts; it is run only for a Rakvor-signed executable (or where the
   signature cannot be checked). Older versions without `describe` are described from the

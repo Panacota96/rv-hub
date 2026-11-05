@@ -160,12 +160,14 @@ Source map (all under `src/core/src/`): discovery `tools.rs`; signature `signatu
 
 | # | Source (`Source`) | What is read | Restriction |
 | --- | --- | --- | --- |
-| 1 | `registry {app_id}` | `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\{AppId}_is1` → `InstallLocation`, `DisplayVersion`, for the five AppIds in `APP_IDS` (Windows only) | any `rv-*` in that folder |
-| 2 | `local_programs` | every direct subfolder of `%LOCALAPPDATA%\Programs\Rakvor` | any `rv-*` |
+| 1 | `registry {app_id}` | `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\{AppId}_is1` → `InstallLocation`, `DisplayVersion`, for the five AppIds in `APP_IDS` (Windows only) | the five known tools; another `rv-*` only when Rakvor-signed |
+| 2 | `local_programs` | every direct subfolder of `%LOCALAPPDATA%\Programs\Rakvor` | the five known tools; another `rv-*` only when Rakvor-signed |
 | 3 | `path` | every folder of `PATH` | **the five known tools only** (`KNOWN_TOOLS`) |
 | 4 | `user_folder` | each folder the user added, and its direct subfolders | any `rv-*` |
 
-`rv-hub` itself is excluded. When several sources find the same folder, the entry is listed once with every source
+`rv-hub` itself is excluded. A name outside `KNOWN_TOOLS` is run (`describe --json`) only from a folder the user
+added, or when its executable is Rakvor-signed; otherwise it is neither run nor listed. On Linux and macOS, where
+signatures are *not checked*, only the five known tools are run from sources 1–3. When several sources find the same folder, the entry is listed once with every source
 (the sample test finds one rv-pdfauth folder through the registry, the install folder and `PATH`). The same tool in
 two different folders gives two entries; `launch` then prefers a Rakvor-signed GUI, then the lowest source, then the
 folder name (`src/cli/src/hub.rs` `pick`).

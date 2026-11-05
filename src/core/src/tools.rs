@@ -8,6 +8,10 @@
 //! 3. `PATH` (the five known tools only: nothing else named `rv-*` is ever executed);
 //! 4. folders the user added (portable zips, a USB stick): the folder and its direct subfolders.
 //!
+//! A program named `rv-*` that is not one of the five known tools is run (`describe`) only when it was found in a
+//! folder the user added, or is Rakvor-signed (Windows): from sources 1–3 on a system where signatures cannot be
+//! checked, it is neither run nor listed. RV Hub never runs itself.
+//!
 //! `describe --json` runs with a time limit, and only for executables that are Rakvor-signed (or where the
 //! signature cannot be checked, i.e. not Windows): an executable signed by someone else is never run by the hub.
 //! When `describe` is absent (tool versions before it), fails, or reports another schema, the built-in table of
@@ -709,8 +713,21 @@ pub fn discover(opts: &DiscoverOptions, verifier: &dyn SignatureVerifier) -> Vec
                     SignatureStatus::SignedRakvor | SignatureStatus::NotChecked { .. }
                 )
         };
+        // A name outside KNOWN_TOOLS (and never the hub itself, see `tool_of`) is run only from a folder the user
+        // added, or when it is Rakvor-signed: where signatures cannot be checked (Linux), an unknown rv-* program
+        // in the install folder or under a registry key is not executed.
+        let known_name = KNOWN_TOOLS.contains(&tool.as_str());
+        let user_added = f.sources.contains(&Source::UserFolder);
         let described = match &f.cli {
             None => Err(DescribeProblem::NotRun("no command-line executable".into())),
+            Some(_)
+                if !known_name
+                    && !user_added
+                    && !matches!(cli_signature, SignatureStatus::SignedRakvor) =>
+            {
+                // Not a known tool and not described: it is not listed (no built-in entry either).
+                continue;
+            }
             Some(_) if !runnable(&cli_signature) => Err(DescribeProblem::NotRun(format!(
                 "the executable is not Rakvor-signed ({})",
                 cli_signature.key()
@@ -908,6 +925,59 @@ mod tests {
         std::fs::write(&p, format!("#!/bin/sh\n{body}\n")).unwrap();
         std::fs::set_permissions(&p, std::fs::Permissions::from_mode(0o755)).unwrap();
         p
+    }
+
+    /// Where signatures cannot be checked, an unknown rv-* program is run only from a folder the user added.
+    #[cfg(unix)]
+    #[test]
+    fn unknown_names_run_only_from_added_folders_or_when_rakvor_signed() {
+        let d = tempfile::tempdir().unwrap();
+        let lp = d.path().join("Programs/Rakvor");
+        let installed = lp.join("RV New");
+        let usb = d.path().join("usb");
+        std::fs::create_dir_all(&installed).unwrap();
+        std::fs::create_dir_all(&usb).unwrap();
+        let ran_installed = d.path().join("ran-installed");
+        let ran_usb = d.path().join("ran-usb");
+        script(
+            &installed,
+            "rv-newtool",
+            &format!("touch '{}'; exit 2", ran_installed.display()),
+        );
+        script(
+            &usb,
+            "rv-othertool",
+            &format!("touch '{}'; exit 2", ran_usb.display()),
+        );
+        let opts = |user: Vec<PathBuf>| DiscoverOptions {
+            registry: vec![RegistryEntry {
+                app_id: APP_IDS[0].app_id.into(),
+                install_location: installed.clone(),
+                display_version: None,
+            }],
+            local_programs: Some(lp.clone()),
+            path_dirs: vec![installed.clone()],
+            user_folders: user,
+            describe_timeout: Duration::from_millis(500),
+            describe_untrusted: false,
+        };
+        let not_checked = StaticVerifier::always(SignatureStatus::NotChecked {
+            reason: "test".into(),
+        });
+        assert!(discover(&opts(vec![]), &not_checked).is_empty());
+        assert!(
+            !ran_installed.exists(),
+            "an unknown rv-* program was executed"
+        );
+        discover(&opts(vec![usb.clone()]), &not_checked);
+        assert!(ran_usb.exists(), "the added folder's program is described");
+        assert!(!ran_installed.exists());
+        // Rakvor-signed (Windows): an unknown tool in the install folder is described.
+        discover(
+            &opts(vec![]),
+            &StaticVerifier::always(SignatureStatus::SignedRakvor),
+        );
+        assert!(ran_installed.exists());
     }
 
     #[cfg(unix)]
