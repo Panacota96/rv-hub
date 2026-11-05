@@ -4,6 +4,12 @@
 //! Rules: the executable must exist; it is hashed and its signature checked again at launch (it may have been
 //! replaced since discovery); anything other than `SignedRakvor` needs `confirm_untrusted = true`, and that
 //! confirmation is itself audited (`tool_untrusted_confirmed`) before the process starts.
+//!
+//! Swap between check and start (TOCTOU): on Windows the executable is opened before it is hashed with a share
+//! mode that denies write and delete to everyone else ([`lock_exe`]), and that handle is held until the process
+//! has started, so the file checked is the file started. Everywhere, the executable is hashed once more just
+//! before the start and must still have the hash that was checked. Residual window (Linux, macOS, where no lock
+//! is taken): between that last hash and the `exec`; see docs/theory.md B3.
 
 use crate::session::Session;
 use crate::signature::{OsVerifier, SignatureStatus, SignatureVerifier};
@@ -102,6 +108,52 @@ impl Spawner for DetachedSpawner {
             let _ = child.wait();
         });
         Ok(pid)
+    }
+}
+
+/// Opens `exe` for the checks. On Windows the share mode is `FILE_SHARE_READ` only: while the returned handle is
+/// open, no other process (nor this one) can open the file for writing, rename it or delete it, but it can still be
+/// read and executed (`CreateProcess` asks for read/execute access, which `FILE_SHARE_READ` allows). Elsewhere it
+/// is a plain read-only open (no lock): [`Locked::locked`] is false.
+pub fn lock_exe(exe: &Path) -> std::io::Result<Locked> {
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::OpenOptionsExt;
+        const FILE_SHARE_READ: u32 = 0x0000_0001;
+        let file = std::fs::OpenOptions::new()
+            .read(true)
+            .share_mode(FILE_SHARE_READ)
+            .open(exe)?;
+        Ok(Locked { file, locked: true })
+    }
+    #[cfg(not(windows))]
+    {
+        let file = std::fs::File::open(exe)?;
+        Ok(Locked {
+            file,
+            locked: false,
+        })
+    }
+}
+
+/// An open executable (see [`lock_exe`]); dropping it releases the lock.
+#[derive(Debug)]
+pub struct Locked {
+    file: std::fs::File,
+    /// True when other processes cannot write, rename or delete the file while this is held (Windows).
+    pub locked: bool,
+}
+
+impl Locked {
+    /// SHA-256 of the file through the held handle.
+    pub fn sha256(&self) -> Option<String> {
+        use std::io::{Seek, SeekFrom};
+        let mut f = &self.file;
+        f.seek(SeekFrom::Start(0)).ok()?;
+        crate::hash::hash_reader(f, &[crate::hash::HashAlgo::Sha256], |_| true)
+            .ok()
+            .flatten()
+            .and_then(|o| o.digests.into_iter().next().map(|(_, h)| h))
     }
 }
 
@@ -207,7 +259,11 @@ fn launch_impl(
         }
     }
     let case_text = case_dir.as_ref().map(|d| d.display().to_string());
-    let actual = crate::tools::sha256_of(&exe)
+    // Held until the process has started (Windows: nobody can replace the file meanwhile).
+    let lock = lock_exe(&exe)
+        .map_err(|e| LaunchError::MissingExe(format!("cannot open {}: {e}", exe.display())))?;
+    let actual = lock
+        .sha256()
         .ok_or_else(|| LaunchError::MissingExe(format!("cannot read {}", exe.display())))?;
     if let Some(expected) = &tool.gui_sha256 {
         if !expected.eq_ignore_ascii_case(&actual) {
@@ -218,9 +274,11 @@ fn launch_impl(
         }
     }
     let signature = verifier.verify(&exe);
+    let locked = lock.locked;
     let details = |extra: serde_json::Value| {
         let mut v = json!({"tool": tool.tool, "version": tool.version, "exe": exe.display().to_string(),
-                           "exe_sha256": actual, "signature": signature, "case_dir": case_text});
+                           "exe_sha256": actual, "signature": signature, "case_dir": case_text,
+                           "exe_locked": locked});
         if let (Some(o), Some(e)) = (v.as_object_mut(), extra.as_object()) {
             o.extend(e.clone());
         }
@@ -241,7 +299,23 @@ fn launch_impl(
         Some(d) => vec!["--case-dir".into(), d.clone().into_os_string()],
         None => vec![],
     };
-    let pid = match spawner.spawn_detached(&exe, &args) {
+    // Last check, just before the start: the file at the path still has the hash that was checked.
+    let now = crate::tools::sha256_of(&exe).unwrap_or_default();
+    if !now.eq_ignore_ascii_case(&actual) {
+        session
+            .record(
+                "tool_launch_failed",
+                details(json!({"error": "the executable changed during the launch checks", "exe_sha256_at_start": now})),
+            )
+            .map_err(audit)?;
+        return Err(LaunchError::Changed {
+            expected: actual,
+            actual: now,
+        });
+    }
+    let started = spawner.spawn_detached(&exe, &args);
+    drop(lock);
+    let pid = match started {
         Ok(p) => p,
         Err(e) => {
             session
@@ -394,6 +468,49 @@ mod tests {
         let h = tool(d.path(), "rv-hashinv");
         let new_case = d.path().join("new-case");
         assert!(launch_with(&mut s, &h, &new_case, false, &rakvor, &rec).is_ok());
+    }
+
+    /// A verifier that tries to replace the executable while it is being checked (the swap of a TOCTOU attack).
+    struct Swapper(std::sync::Mutex<Option<std::io::Result<()>>>);
+    impl SignatureVerifier for Swapper {
+        fn verify(&self, exe: &Path) -> SignatureStatus {
+            *self.0.lock().unwrap() = Some(std::fs::write(exe, b"swapped binary"));
+            SignatureStatus::SignedRakvor
+        }
+    }
+
+    #[test]
+    fn an_executable_swapped_during_the_checks_is_not_started() {
+        let d = tempfile::tempdir().unwrap();
+        let case = d.path().join("case");
+        std::fs::create_dir_all(&case).unwrap();
+        std::fs::write(case.join("case.json"), "{}").unwrap();
+        let mut s = Session::start(&d.path().join("hub"), "Ana", "test", &[]).unwrap();
+        let t = tool(d.path(), "rv-pdfauth");
+        let rec = Recorder::default();
+        let swap = Swapper(std::sync::Mutex::new(None));
+        let r = launch_with(&mut s, &t, &case, false, &swap, &rec);
+        let wrote = swap.0.lock().unwrap().take().unwrap();
+        if cfg!(windows) {
+            // Locked: the swap fails and the checked file is the one started.
+            assert!(
+                wrote.is_err(),
+                "the executable could be written during the checks"
+            );
+            assert!(r.is_ok(), "{r:?}");
+            assert_eq!(entries(&s).last().unwrap()["details"]["exe_locked"], true);
+        } else {
+            // Not locked: the swap succeeds, the re-hash before the start catches it.
+            assert!(wrote.is_ok());
+            assert!(matches!(r, Err(LaunchError::Changed { .. })), "{r:?}");
+            assert!(
+                rec.0.borrow().is_empty(),
+                "a swapped executable was started"
+            );
+            let last = entries(&s).last().unwrap().clone();
+            assert_eq!(last["action"], "tool_launch_failed");
+            assert_eq!(last["details"]["exe_locked"], false);
+        }
     }
 
     #[test]

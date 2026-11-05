@@ -532,6 +532,9 @@ FORENSIC NOTES:
     whom, and whether an untrusted build was knowingly used.
   - --yes-untrusted is for developer builds only: reports of a run made with an untrusted
     build should say so.
+  - On Windows the executable is held open with a share mode that denies writes, renames and
+    deletes from the hash until it has started. Elsewhere it is hashed once more just before the
+    start; a swap in the short window after that last hash is not excluded.
 ```
 
 ## rv-hub verify-log

@@ -281,13 +281,15 @@ the executable's folder; the hub never waits for it. Before starting it:
 1. the GUI executable must exist;
 2. for a case folder: it must not be a file, and **without `case.json` only the intake tool may open it**
    (`ToolRole::Intake`); an analysis tool is refused;
-3. the executable is hashed again; if its SHA-256 differs from the one inventoried, the launch is refused
-   (`Changed`: refresh the list);
+3. the executable is opened (on Windows with share mode `FILE_SHARE_READ` only, see below) and hashed through that
+   handle; if its SHA-256 differs from the one inventoried, the launch is refused (`Changed`: refresh the list);
 4. its signature is checked again; anything but `SignedRakvor` (including `NotChecked`) needs
    `confirm_untrusted = true`, and **`tool_untrusted_confirmed` is written to the session log before the process
    starts**;
-5. `tool_launched` records tool, version, exe path, exe SHA-256, signature status, case folder, arguments, pid and
-   `confirmed_untrusted`. A failed start records `tool_launch_failed`; the CLI records a refusal as
+5. just before the start, the file at the path is hashed once more and must still have the hash checked in step 3;
+   otherwise nothing is started, `tool_launch_failed` is recorded and the launch is refused (`Changed`);
+6. `tool_launched` records tool, version, exe path, exe SHA-256, signature status, case folder, arguments, pid,
+   `confirmed_untrusted` and `exe_locked`. A failed start records `tool_launch_failed`; the CLI records a refusal as
    `tool_launch_refused`.
 
 The session log is `<data>/logs/<SESSION-ID>/audit.jsonl` with `audit.log` and `environment.json`, where `<data>` is
@@ -295,9 +297,16 @@ The session log is `<data>/logs/<SESSION-ID>/audit.jsonl` with `audit.log` and `
 (Linux), or `RV_HUB_DATA_DIR` (`session.rs`). It uses the same chain as every run log ([B4](#b4-the-hash-chain-shared-by-every-log))
 and `rv-hub verify-log` checks it.
 
-What the hash-at-launch does not cover: the executable is hashed, then its signature is checked, then it is
-started, in three separate file accesses. A process able to replace the file in between could start a different
-file than the one hashed. The signature check is the second line of defence; the gap is small but real.
+Swap between check and start (time of check / time of use). On **Windows** the hub opens the executable before
+hashing it with share mode `FILE_SHARE_READ` only (`launch::lock_exe`) and holds that handle until `CreateProcess`
+has returned: while it is held, no process can open the file for writing, rename it or delete it, so the file
+hashed and signature-checked is the file started (`exe_locked: true`). Reading and executing stay allowed, which is
+what `WinVerifyTrust` and `CreateProcess` need. Residual window on Windows: none for the file itself; a process
+with the rights to change the folder's other files (DLLs the tool loads from its folder) is outside this check.
+On **Linux and macOS** no lock is taken (`exe_locked: false`; advisory locks do not stop a writer): the re-hash of
+step 5 detects a swap made during the checks, but a replacement in the short window between that last hash and the
+`exec` is not excluded. Signatures are not checked there either, so such a launch already needs the examiner's
+confirmation.
 
 ## B4 The hash chain shared by every log
 
