@@ -387,6 +387,7 @@
     "pdf_not_analysed": "Registered PDF files have not been analysed yet.",
     "images_not_analysed": "Registered images (JPEG, PNG, HEIC, WebP) have not been analysed yet.",
     "chats_not_converted": "Registered chat exports have not been converted to RSMF yet.",
+    "certs_not_analysed": "Registered certificates, CRLs or timestamp tokens have not been analysed yet.",
     "not_examined": "Registered items this tool accepts have not been examined by it yet.",
     "timestamp_pending": "Some runs are still waiting for their trusted timestamp: run `timestamp` when online."
   }

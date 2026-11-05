@@ -7,6 +7,7 @@
 //! | Registered PDFs not yet analysed                                 | rv-pdfauth  | `pdf_not_analysed`            |
 //! | Images (JPEG/HEIC/PNG/WebP, by signature) not yet analysed       | rv-imgauth  | `images_not_analysed`         |
 //! | Chat exports (WhatsApp .txt, Telegram JSON/HTML, .msg, CSV) not converted | rv-rsmf | `chats_not_converted` |
+//! | Certificates, CRLs or timestamp tokens (.crt .cer .der .pem .p7b .p12 .crl .tsr .tst …, or DER / PEM content) not yet analysed | rv-certcheck | `certs_not_analysed` |
 //! | Any other described tool with matching, unexamined evidence      | that tool   | `not_examined`                |
 //! | Runs whose trusted timestamp is pending                          | `timestamp` | `timestamp_pending`           |
 //!
@@ -99,6 +100,7 @@ fn reason_for(tool: &str) -> &'static str {
         "rv-pdfauth" => "pdf_not_analysed",
         "rv-imgauth" => "images_not_analysed",
         "rv-rsmf" => "chats_not_converted",
+        "rv-certcheck" => "certs_not_analysed",
         _ => "not_examined",
     }
 }
@@ -259,6 +261,8 @@ mod tests {
         let chat = w("chat.txt", b"12/03/2026, 09:14 - Ana: hola\n");
         let notes = w("notes.txt", b"just notes");
         let gone = d.path().join("gone.png");
+        let cert = w("server.crt", b"-----BEGIN CERTIFICATE-----\nMIIB\n");
+        let token = w("token.bin", b"\x30\x82\x05\x00\x30\x03");
         let cat = catalog(&[]);
         let mut v = CaseView {
             case_id: None,
@@ -274,6 +278,9 @@ mod tests {
             row("E0004", &notes, &["rv-hashinv"]),
             row("E0005", &gone, &["rv-hashinv"]),
             row("E0006", &pdf, &["rv-hashinv", "rv-pdfauth"]),
+            row("E0007", &cert, &["rv-hashinv"]),
+            row("E0008", &token, &["rv-hashinv"]),
+            row("E0009", &cert, &["rv-hashinv", "rv-certcheck"]),
         ];
         v.runs = vec![RunRow {
             tool: "rv-pdfauth".into(),
@@ -308,11 +315,12 @@ mod tests {
                 ("rv-pdfauth", "pdf_not_analysed", vec!["E0001"]),
                 ("rv-imgauth", "images_not_analysed", vec!["E0002", "E0005"]),
                 ("rv-rsmf", "chats_not_converted", vec!["E0003"]),
+                ("rv-certcheck", "certs_not_analysed", vec!["E0007", "E0008"]),
                 ("rv-pdfauth", "timestamp_pending", vec![]),
             ]
         );
-        assert_eq!(s[3].action, Action::Timestamp);
-        assert_eq!(s[3].run_dirs, ["runs/rv-pdfauth/R2"]);
+        assert_eq!(s[4].action, Action::Timestamp);
+        assert_eq!(s[4].run_dirs, ["runs/rv-pdfauth/R2"]);
     }
 
     #[test]

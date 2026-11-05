@@ -5,13 +5,13 @@
 //! 1. the uninstall registry keys `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\{AppId}_is1` of the
 //!    known AppIds ([`APP_IDS`], Windows only): `InstallLocation`, `DisplayVersion`;
 //! 2. `%LOCALAPPDATA%\Programs\Rakvor\*\rv-*.exe` (the per-user install folder of every Rakvor installer);
-//! 3. `PATH` (the four known tools only: nothing else named `rv-*` is ever executed);
+//! 3. `PATH` (the five known tools only: nothing else named `rv-*` is ever executed);
 //! 4. folders the user added (portable zips, a USB stick): the folder and its direct subfolders.
 //!
 //! `describe --json` runs with a time limit, and only for executables that are Rakvor-signed (or where the
 //! signature cannot be checked, i.e. not Windows): an executable signed by someone else is never run by the hub.
 //! When `describe` is absent (tool versions before it), fails, or reports another schema, the built-in table of
-//! the four tools is used and the inventory says so (`describe_source: builtin`, version unknown).
+//! the five tools is used and the inventory says so (`describe_source: builtin`, version unknown).
 
 use crate::hash::{HashAlgo, hash_reader};
 use crate::signature::{SignatureStatus, SignatureVerifier};
@@ -25,8 +25,14 @@ pub const SCHEMA_DESCRIBE: &str = "rakvor.describe/1";
 /// Log chains a tool may declare in `log_formats`.
 pub const LOG_AUDIT: &str = "rakvor.audit/1";
 pub const LOG_REVIEW: &str = "rakvor.review/1";
-/// The four tools RV Hub coordinates (CLI names without extension).
-pub const KNOWN_TOOLS: [&str; 4] = ["rv-hashinv", "rv-pdfauth", "rv-imgauth", "rv-rsmf"];
+/// The five tools RV Hub coordinates (CLI names without extension).
+pub const KNOWN_TOOLS: [&str; 5] = [
+    "rv-hashinv",
+    "rv-pdfauth",
+    "rv-imgauth",
+    "rv-rsmf",
+    "rv-certcheck",
+];
 pub const DEFAULT_DESCRIBE_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// An Inno Setup AppId of a Rakvor tool and what it is known to install.
@@ -45,7 +51,7 @@ pub struct KnownAppId {
 /// key names whichever of the two was installed last: the tool is identified by the executables in its
 /// InstallLocation, and a warning is attached. `{04A0C3C3-…}` is rv-imgauth's corrected AppId (plan §0.3, from
 /// 0.2.1). Tools installed under any other key are still found in `%LOCALAPPDATA%\Programs\Rakvor`.
-pub const APP_IDS: [KnownAppId; 4] = [
+pub const APP_IDS: [KnownAppId; 5] = [
     KnownAppId {
         app_id: "{6D3F3B0E-5B7A-4B2C-9E61-2A1C7D4E9F10}",
         tool: Some("rv-hashinv"),
@@ -67,6 +73,11 @@ pub const APP_IDS: [KnownAppId; 4] = [
     KnownAppId {
         app_id: "{04A0C3C3-4929-42ED-81F7-93DB361940C8}",
         tool: Some("rv-imgauth"),
+        warning: None,
+    },
+    KnownAppId {
+        app_id: "{32343DE5-B0E4-4454-8A42-A5CF82EEC9BF}",
+        tool: Some("rv-certcheck"),
         warning: None,
     },
 ];
@@ -316,6 +327,20 @@ pub fn builtin(tool: &str) -> Option<Describe> {
             "convert",
             &["txt", "json", "html", "htm", "msg", "csv"],
             vec![sig("msg", &[(0, "d0cf11e0a1b11ae1")])],
+            &[LOG_AUDIT],
+        ),
+        "rv-certcheck" => (
+            "RV CertCheck",
+            ToolRole::Analysis,
+            "analyze",
+            &[
+                "crt", "cer", "der", "pem", "p7b", "p7c", "p12", "pfx", "crl", "tsr", "tst", "key",
+                "csr",
+            ],
+            vec![
+                sig("der-sequence", &[(0, "3082")]),
+                sig("pem", &[(0, "2d2d2d2d2d424547494e")]),
+            ],
             &[LOG_AUDIT],
         ),
         _ => return None,
@@ -752,6 +777,35 @@ mod tests {
         ));
     }
 
+    /// Every installer AppId is distinct: the tools' known AppIds (only the documented rv-pdfauth / rv-imgauth
+    /// 0.2.0 sharing has no single tool) and RV Hub's own installer AppId.
+    #[test]
+    fn installer_app_ids_are_unique() {
+        let iss = std::fs::read_to_string(
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../packaging/windows/installer.iss"),
+        )
+        .unwrap();
+        let hub = iss
+            .lines()
+            .find_map(|l| l.trim().strip_prefix("AppId={"))
+            .expect("AppId in installer.iss")
+            .to_ascii_uppercase();
+        let mut ids: Vec<String> = APP_IDS
+            .iter()
+            .map(|k| k.app_id.to_ascii_uppercase())
+            .collect();
+        ids.push(hub);
+        let n = ids.len();
+        ids.sort();
+        ids.dedup();
+        assert_eq!(ids.len(), n, "duplicate AppId: {ids:?}");
+        assert!(ids.contains(&"{32343DE5-B0E4-4454-8A42-A5CF82EEC9BF}".to_string()));
+        // Every known tool except rv-pdfauth (whose AppId is the shared one) has its own key.
+        for t in KNOWN_TOOLS.iter().filter(|t| **t != "rv-pdfauth") {
+            assert!(APP_IDS.iter().any(|k| k.tool == Some(*t)), "{t}");
+        }
+    }
+
     #[test]
     fn builtin_table_matches_by_extension_and_signature() {
         let img = builtin("rv-imgauth").unwrap();
@@ -763,8 +817,21 @@ mod tests {
         assert!(builtin("rv-hashinv").unwrap().accepts.any());
         assert!(!builtin("rv-rsmf").unwrap().accepts.any());
         assert!(builtin("rv-other").is_none());
-        assert_eq!(catalog(&[]).len(), 4);
+        assert_eq!(catalog(&[]).len(), 5);
         assert_eq!(img.version, None);
+        let cert = builtin("rv-certcheck").unwrap();
+        assert_eq!(
+            (cert.title.as_str(), cert.role, cert.main_verb.as_str()),
+            ("RV CertCheck", ToolRole::Analysis, "analyze")
+        );
+        assert_eq!(cert.gui_exe, "rv-certcheck-gui.exe");
+        for name in ["a.crt", "b.P7B", "c.crl", "d.tsr", "e.pfx", "f.csr"] {
+            assert!(cert.accepts.matches_extension(name), "{name}");
+        }
+        assert!(!cert.accepts.matches_extension("g.pdf"));
+        assert!(cert.accepts.matches_content(b"\x30\x82\x03\x10"));
+        assert!(cert.accepts.matches_content(b"-----BEGIN CERTIFICATE-----"));
+        assert!(!cert.accepts.matches_content(b"%PDF-1.7"));
     }
 
     #[test]

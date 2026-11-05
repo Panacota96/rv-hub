@@ -387,6 +387,7 @@
     "pdf_not_analysed": "Des fichiers PDF enregistrés n'ont pas encore été analysés.",
     "images_not_analysed": "Des images enregistrées (JPEG, PNG, HEIC, WebP) n'ont pas encore été analysées.",
     "chats_not_converted": "Des exports de messagerie enregistrés n'ont pas encore été convertis en RSMF.",
+    "certs_not_analysed": "Les certificats, CRL ou jetons d'horodatage enregistrés n'ont pas encore été analysés.",
     "not_examined": "Des éléments enregistrés que cet outil accepte n'ont pas encore été examinés par lui.",
     "timestamp_pending": "Certaines exécutions attendent encore leur horodatage : lancez `timestamp` une fois en ligne."
   }
