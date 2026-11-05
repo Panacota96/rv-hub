@@ -500,7 +500,10 @@ fn case_summary_never_writes_into_the_case() {
     }
     assert!(text.contains("Problems: none"));
     assert!(text.contains("Suggested next steps:"));
-    assert!(text.contains("rv-hub launch rv-rsmf"), "{text}");
+    // The evidence is not at its registered paths here: notas.txt cannot be read, so it is not taken for a chat
+    // export, and every other item has been examined.
+    assert!(!text.contains("rv-hub launch rv-rsmf"), "{text}");
+    assert!(text.contains("No suggestion"), "{text}");
 
     // French text, JSON with French reasons: still nothing written.
     let fr = hub_bin(&empty, &data)
@@ -513,9 +516,37 @@ fn case_summary_never_writes_into_the_case() {
         fr.contains("Affaire SAMPLE-1") && fr.contains("juridiction : Colombie"),
         "{fr}"
     );
+    // A copy where the rv-rsmf run failed: the chat it took is no longer "examined". It is suggested again only
+    // when its content can be read (--evidence-dir) and is a WhatsApp export; notas.txt never is.
+    let failed = d.path().join("failed");
+    copy_dir(&case, &failed);
+    let log = failed.join("case-log.jsonl");
+    let text = std::fs::read_to_string(&log).unwrap();
+    let text: String = text
+        .lines()
+        .map(|l| {
+            if l.contains("\"run_finished\"") && l.contains("runs/rv-rsmf/") {
+                l.replace("\"status\":\"completed\"", "\"status\":\"failed\"")
+            } else {
+                l.to_string()
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+        + "\n";
+    std::fs::write(&log, text).unwrap();
+    let without = hub_bin(&empty, &data)
+        .args(["case", "--json", "--case-dir"])
+        .arg(&failed)
+        .output()
+        .unwrap();
+    let without: Value = serde_json::from_slice(&without.stdout).unwrap();
+    assert_eq!(without["suggestions"], serde_json::json!([]), "{without:#}");
     let out = hub_bin(&empty, &data)
         .args(["case", "--json", "--lang", "fr", "--case-dir"])
-        .arg(&case)
+        .arg(&failed)
+        .arg("--evidence-dir")
+        .arg(root().join("examples/sample/evidence"))
         .output()
         .unwrap();
     assert_eq!(out.status.code(), Some(0));
@@ -527,8 +558,17 @@ fn case_summary_never_writes_into_the_case() {
     assert_eq!(v["evidence_count"], 5);
     assert_eq!(v["runs"].as_array().unwrap().len(), 4);
     assert_eq!(v["severity"]["info"], 6);
+    assert_eq!(v["suggestions"].as_array().unwrap().len(), 1, "{v:#}");
     let s = &v["suggestions"][0];
     assert_eq!(s["reason_key"], "chats_not_converted");
+    let chat_id = v["evidence"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|e| e["file_name"] == "whatsapp-chat.txt")
+        .unwrap()["evidence_id"]
+        .clone();
+    assert_eq!(s["evidence_ids"], serde_json::json!([chat_id]));
     assert!(s["reason"].as_str().unwrap().contains("RSMF"));
     assert_ne!(
         s["reason"],

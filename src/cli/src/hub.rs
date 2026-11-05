@@ -387,6 +387,8 @@ pub struct CaseArgs {
     pub case_dir: PathBuf,
     pub json: bool,
     pub lang: String,
+    /// `--evidence-dir`: where registered evidence is now, for the suggestions.
+    pub evidence_dirs: Vec<PathBuf>,
 }
 
 fn run_status_key(s: RunStatus) -> &'static str {
@@ -459,7 +461,7 @@ pub fn case_cmd(a: &CaseArgs, catalog: &[tools::Describe], w: &mut Out) -> u8 {
         return EXIT_USAGE;
     }
     let view = rv_hub_core::case_view::read_case(&a.case_dir);
-    let suggestions = rv_hub_core::suggest::suggest(&view, catalog);
+    let suggestions = rv_hub_core::suggest::suggest_with(&view, catalog, &a.evidence_dirs);
     let code = if view.case_id.is_some() {
         EXIT_OK
     } else {

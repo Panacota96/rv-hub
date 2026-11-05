@@ -43,7 +43,7 @@ The sample in [`examples/sample/case/`](../examples/README.md) is a real case fo
 
 | Command | Reads | Never |
 | --- | --- | --- |
-| `rv-hub case`, Case tab | `case.json`, `case-log.jsonl` (with a quick chain check), `evidence/registry.json`, each run's `logs/audit.jsonl` and `reports/statistics.json`; up to 4 KiB of each evidence file at its registered path, to recognise its type for the suggestions | writes anything, anywhere (not even the session log) |
+| `rv-hub case`, Case tab | `case.json`, `case-log.jsonl` (with a quick chain check), `evidence/registry.json`, each run's `logs/audit.jsonl` and `reports/statistics.json`; up to 4 KiB of each evidence file at its registered path (or by file name in `--evidence-dir`), to recognise its type for the suggestions | writes anything, anywhere (not even the session log) |
 | `rv-hub verify`, Verify tab | all of the above, every `logs/` folder (`audit.jsonl`, `review.jsonl`, `timestamp-*`, any other `*.jsonl`), and with `--rehash` every registered evidence file in full | opens a case file for writing, except the case log (append) |
 | `rv-hub launch`, Launch buttons | whether `case.json` exists | reads or writes anything else in the case; the launched tool does its own work |
 

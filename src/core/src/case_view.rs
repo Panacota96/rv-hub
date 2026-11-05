@@ -95,7 +95,8 @@ pub struct EvidenceRow {
     pub registered_utc: String,
     pub registered_by_tool: String,
     pub registered_by_run: String,
-    /// Tools whose runs examined this item (the intake tool included), sorted.
+    /// Tools whose completed runs examined this item (the intake tool included), sorted. A failed, cancelled or
+    /// unfinished run does not count.
     pub examined_by: Vec<String>,
     /// A later registration of the same path (content changed between intakes).
     pub superseded_by: Option<String>,
@@ -279,7 +280,10 @@ pub fn read_case(dir: &Path) -> CaseView {
             Some("run_finished") => {
                 if let Some(r) = rows.iter_mut().rev().find(|r| r.run_id == rid) {
                     r.finished_utc = s(&e["ts_utc"]);
+                    // A recorded non-zero exit code is a failure whatever the status says.
+                    let exit_failed = d["exit_code"].as_i64().is_some_and(|c| c != 0);
                     r.status = match d["status"].as_str() {
+                        _ if exit_failed => RunStatus::Failed,
                         Some("completed") => RunStatus::Completed,
                         Some("cancelled") => RunStatus::Cancelled,
                         _ => RunStatus::Failed,
@@ -392,8 +396,10 @@ pub fn read_case(dir: &Path) -> CaseView {
                 .iter()
                 .find(|o| o["path"].as_str() == Some(path.as_str()))
                 .and_then(|o| s(&o["evidence_id"]));
+            // Only completed runs examined an item: a failed, cancelled, unfinished or unannounced run did not.
             let mut examined: BTreeSet<String> = rows
                 .iter()
+                .filter(|r| r.status == RunStatus::Completed)
                 .filter(|r| r.evidence_ids.iter().any(|e| e == id))
                 .map(|r| r.tool.clone())
                 .collect();

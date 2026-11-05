@@ -287,7 +287,8 @@ These are stated here so that nobody has to find them by cross-examination. Each
    otherwise), and never checks revocation
    ([theory.md B9](theory.md#b9-timestamps-what-the-hub-checks-and-what-it-does-not)).
 7. **The dashboard and suggestions are not verified.** They read the tools' reports as they are, and suggestions
-   read evidence only at its registered path.
+   read evidence at its registered path or in the `--evidence-dir` folders (CLI; the GUI's Case tab uses registered
+   paths only).
 8. **`evidence/registry.csv` is not covered** by the registry digest (only `registry.json` is).
 9. **Launch hash-then-start gap:** the executable is hashed, its signature checked and then started in separate
    accesses; a process able to swap the file in between is not excluded ([theory.md B3](theory.md#b3-launch)).
@@ -308,7 +309,7 @@ These are stated here so that nobody has to find them by cross-examination. Each
 | HG5 | No validated error rates, no per-release validation record | CO-P15, CO-P16, CO-J8, 27041, ISO-12, US-6, US-12, UK-1 | H12 sample and variants; CI | Validation report per release (17025 §7.2.2.4, SWGDE §6), independent tester, separate dataset (G6) |
 | HG6 | TSA chain validated only with `--tsa-ca`; no revocation check of the TSA certificate | EU-4, CO-L9 | Pass `--tsa-ca` with the TSA's roots; check revocation with OpenSSL or rv-certcheck ([forensic-audit.md](forensic-audit.md#timestamps)) | Offline CRL/OCSP response checking |
 | HG7 | `--tool-exe` accepts any signature | CO-P9 | Recorded as `override: true`; state it in the report | Show overrides in the statistics report |
-| HG8 | Suggestions use registered paths only | none (not a finding) | Treat suggestions as prompts | Use `--evidence-dir`-style lookup in `case` |
+| HG8 | Suggestions read registered paths, or `--evidence-dir` in the CLI only | none (not a finding) | Treat suggestions as prompts; pass `--evidence-dir` to `rv-hub case` | Evidence folder in the GUI's Case tab |
 | G1 | Not accredited (COFRAC / ONAC) | ISO-18 | State "not accredited" | Roadmap |
 | G2 | TSA not qualified, not a Colombian ECD | EU-4, EU-5, CO-L9 | `--tsa-url` to a QTSP / ECD | Dual stamping for cross-border cases |
 | G3 | Examiner's certificate is not a QES or a *firma digital* | FR-C2, FR-C3, CO-L8 | Print and publish the certificate fingerprint | Qualified / ECD certificate |

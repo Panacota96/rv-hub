@@ -525,10 +525,12 @@ problem is a line in `problems`. **The numbers come from the tools' own reports 
 shows edited numbers. Only `verify` proves integrity.
 
 "Examined by" (per evidence item): the tools whose runs list the item's evidence id (from `statistics.json`, else
-the case log's `run_started.evidence_ids`, else what the run registered), plus the tool that registered it. Every
-run counts, whatever its status (also a failed or cancelled run).
+the case log's `run_started.evidence_ids`, else what the run registered), plus the tool that registered it. Only
+**completed** runs count: a run whose `run_finished` status is not `completed`, or records a non-zero `exit_code`, is
+*failed* (or *cancelled*), and a run without `run_finished` or never announced in the case log did not examine
+anything either.
 
-`suggest::suggest(view, catalog)` returns, in this order:
+`suggest::suggest_with(view, catalog, evidence_dirs)` (`suggest::suggest` without folders) returns, in this order:
 
 | Situation | Suggestion | Reason key (`i18n/*.json` → `suggest`) |
 | --- | --- | --- |
@@ -539,15 +541,17 @@ run counts, whatever its status (also a failed or cancelled run).
 
 "Accepts" (`suggest::accepts`) uses the catalogue: each discovered tool's `describe`, completed by the built-in table
 for tools not found. An item is accepted when its **first bytes** match one of the tool's signatures (up to 4 KiB
-are read, read-only, only if the file exists at its **registered** path), or else its **extension** matches. A
-`.txt` file is a chat export only when one of its first 20 lines starts like a chat line (a date of three digit
-groups separated by `/`, `.` or `-`, optional comma, then `H:MM` or `HH:MM`, optional `[`, e.g.
-`12/03/2026, 09:14 - …`). When the file cannot be read at its registered path, `.txt` falls back to the extension
-alone.
+are read, read-only, at the file's **registered** path or, when it is not there, at `<dir>/<file name>` for each
+`rv-hub case --evidence-dir` in order), or else its **extension** matches. A `.txt` file is a chat export only by
+its **content**: one of its first 20 lines must be a WhatsApp line (`suggest::is_whatsapp_line`), Android
+`12/03/26, 09:14 - Name: text` or iOS `[12/03/26 09:14:05] Name: text` (date parts separated by `/`, `.` or `-`,
+2- or 4-digit year, optional seconds and AM/PM marker, and a sender followed by `: `). A `.txt` file that cannot be
+read is **not** suggested.
 
 Consequence seen in the sample: the registry records the paths the evidence had at intake (a temporary folder that no
-longer exists), so the hub cannot read the files, and `notas.txt` (plain notes) is suggested to rv-rsmf by extension.
-Suggestions are prompts for the examiner, not findings; they do not use `--evidence-dir`.
+longer exists), so without `--evidence-dir` the hub cannot read the files and suggests nothing for the `.txt` items;
+with `--evidence-dir examples/sample/evidence`, `whatsapp-chat.txt` is recognised and `notas.txt` (plain notes) is
+not. Suggestions are prompts for the examiner, not findings. The GUI's Case tab reads registered paths only.
 
 ## B11 Exit codes and determinism
 

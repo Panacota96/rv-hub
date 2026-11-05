@@ -110,13 +110,14 @@ Runs:
 Problems: none
 
 Suggested next steps:
-  - rv-hub launch rv-rsmf: Registered chat exports have not been converted to RSMF yet. (items: E0004)
+  No suggestion: every registered item has been examined.
 ```
 
 The numbers come from the tools' own `statistics.json`, as they are: this is a summary, not a verification. A
-suggestion is a prompt, not a finding. Here `E0004` (`notas.txt`, plain notes) is suggested to rv-rsmf only because
-its registered path no longer exists on this workstation, so the hub cannot look inside it and matches `.txt` by
-extension ([theory.md B10](theory.md#b10-the-dashboard-and-the-suggestion-rules)). Decide yourself; ignoring a
+suggestion is a prompt, not a finding. Only completed runs count as having examined an item. A `.txt` file is
+suggested to rv-rsmf only when its content is a WhatsApp export; when the evidence is no longer at its registered
+path, give its folder so the hub can look inside: `rv-hub case --case-dir D:\cases\CASE-2026-014 --evidence-dir
+F:\copies` ([theory.md B10](theory.md#b10-the-dashboard-and-the-suggestion-rules)). Decide yourself; ignoring a
 suggestion has no effect on the case.
 
 ### 2.4 Launch the analysis tools

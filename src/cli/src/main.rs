@@ -183,7 +183,11 @@ DESCRIPTION:
     - the suggested next steps, each with its reason in the --lang language: which tool
       should still examine which registered items (by extension or first bytes, using each
       installed tool's `describe`, else the built-in table), and runs whose timestamp is
-      pending.
+      pending. A .txt file is suggested to rv-rsmf only when its content is a WhatsApp export
+      (a line like \"12/03/26, 09:14 - Name: ...\" or \"[12/03/26 09:14:05] Name: ...\"). An
+      item counts as examined by a tool only through a completed run (a failed, cancelled or
+      unfinished run does not). Evidence files are read at their registered path, else by file
+      name in the --evidence-dir folders.
   This is a summary, not a verification: `rv-hub verify` checks every chain and link. --json
   prints one rakvor.hub-case/1 object (schemas/hub-case.schema.json).";
 
@@ -193,6 +197,8 @@ EXAMPLES:
     rv-hub case --case-dir E:\\CASE-014
   In French, with the tools of a portable folder for the suggestions:
     rv-hub case --case-dir E:\\CASE-014 --lang fr --add-folder E:\\rakvor-portable
+  The evidence copies are on another drive (read there to recognise their type):
+    rv-hub case --case-dir E:\\CASE-014 --evidence-dir F:\\copies
   Machine-readable:
     rv-hub case --case-dir E:\\CASE-014 --json > case.json
 
@@ -473,6 +479,13 @@ struct CaseCli {
     /// Default: off (text). Example: --json
     #[arg(long, verbatim_doc_comment)]
     json: bool,
+
+    /// Folder where registered evidence files are now, when they are not at their registered path
+    /// (looked up by file name), for the suggestions. Repeat for several.
+    ///
+    /// Default: none (only the registered paths). Example: --evidence-dir F:\copies
+    #[arg(long = "evidence-dir", value_name = "DIR", verbatim_doc_comment)]
+    evidence_dirs: Vec<PathBuf>,
 
     #[command(flatten)]
     common: HubCommon,
@@ -772,6 +785,7 @@ fn case_main(a: CaseCli) -> u8 {
         case_dir: a.case_dir,
         json: a.json,
         lang: a.common.lang,
+        evidence_dirs: a.evidence_dirs,
     };
     with_out(|w| hub::case_cmd(&args, &catalog, w))
 }
