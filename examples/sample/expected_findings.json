@@ -11,7 +11,7 @@
     "case_log_line_edited": {
       "args": [],
       "exit": 3,
-      "codes": {"CASE_LOG_BROKEN": 1, "RUN_LOG_INTACT": 4}
+      "codes": {"CASE_LOG_BROKEN": 1}
     },
     "run_audit_entry_edited": {
       "args": [],

@@ -104,14 +104,16 @@ in `src/core/src/findings.rs` (`CODES`). The parameters in `%{…}` are filled p
 | `UNKNOWN_LOG_FORMAT` | medium | a `*.jsonl` file in a run's `logs/` other than `audit.jsonl` and `review.jsonl` | Run %{run} holds %{file}, a log RV Hub does not know how to verify. | That the file was tampered with or is harmless; it is simply not checked. |
 | `TIMESTAMP_PENDING` | low | a run's log has `timestamp_pending` and no later `timestamp_obtained` | Run %{run} has no RFC 3161 timestamp yet: the authority could not be reached when the run finished. | That the log is wrong; until a timestamp is added with `timestamp`, nothing outside the case proves when the log existed. |
 | `CROSSCHECK_UNAVAILABLE` | info | `--crosscheck auto`, and the tool is not installed, not Rakvor-signed, or its `verify-log` could not answer (timeout, other exit code), or the run has no logs | The logs of run %{run} were not also verified by %{tool} itself: %{reason}. | Any problem with the run; RV Hub's own verification of the run still applies. |
-| `RUN_LOG_INTACT` | info | a run item with no high finding from the hub's own checks; withdrawn when the run's tool disagrees (`TOOL_VERIFY_DISAGREES`) | The audit log of run %{run} (%{entries} entries) is an unbroken chain, linked to the case log as recorded. | That the analysis results are correct or the evidence authentic; only that the record of the run was not altered since it was written. |
+| `RUN_LOG_INTACT` | info | a run item whose full `verify-log` verdict is intact, with no high finding from the hub's own checks; withdrawn when the run's tool disagrees (`TOOL_VERIFY_DISAGREES`) | The audit log of run %{run} (%{entries} entries) is an unbroken chain, linked to the case log as recorded. | That the analysis results are correct or the evidence authentic; only that the record of the run was not altered since it was written. |
 
 Notes for the reader of a report:
 
 - `RUN_LOG_INTACT` and `TOOL_VERIFY_DISAGREES` never appear on the same run: when the run's own tool disagrees
   with the hub, the run is not reported intact (and not counted in `runs_intact`). Read every code of the item.
-- When the case log is broken, the runs can still be `RUN_LOG_INTACT` (their own chains and links are checked), but
-  their full `verify-log` verdict is *broken*, because a broken case log cannot vouch for their length.
+- `RUN_LOG_INTACT` is given only when the run's full `verify-log` verdict is *intact*; every `verify-log` problem is
+  a `RUN_LOG_BROKEN` (e.g. a `timestamp_obtained` entry whose token and metadata were both deleted).
+- When the case log is broken, the runs' full `verify-log` verdict is *broken*, because a broken case log cannot
+  vouch for their length: that is reported once, as `CASE_LOG_BROKEN`, and those runs get no `RUN_LOG_INTACT`.
 - A matching evidence file gives **no** finding; the statistics report counts it (`evidence_matched`).
 
 ### Tool inventory (`rv-hub tools`, the Tools tab)

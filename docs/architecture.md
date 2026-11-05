@@ -166,7 +166,7 @@ install folder, `PATH`, and the `--add-folder` folders), plus `--tool-exe` overr
 | Code | Severity | Raised when |
 | --- | --- | --- |
 | `CASE_LOG_BROKEN` | high | case-log chain, case.json digest, registry digest, or run_finished without run_started |
-| `RUN_LOG_BROKEN` | high | run audit chain, case_linked link, run_finished head, entries after run_finished, timestamp token, or the run folder missing |
+| `RUN_LOG_BROKEN` | high | run audit chain, case_linked link, run_finished head, entries after run_finished, timestamp token (including a `timestamp_obtained` entry whose token and metadata were deleted), any other verify-log problem, or the run folder missing |
 | `REVIEW_LOG_BROKEN` | high | `review.jsonl` chain or anchor (to this run's run_finished) |
 | `RUN_NOT_IN_CASE_LOG` | high | a run folder the case log never announced |
 | `TOOL_VERIFY_DISAGREES` | high | the run's own tool's verify-log differs from both hub verdicts |
@@ -175,7 +175,7 @@ install folder, `PATH`, and the `--add-folder` folders), plus `--tool-exe` overr
 | `UNKNOWN_LOG_FORMAT` | medium | another `*.jsonl` in a run's `logs/` |
 | `TIMESTAMP_PENDING` | low | `timestamp_pending` without a later `timestamp_obtained` |
 | `CROSSCHECK_UNAVAILABLE` | info | tool not installed / not Rakvor-signed / failed / run folder missing |
-| `RUN_LOG_INTACT` | info | a run item with no high finding from the hub's own checks; withdrawn when the run's tool disagrees (`TOOL_VERIFY_DISAGREES`) |
+| `RUN_LOG_INTACT` | info | a run item whose verify-log verdict is intact, with no high finding from the hub's own checks; withdrawn when the run's tool disagrees (`TOOL_VERIFY_DISAGREES`) |
 
 The hub never writes another tool's file: only `runs/rv-hub/<RUN-ID>/` and its two case-log entries
 (`role: analysis`, `purpose: verification`). The case log is hashed as found, before those entries; since it is

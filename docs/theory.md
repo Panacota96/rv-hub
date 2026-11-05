@@ -391,7 +391,8 @@ problem:
 | Pending timestamp | `timestamp_pending` without a later `timestamp_obtained` → `TIMESTAMP_PENDING` (low) |
 | Review log | when `logs/review.jsonl` exists: each `seq` is 1, 2, …; entry #1 holds the `anchor_seq` / `anchor_hash` of this run's `run_finished`; every entry names this run; every `prev_entry_hash` links; every `entry_hash` matches → otherwise `REVIEW_LOG_BROKEN` (high) |
 | Unknown logs | any other `*.jsonl` in `logs/` → `UNKNOWN_LOG_FORMAT` (medium); it is not checked |
-| Intact | when the run item has no high finding at this point → `RUN_LOG_INTACT` (info) |
+| Verify-log | `verify::verify_log` (the rules of `<tool> verify-log`, including every `timestamp_obtained` entry's token still present with its recorded SHA-256): each of its problems the checks above did not already report → `RUN_LOG_BROKEN`, except "the case log is broken: it cannot vouch for this log's length", which is the case log's `CASE_LOG_BROKEN` (the run then gets neither code). A run whose verdict is not intact never gets `RUN_LOG_INTACT` |
+| Intact | when the verify-log verdict is intact and the run item has no high finding at this point → `RUN_LOG_INTACT` (info) |
 
 Note on ordering: `RUN_LOG_INTACT` is decided before the cross-check; when the cross-check then raises
 `TOOL_VERIFY_DISAGREES` for the run, `RUN_LOG_INTACT` is withdrawn and the run is not counted in `runs_intact` (the

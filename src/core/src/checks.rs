@@ -329,6 +329,7 @@ pub fn check_run(
 
     // The verify-log verdict: the same function `<tool> verify-log` runs (chain, timestamps, truncation against
     // the case log, review log).
+    let mut verifier_problems: Vec<String> = Vec::new();
     let verdict = match crate::verify::verify_log_with(&audit_path, tsa_anchors) {
         Ok(v) => {
             if !v.truncation.is_empty() {
@@ -343,14 +344,36 @@ pub fn check_run(
                 for p in &v.problems {
                     item.fact("fact_problem", p.clone());
                 }
+                verifier_problems.extend(v.problems.iter().cloned());
                 Verdict::Broken
             }
         }
         Err(e) => {
-            item.fact("fact_problem", e);
+            item.fact("fact_problem", e.clone());
+            verifier_problems.push(e);
             Verdict::Broken
         }
     };
+    // Every verify-log problem is a finding (high): the checks above report most of them already (chain,
+    // timestamp tokens, review log); the rest — e.g. a `timestamp_obtained` entry whose token and metadata were
+    // both deleted — would otherwise be only a fact next to RUN_LOG_INTACT. Exception: "the case log is broken,
+    // it cannot vouch for this log's length" is the case log's problem, raised once as CASE_LOG_BROKEN on the
+    // case-log item; the run then has no RUN_LOG_INTACT either (its verdict is broken).
+    let case_log_broken = audit::verify(&dir.join(CASE_LOG)).is_err();
+    for p in verifier_problems {
+        if case_log_broken && p.ends_with(crate::verify::CASE_LOG_CANNOT_VOUCH) {
+            continue;
+        }
+        let review = p.strip_prefix("review.jsonl: ").unwrap_or(&p);
+        let reported = item.findings.iter().any(|x| {
+            x.params
+                .get("problem")
+                .is_some_and(|q| q.contains(p.as_str()) || q.contains(review))
+        });
+        if !reported {
+            item.findings.push(broken(p));
+        }
+    }
     item.fact("fact_verify_log", verdict_text(verdict));
     item.verdict = Some(verdict);
     // Chain level: what every tool's verify-log checks (the truncation check against the case log came later).
@@ -362,7 +385,8 @@ pub fn check_run(
     } else {
         Verdict::Broken
     });
-    if !item.has_high() {
+    // Intact only when the verify-log verdict is intact and nothing high was found.
+    if verdict == Verdict::Intact && !item.has_high() {
         let n = audit::verify(&audit_path).unwrap_or(0);
         item.findings.push(
             Finding::of(f::RUN_LOG_INTACT)
@@ -536,5 +560,65 @@ mod tests {
         assert!(it.findings.iter().any(|f| f.code == "REVIEW_LOG_BROKEN"));
         assert!(!it.findings.iter().any(|f| f.code == "RUN_LOG_INTACT"));
         assert_eq!(it.verdict, Some(Verdict::Broken));
+    }
+
+    /// Review P1: the timestamp metadata JSON and its token file are both deleted from an otherwise intact run.
+    /// Only the retained `timestamp_obtained` entry shows it; that must be a high finding, never RUN_LOG_INTACT.
+    #[test]
+    fn deleted_timestamp_token_and_metadata_is_broken() {
+        let d = tempfile::tempdir().unwrap();
+        let dir = d.path();
+        let w = case::Writer {
+            tool: "rv-rsmf".into(),
+            version: "1".into(),
+            run_id: "R1".into(),
+            actor: "t".into(),
+        };
+        case::Case::open_or_create(dir, Some("C-1"), "co", &w).unwrap();
+        let c = case::Case::open(dir).unwrap();
+        let (_, head) = c
+            .append(
+                &w,
+                "run_started",
+                json!({"tool": "rv-rsmf", "run_dir": "runs/rv-rsmf/R1"}),
+            )
+            .unwrap();
+        let logs = dir.join("runs/rv-rsmf/R1/logs");
+        let mut log = audit::AuditLog::create(&logs, "R1", "t").unwrap();
+        log.record("run_started", None, json!({})).unwrap();
+        log.record(
+            "case_linked",
+            None,
+            json!({"case_id": "C-1", "case_log_head_at_start": head}),
+        )
+        .unwrap();
+        log.record("run_finished", None, json!({})).unwrap();
+        c.append(
+            &w,
+            "run_finished",
+            json!({"status": "completed", "audit_entries": 3, "audit_head": log.head()}),
+        )
+        .unwrap();
+        // The token was obtained (entry kept) and then timestamp-0003.tsr + timestamp-0003.json were deleted.
+        log.record(
+            "timestamp_obtained",
+            Some("timestamp-0003.tsr"),
+            json!({"file": "timestamp-0003.tsr", "token_sha256": "ab".repeat(32), "covers_seq": 3}),
+        )
+        .unwrap();
+
+        let entries = read_entries(&dir.join(CASE_LOG));
+        let run = &runs_of_case(dir, &entries)[0];
+        let mut it = Item::new(2, ItemKind::Run, run.rel.clone(), logs.join("audit.jsonl"));
+        check_run(dir, "C-1", run, None, &mut it);
+        assert_eq!(it.verdict, Some(Verdict::Broken));
+        assert!(it.has_high(), "{:?}", it.findings);
+        assert!(
+            it.findings.iter().any(|f| f.code == "RUN_LOG_BROKEN"
+                && f.params["problem"].contains("timestamp-0003.tsr")),
+            "{:?}",
+            it.findings
+        );
+        assert!(!it.findings.iter().any(|f| f.code == "RUN_LOG_INTACT"));
     }
 }

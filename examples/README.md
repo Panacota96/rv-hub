@@ -67,7 +67,7 @@ rv-hub verify --case-dir /tmp/variants/run_unlinked/case --evidence-dir /tmp/var
 | Variant | What was changed | Expected codes | Exit |
 | --- | --- | --- | :-: |
 | `clean` (with `--rehash`) | nothing | `RUN_LOG_INTACT` ×4 | 0 |
-| `case_log_line_edited` | the actor of rv-pdfauth's `run_started` in the case log | `CASE_LOG_BROKEN`, `RUN_LOG_INTACT` ×4 | 3 |
+| `case_log_line_edited` | the actor of rv-pdfauth's `run_started` in the case log | `CASE_LOG_BROKEN` (no `RUN_LOG_INTACT`: the case log cannot vouch for the runs' length) | 3 |
 | `run_audit_entry_edited` | the actor of rv-pdfauth's `run_started` in its audit log | `RUN_LOG_BROKEN`, `RUN_LOG_INTACT` ×3 | 3 |
 | `run_folder_deleted` | the rv-pdfauth run folder removed | `RUN_LOG_BROKEN`, `RUN_LOG_INTACT` ×3 | 3 |
 | `run_unlinked` | the last run's entries removed from the case log, which is re-chained | `RUN_NOT_IN_CASE_LOG`, `RUN_LOG_INTACT` ×3 | 3 |

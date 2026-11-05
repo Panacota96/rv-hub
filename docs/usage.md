@@ -183,7 +183,7 @@ The same case with tampering, from `tests/samples/make_tampered.py` (expected co
 | Variant | Codes | Exit |
 | --- | --- | :-: |
 | clean, `--rehash` | `RUN_LOG_INTACT` ×4 | 0 |
-| a case-log line edited | `CASE_LOG_BROKEN`, `RUN_LOG_INTACT` ×4 | 3 |
+| a case-log line edited | `CASE_LOG_BROKEN` (the runs: no code; the case log cannot vouch for their length) | 3 |
 | an audit entry of the rv-pdfauth run edited | `RUN_LOG_BROKEN`, `RUN_LOG_INTACT` ×3 | 3 |
 | the rv-pdfauth run folder deleted | `RUN_LOG_BROKEN`, `RUN_LOG_INTACT` ×3 | 3 |
 | the last run removed from the case log (re-chained) | `RUN_NOT_IN_CASE_LOG`, `RUN_LOG_INTACT` ×3 | 3 |

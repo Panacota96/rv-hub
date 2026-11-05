@@ -198,6 +198,10 @@ pub fn verify_log_with(
     Ok(v)
 }
 
+/// End of the verify-log problem raised when the case log's own chain is broken (it is the case log's problem,
+/// reported by the hub as `CASE_LOG_BROKEN`).
+pub const CASE_LOG_CANNOT_VOUCH: &str = "it cannot vouch for this log's length";
+
 /// Compares the end of the run's log with run_finished in the case log.
 fn case_anchor(
     case: &Path,
@@ -209,7 +213,7 @@ fn case_anchor(
     let case_log = case.join(CASE_LOG);
     if audit::verify(&case_log).is_err() {
         v.problems.push(format!(
-            "{} is broken (run verify-case): it cannot vouch for this log's length",
+            "{} is broken (run verify-case): {CASE_LOG_CANNOT_VOUCH}",
             case_log.display()
         ));
         return;

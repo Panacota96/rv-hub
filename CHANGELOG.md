@@ -27,6 +27,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
   signing-certificate, message digest, RSA signature, timeStamping key usage), and with `--tsa-ca` (`verify-log`,
   `verify`) the TSA certificate chain at genTime; without it the output says "chain not checked".
 
+### Fixed
+- `rv-hub verify`: every verify-log problem of a run is a `RUN_LOG_BROKEN` finding (it was only a fact when the
+  hub's other checks missed it, e.g. a timestamp token and its metadata both deleted while the `timestamp_obtained`
+  entry remained), and `RUN_LOG_INTACT` is given only when the verify-log verdict is intact (so a broken case log
+  no longer leaves `RUN_LOG_INTACT` on runs whose length it cannot vouch for).
+
 ### Documentation
 - README, theory (plain-language and expert parts), admissibility (draft pending legal review), usage,
   installation (SmartScreen, signatures against the Rakvor root, hub data folder, planned Rakvor Suite installer),
