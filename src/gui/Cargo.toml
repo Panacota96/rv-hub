@@ -19,7 +19,17 @@ path = "src/lib.rs"
 rv-hub-core.workspace = true
 eframe.workspace = true
 serde_json.workspace = true
+serde.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+# The headless screenshot example writes PNGs.
+png = "0.18"
 
 # Native file/folder pickers on Windows (no GTK/portal dependency elsewhere: a text field is used instead).
 [target.'cfg(windows)'.dependencies]
 rfd.workspace = true
+
+# Icon + version details in the Windows .exe (build.rs; does nothing on other platforms).
+[build-dependencies]
+winresource = "0.1"
