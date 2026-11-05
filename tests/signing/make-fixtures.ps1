@@ -96,7 +96,8 @@ try {
     $expect = @{ signed = 'Valid'; unsigned = 'NotSigned'; tampered = 'HashMismatch'; other = 'Valid'; embedded = $null }
     foreach ($n in 'signed', 'unsigned', 'tampered', 'other', 'embedded') {
         $sig = Get-AuthenticodeSignature -FilePath $f[$n]
-        Write-Note "$n.exe: $($sig.Status) ($($sig.StatusMessage)) signer=$($sig.SignerCertificate.Subject)"
+        $signer = if ($sig.SignerCertificate) { $sig.SignerCertificate.Subject } else { 'none' }
+        Write-Note "$n.exe: $($sig.Status) ($($sig.StatusMessage)) signer=$signer"
         if ($expect[$n] -and "$($sig.Status)" -ne $expect[$n]) {
             throw "$n.exe: Get-AuthenticodeSignature says $($sig.Status), expected $($expect[$n])"
         }
