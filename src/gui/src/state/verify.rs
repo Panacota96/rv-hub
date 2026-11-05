@@ -1,15 +1,51 @@
-//! Everything the window shows and every rule it enforces, without any drawing code.
-//! Kept separate from `app.rs` so it can be unit-tested headless (CI has no display).
-//!
-//! Core-engineer stage: the window offers the main verb (whole-case verification) only; the GUI stage adds the
-//! Tools and Case tabs on top of `rv_hub_core::{tools, case_view, suggest, launch}`.
+//! The Verify tab: options of the main verb (whole-case verification), the run's progress and its per-item
+//! results. The options changed here are recorded as `ui_*` actions; they become the verification run's audit
+//! preamble (as in every Rakvor tool) and are also copied to the hub session log by [`super::HubState`].
 
+use rv_hub_core::report::ItemKind;
 use rv_hub_core::{
     CrossCheckMode, Event, HashAlgo, RunConfig, TOOL_NAME, TOOL_VERSION, hash, i18n,
     time::human_duration,
 };
 use serde_json::{Value, json};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+
+/// One row of the results table: the case log, a run folder or a re-hashed evidence file.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ItemLine {
+    pub index: u64,
+    pub kind: ItemKind,
+    /// "case-log.jsonl", "rv-pdfauth / <RUN-ID>", or the evidence file name.
+    pub label: String,
+    /// "running" until finished, then the item verdict: "ok" | "attention" | "problem".
+    pub status: String,
+    pub findings: Vec<String>,
+}
+
+/// Which kind of item `path` (as the core reports it) is, and its label, for a run on `case_dir`.
+pub fn classify_item(case_dir: &Path, path: &str) -> (ItemKind, String) {
+    let p = Path::new(path);
+    let name = p
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_else(|| path.to_string());
+    let case_dir = rv_hub_core::case::normalize(case_dir);
+    let norm = rv_hub_core::case::normalize(p);
+    if norm == case_dir.join(rv_hub_core::case::CASE_LOG) {
+        return (ItemKind::CaseLog, name);
+    }
+    // <case>/runs/<tool>/<RUN-ID>/logs/audit.jsonl
+    if let Ok(rel) = norm.strip_prefix(case_dir.join("runs")) {
+        let parts: Vec<String> = rel
+            .components()
+            .map(|c| c.as_os_str().to_string_lossy().into_owned())
+            .collect();
+        if parts.len() == 4 && parts[2] == "logs" {
+            return (ItemKind::Run, format!("{} / {}", parts[0], parts[1]));
+        }
+    }
+    (ItemKind::Evidence, name)
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Phase {
@@ -81,6 +117,8 @@ pub struct GuiState {
     pub case_dir: String,
     /// Finding codes of the last finished verification.
     pub codes: Vec<String>,
+    /// Per-item results of the current or last verification.
+    pub items: Vec<ItemLine>,
 }
 
 impl Default for GuiState {
@@ -108,6 +146,7 @@ impl Default for GuiState {
             sign_password: String::new(),
             case_dir: String::new(),
             codes: vec![],
+            items: vec![],
         }
     }
 }
@@ -381,6 +420,7 @@ impl GuiState {
         self.warnings.clear();
         self.outcome = None;
         self.codes.clear();
+        self.items.clear();
         // Recorded actions now belong to this run's audit log.
         self.ui_actions.clear();
     }
@@ -395,8 +435,40 @@ impl GuiState {
                 self.progress.total = *total_items;
                 self.progress.bytes_total = *total_bytes;
             }
-            Event::ItemStarted { path, .. } => self.current_item = path.clone(),
-            Event::ItemFinished { findings, .. } => {
+            Event::ItemStarted { index, path, .. } => {
+                self.current_item = path.clone();
+                let (kind, label) = classify_item(Path::new(self.case_dir.trim()), path);
+                self.items.retain(|i| i.index != *index);
+                self.items.push(ItemLine {
+                    index: *index,
+                    kind,
+                    label,
+                    status: "running".into(),
+                    findings: vec![],
+                });
+            }
+            Event::ItemFinished {
+                index,
+                path,
+                status,
+                findings,
+            } => {
+                match self.items.iter_mut().find(|i| i.index == *index) {
+                    Some(i) => {
+                        i.status = status.clone();
+                        i.findings = findings.clone();
+                    }
+                    None => {
+                        let (kind, label) = classify_item(Path::new(self.case_dir.trim()), path);
+                        self.items.push(ItemLine {
+                            index: *index,
+                            kind,
+                            label,
+                            status: status.clone(),
+                            findings: findings.clone(),
+                        });
+                    }
+                }
                 for f in findings {
                     if !self.codes.contains(f) {
                         self.codes.push(f.clone());
