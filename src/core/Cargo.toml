@@ -41,5 +41,9 @@ sha2-legacy = { workspace = true, features = ["oid"] }
 windows.workspace = true
 winreg.workspace = true
 
+# Unix: the process group of a timed-out child is killed (proc.rs).
+[target.'cfg(unix)'.dependencies]
+nix.workspace = true
+
 [dev-dependencies]
 tempfile.workspace = true

@@ -193,7 +193,9 @@ Then, per entry:
    executed; on Linux, where nothing can be checked, executables in the scanned folders are executed;
 3. the answer must be `rakvor.describe/1` JSON with a non-empty `version`, an `rv-*` tool name equal to the file's,
    and `rakvor.audit/1` among `log_formats` (`parse_describe`); unknown extra fields are kept;
-4. timeout 10 s (`DEFAULT_DESCRIBE_TIMEOUT`);
+4. timeout 10 s (`DEFAULT_DESCRIBE_TIMEOUT`). The limit (`proc::run`) covers the whole call, reading the output
+   included: a program whose descendants keep its stdout/stderr open past it counts as timed out, and on Linux and
+   macOS the program is started in its own process group, which is killed as a whole;
 5. if `describe` is not run, fails, times out or is invalid, the **built-in table** (`builtin`) describes the tool,
    `describe_source` is `builtin`, the version falls back to the registry's `DisplayVersion` or stays unknown, and
    the reason is kept in `describe_problem`. An unknown `rv-*` program without a valid `describe` is dropped.
@@ -434,7 +436,7 @@ With `--crosscheck auto` (`run.rs` `crosscheck`), for each run that is not the h
    its path just before the start. Any difference → `TOOL_CHANGED_SINCE_DISCOVERY` (medium): it is not run, and the
    audit log's `crosscheck` entry records `changed_since_discovery: true`, both hashes and the reason. This matters
    in the GUI, which passes tools discovered earlier;
-3. `<exe> verify-log <CASE>/runs/<tool>/<RUN-ID>/logs`, 120 s limit. Exit 0 → *intact*, 3 → *broken*, anything
+3. `<exe> verify-log <CASE>/runs/<tool>/<RUN-ID>/logs`, 120 s limit (the whole call, as for `describe`). Exit 0 → *intact*, 3 → *broken*, anything
    else (other code, signal, timeout, cannot start) → `CROSSCHECK_UNAVAILABLE`;
 4. compare:
 

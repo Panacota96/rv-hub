@@ -36,6 +36,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
   `FILE_SHARE_READ`, re-hash compared with the discovery SHA-256, signature re-check, re-hash at the path before the
   start). One that changed since discovery (the GUI reuses the Tools tab's inventory) is not run: new finding
   `TOOL_CHANGED_SINCE_DISCOVERY` (medium), recorded in the audit log.
+- `describe --json` and `verify-log` time limits cover the reading of the output too: a descendant that keeps the
+  pipes open after the program exits no longer delays the hub past the limit (it is reported as a timeout). On Linux
+  and macOS the program runs in its own process group, killed as a whole on timeout (new Unix-only dependency
+  `nix`, `signal` feature, already in the dependency tree).
 
 ### Documentation
 - README, theory (plain-language and expert parts), admissibility (draft pending legal review), usage,

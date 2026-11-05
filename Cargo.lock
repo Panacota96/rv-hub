@@ -3390,6 +3390,7 @@ dependencies = [
  "digest 0.11.3",
  "md-5",
  "minijinja",
+ "nix",
  "p12-keystore",
  "rsa",
  "serde",

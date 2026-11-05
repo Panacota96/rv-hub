@@ -47,6 +47,8 @@ sha2-legacy = { package = "sha2", version = "0.10" }
 # Windows only (RV Hub): Authenticode check (WinVerifyTrust + signer chain) and the uninstall registry.
 windows = { version = "0.62", features = ["Win32_Foundation", "Win32_Security_WinTrust", "Win32_Security_Cryptography", "Win32_Security_Cryptography_Catalog", "Win32_Security_Cryptography_Sip"] }
 winreg = "0.55"
+# Unix: kill the process group of a timed-out child (proc.rs). Already in the tree via ctrlc.
+nix = { version = "0.31", default-features = false, features = ["signal"] }
 tempfile = "3"
 assert_cmd = "2"
 predicates = "3"
