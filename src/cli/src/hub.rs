@@ -4,7 +4,6 @@
 //! the `reason` text of each suggestion (the `reason_key` is stable).
 
 use rv_hub_core::case_view::{CaseView, RunStatus, TimestampStatus};
-use rv_hub_core::findings::Severity;
 use rv_hub_core::launch::{LaunchError, Spawner, launch_with};
 use rv_hub_core::session::Session;
 use rv_hub_core::signature::{SignatureStatus, SignatureVerifier, rakvor_root_sha256};
@@ -148,7 +147,12 @@ fn signature_json(s: &SignatureStatus) -> Value {
     serde_json::to_value(s).unwrap_or(Value::Null)
 }
 
-fn exe_json(tool: &ToolInfo, exe: &Option<PathBuf>, sha: &Option<String>, s: &SignatureStatus) -> Value {
+fn exe_json(
+    tool: &ToolInfo,
+    exe: &Option<PathBuf>,
+    sha: &Option<String>,
+    s: &SignatureStatus,
+) -> Value {
     match exe {
         None => Value::Null,
         Some(p) => json!({
@@ -247,10 +251,16 @@ pub fn tools_cmd(
         w.line(&serde_json::to_string_pretty(&doc).unwrap_or_default());
     } else {
         let mut rows = vec![
-            ["col_tool", "col_version", "col_source", "col_signature", "col_path"]
-                .iter()
-                .map(|k| t(lang, k))
-                .collect::<Vec<_>>(),
+            [
+                "col_tool",
+                "col_version",
+                "col_source",
+                "col_signature",
+                "col_path",
+            ]
+            .iter()
+            .map(|k| t(lang, k))
+            .collect::<Vec<_>>(),
         ];
         for tool in found {
             let mut src: Vec<String> = tool
@@ -456,7 +466,10 @@ pub fn case_cmd(a: &CaseArgs, catalog: &[tools::Describe], w: &mut Out) -> u8 {
         EXIT_ERROR
     };
     if a.json {
-        w.line(&serde_json::to_string_pretty(&case_json(&view, &suggestions, lang)).unwrap_or_default());
+        w.line(
+            &serde_json::to_string_pretty(&case_json(&view, &suggestions, lang))
+                .unwrap_or_default(),
+        );
         return code;
     }
     let none = t(lang, "none");
@@ -621,7 +634,8 @@ pub fn launch_cmd(
     w: &mut Out,
 ) -> u8 {
     let lang = a.lang.as_str();
-    let known = tools::KNOWN_TOOLS.contains(&a.tool.as_str()) || found.iter().any(|t| t.tool == a.tool);
+    let known =
+        tools::KNOWN_TOOLS.contains(&a.tool.as_str()) || found.iter().any(|t| t.tool == a.tool);
     if !known {
         w.eline(&tr(
             lang,
@@ -637,13 +651,23 @@ pub fn launch_cmd(
         w.eline(&tr(lang, "launch_not_found", &[("tool", a.tool.clone())]));
         return EXIT_ERROR;
     };
-    match launch_with(session, tool, &a.case_dir, a.yes_untrusted, verifier, spawner) {
+    match launch_with(
+        session,
+        tool,
+        &a.case_dir,
+        a.yes_untrusted,
+        verifier,
+        spawner,
+    ) {
         Ok(l) => {
             if !l.signature.is_rakvor() {
                 w.eline(&tr(
                     lang,
                     "launch_untrusted",
-                    &[("tool", l.tool.clone()), ("status", sig_label(lang, &l.signature))],
+                    &[
+                        ("tool", l.tool.clone()),
+                        ("status", sig_label(lang, &l.signature)),
+                    ],
                 ));
             }
             w.line(&tr(
@@ -651,7 +675,10 @@ pub fn launch_cmd(
                 "launch_ok",
                 &[
                     ("tool", l.tool.clone()),
-                    ("version", l.version.clone().unwrap_or_else(|| t(lang, "unknown"))),
+                    (
+                        "version",
+                        l.version.clone().unwrap_or_else(|| t(lang, "unknown")),
+                    ),
                     ("pid", l.pid.to_string()),
                     ("case", l.case_dir.display().to_string()),
                 ],
@@ -730,12 +757,6 @@ pub fn describe() -> Value {
             "130": "Cancelled with Ctrl+C; partial reports and the cancellation are in the audit log."
         }
     })
-}
-
-/// Severity order for display (unused keys keep the import honest for future columns).
-#[allow(dead_code)]
-fn severity_rank(s: Severity) -> u8 {
-    s as u8
 }
 
 /// Hashes of every file under `dir` (relative path → SHA-256): used by tests and by `case` callers to prove
