@@ -7,8 +7,17 @@ cargo build --workspace                 # debug build of core, CLI and GUI
 cargo test  --workspace                 # unit + integration tests (GUI tests are headless)
 cargo clippy --workspace --all-targets -- -D warnings
 cargo fmt --all -- --check
-cargo run -p rv-hub-cli -- scan -i examples/sample/evidence --lang all
+examples/sample/run.sh target/debug/rv-hub   # verify the sample case on a copy (after cargo build)
 cargo run -p rv-hub-gui
+cargo run -p rv-hub-cli -- docs-cli > docs/usage-cli.md     # regenerate the CLI reference
+```
+
+The GUI screenshots in `docs/images/` are rendered headless (no display, no GPU) by an example, with a faked
+discovery of the released tool versions:
+
+```bash
+cargo run --release -p rv-hub-gui --example hub_screenshot -- docs/images/hub-tools.png tools en
+cargo run --release -p rv-hub-gui --example hub_screenshot -- docs/images/hub-case.png case en
 ```
 
 Linux needs no system packages to build. On Windows use the MSVC toolchain (`rustup default stable-msvc`);

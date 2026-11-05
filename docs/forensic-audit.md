@@ -1,171 +1,167 @@
 # Forensic audit trail
 
-Everything RV Hub does is written to `<OUT>/logs/<RUN-ID>/`. The folder is designed so that a second
-examiner, months later, can check **what was done, to which files, by whom, with which tool version**, and
-that the record was not altered.
+RV Hub keeps two kinds of records, both hash-chained with the same rule as every Rakvor tool's `audit.jsonl`:
 
-| File | Content |
-| --- | --- |
-| `audit.jsonl` | One JSON object per action, hash-chained (authoritative) |
-| `audit.log` | The same actions as readable text (convenience copy) |
-| `hashes.csv` | Hash register: `index,path,size,<algo1>[,<algo2>],status,error` |
-| `environment.json` | Tool version, compiler, target, every dependency version, OS, host, OS user, working folder, command line |
+- the **hub session log**: what the hub did outside a case run (inventories, launches, untrusted confirmations, window
+  actions), one log per hub process, in the hub data folder;
+- the **verification run log**: what `rv-hub verify` checked, in the case (`runs/rv-hub/<RUN-ID>/logs/`), with its hash
+  register, environment record, optional RFC 3161 timestamp, and reports.
+
+```mermaid
+flowchart TB
+    subgraph DATA["%LOCALAPPDATA%\Rakvor\RV Hub\logs\&lt;SESSION-ID&gt;\"]
+        S1["audit.jsonl / audit.log"]
+        S2["environment.json"]
+    end
+    subgraph RUN["&lt;CASE&gt;\runs\rv-hub\&lt;RUN-ID&gt;\logs\"]
+        R1["audit.jsonl / audit.log"]
+        R2["hashes.csv"]
+        R3["environment.json"]
+        R4["timestamp-N.tsr / .json"]
+    end
+    TOOLS["rv-hub tools · launch<br/>GUI window actions"] --> S1
+    V["rv-hub verify<br/>Verify tab"] --> R1
+    R1 -. "head linked in" .-> CL[("case-log.jsonl<br/>run_started / run_finished")]
+    R4 -. "covers the head of" .-> R1
+```
 
 ## The hash chain
 
-```mermaid
-flowchart LR
-    G["GENESIS<br/>000…000"] --> E1
-    E1["#1 run_started<br/>prev = GENESIS<br/>entry_hash = H1"] --> E2
-    E2["#2 environment_recorded<br/>prev = H1<br/>entry_hash = H2"] --> E3
-    E3["#3 inputs_resolved<br/>prev = H2<br/>entry_hash = H3"] --> EN["… #N run_finished"]
-```
-
-Each entry has: `seq`, `ts_utc`, `run_id`, `actor`, `action`, optional `item`, `details`,
-`prev_entry_hash`, `entry_hash`.
-
 ```text
-entry_hash = SHA-256( canonical JSON of the entry without "entry_hash" )
-canonical  = keys sorted at every level, no spaces, UTF-8, integers only
-             (Python: json.dumps(e, sort_keys=True, separators=(",", ":"), ensure_ascii=False))
+entry_hash      = SHA-256( canonical JSON of the entry without "entry_hash" )
+canonical JSON  = keys sorted at every level, no whitespace, UTF-8
+prev_entry_hash = entry_hash of the previous entry (64 zeros for #1); seq = 1, 2, 3, …
+entry fields    = seq, ts_utc, run_id, actor, action, [item], details, prev_entry_hash, entry_hash
 ```
 
-Editing a value changes that entry's hash; deleting or re-ordering breaks `seq` and `prev_entry_hash`.
-Verify with either implementation:
+Editing, inserting, deleting or re-ordering a line breaks the chain from that line on; `rv-hub verify-log <folder>`
+and the independent [`tests/verify_chain.py`](../tests/verify_chain.py) (standard-library Python) both detect it.
+`audit.log` is a human-readable twin of the same actions and is not part of the chain.
 
-```bash
-rv-hub verify-log rakvor-out/logs/<RUN-ID>          # exit 0 intact, 3 broken or truncated
-python tests/verify_chain.py rakvor-out/logs/<RUN-ID>   # independent re-implementation (chain + hashes.csv)
-```
+### Truncation: what anchors the end of a log
 
-> The chain proves the log is **internally consistent**. On its own it does not prove *when* it was written —
-> that is what the trusted timestamp below adds — nor that it is *complete*: removing the last entries leaves a
-> shorter chain that is still valid. Storing the final `entry_hash` (printed in the statistics report) in your
-> case management system remains good practice.
+A chain alone cannot show that its **last** lines were removed. `verify-log` anchors the end against records kept
+outside the log:
 
-### Truncation: what anchors the end of the log
+| Log | Anchored by |
+| --- | --- |
+| a tool's run log in a case | `run_finished` in the case log (`audit_entries`, `audit_head`), and its RFC 3161 timestamp if any |
+| the hub's verification run log in a case | the same: the hub appends `run_finished` with its own head |
+| a verification run written to `--out` (broken case) | its timestamp only |
+| the hub session log | nothing: **its truncation is not detectable** (`verify-log` says "truncation not detectable without a timestamp or case record"); archive session logs with the case |
 
-A chain cannot vouch for its own length, so `verify-log` compares the end of the log with the records kept
-**outside** it:
+## Hub session log
 
-```mermaid
-flowchart LR
-    L["audit.jsonl<br/>entries #1 … #N"] --> V{"verify-log"}
-    T["timestamp-K.json + .tsr<br/>covers_seq K, head = hash of #K"] --> V
-    C["case-log.jsonl run_finished<br/>audit_entries M, audit_head"] --> V
-    V -->|"#K or #M missing, or another hash"| B["BROKEN: truncated (exit 3)"]
-    V -->|"the records agree"| O["OK + which entries are anchored"]
-    V -->|"no timestamp, not in a case"| N["OK + 'truncation not detectable<br/>without a timestamp or case record'"]
-```
+`<hub data>\logs\<SESSION-ID>\` with `audit.jsonl`, `audit.log` and `environment.json` (hub version, OS, host, user,
+front-end). `<hub data>` is `%LOCALAPPDATA%\Rakvor\RV Hub` on Windows, `$XDG_DATA_HOME/rakvor/rv-hub` or
+`~/.local/share/rakvor/rv-hub` on Linux, or `RV_HUB_DATA_DIR`. Case folders are never written here.
 
-| Record | Where | What `verify-log` checks |
+| Action | Written by | Key details |
 | --- | --- | --- |
-| RFC 3161 timestamp | `timestamp-<K>.json` / `.tsr` next to the log | entry `#K` still exists and its `entry_hash` is the head the token signs; every `timestamp_obtained` entry still has its token file |
-| Case log | `<CASE>/case-log.jsonl`, for a run in `<CASE>/runs/<tool>/<RUN-ID>/logs` | `run_finished` of this run records `audit_entries` and `audit_head`: entry `#M` exists with that hash, and only `timestamp_obtained` follows it |
+| `session_started`, `environment_recorded` | every session | hub version, front-end; digest of `environment.json` |
+| `tools_listed` | `rv-hub tools` | added folders; per tool: version, folder, CLI and GUI SHA-256 and signature, `describe_source`; exit code |
+| `tool_untrusted_confirmed` | launch of a tool that is not `SignedRakvor`, after confirmation, **before** it starts | tool, version, exe, exe SHA-256, signature, case, actor |
+| `tool_launched` | every launch | tool, version, exe, **exe SHA-256**, signature, case folder (or null), arguments, **pid**, `confirmed_untrusted` |
+| `tool_launch_failed` | the process could not start | the same, with the error |
+| `tool_launch_refused` | CLI: refused (not Rakvor-signed without `--yes-untrusted`, or executable changed) | tool, version, exe, case, reason |
+| `ui_*` (GUI) | every window action | `at_utc` and the action's details: tab, language, tools refreshed / listed, folder added / removed, launch clicked / confirmed / cancelled / failed, case opened / refreshed / closed, create case, verify started, report / run folder opened, cancel ([usage-gui.md](usage-gui.md#what-the-app-records)) |
 
-The output names the last anchored entry. A standalone run timestamps the head **before** writing
-`timestamp_obtained`, `statistics_report_written` and `run_finished`, so those 3 entries are reported as
-"cannot be proven complete"; a run in a case folder is anchored to its last entry by the case log. Without either
-record `verify-log` prints `truncation not detectable without a timestamp or case record` (exit 0: nothing
-contradicts the log, but nothing vouches for its length). Deleting the timestamp files **and** the entries that
-refer to them is detectable only through the case log or a head kept elsewhere.
+`rv-hub case` and `rv-hub describe` write no session log; `rv-hub verify` writes its own run log instead.
 
-## Trusted timestamp (RFC 3161)
+What the session log proves: which executable (by SHA-256) was started, on which case, when, by whom, and whether an
+untrusted build was knowingly used. It does not prove what the started tool then did; that is in the tool's own run
+log in the case.
 
-Every run asks a Time-Stamp Authority (TSA) to sign the chain head **just before the statistics report** is
-written, so the report can show the result. Default TSA: `http://timestamp.digicert.com` (`--tsa-url` to change).
+## Verification run log
 
-```mermaid
-sequenceDiagram
-    participant T as rv-hub
-    participant L as audit.jsonl
-    participant A as TSA (RFC 3161)
-    T->>L: … item_reports_written (entry #N)
-    T->>A: entry_hash of #N (the head, a SHA-256) + nonce
-    alt reachable
-        A-->>T: signed token (genTime)
-        T->>L: timestamp_obtained (covers_seq N, gen_time, tsa, token_sha256)
-    else offline
-        T->>L: timestamp_pending (reason) — warning on the statistics report
-        Note over T: later: rv-hub timestamp logs/RUN-ID
-    end
-    T->>L: statistics_report_written · run_finished
-```
-
-- The token is stored next to the log: `timestamp-<N>.tsr` (DER) and `timestamp-<N>.json` (readable summary).
-- Offline or air-gapped: the run still completes. When the network is back, `rv-hub timestamp <log folder>`
-  re-verifies the chain and appends `timestamp_obtained` — earlier entries are never rewritten.
-- The TSA receives the chain head itself: the `entry_hash` of entry `#N` (already a SHA-256 digest) is the
-  message imprint of the request (hash algorithm SHA-256); it is not hashed a second time.
-- `verify-log` checks each token: imprint = stored head, and entry `#N` still exists with that hash (a missing
-  entry `#N` is reported as truncation).
-- Independent check: `openssl ts -verify -digest <head> -in timestamp-<N>.tsr -CAfile <TSA chain>`.
-- `--no-timestamp` (or `RV_NO_TIMESTAMP=1`) disables it; tests use a local TSA (`tests/fake_tsa.py`).
-- **Limitation:** a timestamp proves the log existed at that time, not that its content is true.
-
-## Signed PDF reports
-
-`--sign-cert examiner.p12` (GUI: *4. Trust → Certificate*) signs every PDF — statistics, technical, summary and
-custody — with **your own** certificate. The password comes from the environment variable named by
-`--sign-pass-env` (default `RV_SIGN_PASSWORD`) or an interactive prompt; it is never written to any log.
-The log records `signing_certificate_loaded` with the certificate subject and SHA-256 fingerprint; a wrong password
-stops the run (`run_failed`, exit 1) before any evidence is read. HTML and JSON reports are not signed: their
-digests are in the audit chain, which is timestamped.
-
-## Chain-of-custody form per item
-
-`--jurisdiction co` (default) writes, for each item, a Colombian *registro de cadena de custodia* in Spanish
-(fields of the Fiscalía manual, Ley 906 de 2004); `--jurisdiction fr` a French *fiche de scellé / suivi* in French
-(Code de procédure pénale art. 156 ff.). An English version is always added. The form is pre-filled from the run
-(case, item, size, both digests, UTC times, tool, examiner, audit entries) and leaves signature lines for the
-physical transfers. This is a working aid, not legal advice: check it against the current official form.
-
-## Actions recorded
+`<CASE>\runs\rv-hub\<RUN-ID>\logs\audit.jsonl` (or `<OUT>\logs\<RUN-ID>\` for a broken case), in this order:
 
 | Action | When | Key details |
 | --- | --- | --- |
-| `run_started` | first | tool, version, frontend, algorithms, langs, inputs, case |
-| `ui_*` | GUI only, before the run | input added/removed, hash selection, language, recursive, start clicked |
+| `run_started` | first | version, front-end, verb `verify`, algorithms, languages, case id and folder, `rehash`, evidence ids and folders, `crosscheck`, tool overrides, jurisdiction, TSA, signing certificate path, `out_dir` |
+| `case_linked` / `case_not_extended` | | case id, `case_log_seq_at_start`, `case_log_head_at_start`, registry SHA-256 and items / the reason the case is not extended |
+| `ui_*` | GUI only | the Verify-tab settings changed before the start (the run's audit preamble) |
 | `environment_recorded` | | digests of `environment.json` |
-| `inputs_resolved` | | number of items and bytes |
-| `item_started` | each item | index, size, modified time |
-| `item_hashed` | each item | digests, bytes read, `mtime_unchanged` |
-| `item_error` | unreadable item | error message |
-| `item_analyzed` | each item | detected type, extension, findings, status |
-| `item_cancelled` / `run_cancelled` | on cancel | processed count |
-| `duplicate_group` | after the loop | hash, item indexes |
+| `signing_certificate_loaded` | with `--sign-cert` | subject, certificate SHA-256 (never the password) |
+| `tools_inventoried` | `--crosscheck auto` | each discovered tool: version, CLI path, SHA-256, signature, `describe_source`; overrides |
+| `evidence_superseded` | `--rehash` | an item replaced by a later registration of the same path |
+| `inputs_resolved` | | number of items, bytes, runs, evidence items |
+| `item_started`, `item_hashed` | each item | index, kind, path, size; digests and bytes read |
+| `crosscheck` | each run item, `--crosscheck auto` | tool, exe, exe SHA-256, arguments, exit code, first 20 lines of output, outcome, reason, hub full and chain-only verdicts, `override` |
+| `item_verified` | each item | findings, verdict, facts, status |
+| `item_cancelled`, `run_cancelled` | on cancel | processed count |
 | `hash_register_written` | | digests of `hashes.csv` |
 | `item_reports_written` | each item | digests of every report file |
-| `statistics_report_written` | | digests of statistics files |
-| `run_finished` / `run_failed` | last | totals, severities, elapsed |
+| `timestamp_obtained` / `timestamp_pending` | with a TSA | token file and digest, `genTime`, covered entry / reason |
+| `statistics_report_written` | | digests of the statistics files |
+| `run_finished` (or `run_failed`) | last | totals, severities, elapsed time, cancelled, finding codes |
+
+`hashes.csv` is the hash register: every file the hub read (the case log as found, each run's `audit.jsonl`, each
+re-hashed evidence file). The case-log row covers its **first N bytes**, because the case log is append-only and
+grows after the hub read it ([theory.md B8](theory.md#b8-the-hash-register-and-the-append-only-case-log-prefix-rule)).
+
+## Timestamps
+
+When a TSA is set (default `http://timestamp.digicert.com`; `--no-timestamp` or `RV_NO_TIMESTAMP=1` to disable),
+the verification run's chain head is sent to it at the end of the run, and the reply is stored as
+`timestamp-<SEQ>.tsr` (DER) with `timestamp-<SEQ>.json` (TSA, `genTime`, `covers_seq`, head, token SHA-256). Offline,
+the run records `timestamp_pending`; `rv-hub timestamp <log folder>` adds the token later (it re-verifies the chain
+first and appends `timestamp_obtained`).
+
+When verifying a case, the hub checks every run's tokens: the covered entry still exists, the token file is
+unchanged, and the token's message imprint equals that entry's hash. **It does not check the TSA's signature or
+certificate chain.** Check those independently:
+
+```bash
+# the covered entry's hash, from timestamp-<SEQ>.json ("head"), as hex
+openssl ts -reply -in timestamp-47.tsr -text                       # shows the TSA, policy, genTime, imprint
+openssl ts -verify -digest <head-hex> -in timestamp-47.tsr \
+        -CAfile tsa-root.pem -untrusted tsa-chain.pem              # "Verification: OK"
+```
+
+or analyse the `.tsr` with rv-certcheck (CMS signature, ESS signing-certificate, TSA chain at `genTime`). A token
+from a non-qualified TSA proves the log existed at that time; it carries no eIDAS presumption and no Colombian
+statutory status ([admissibility.md](admissibility.md#53-eidas-regulation-eu-9102014-as-amended-by-eu-20241183)).
+
+## Signed PDF reports
+
+With `--sign-cert examiner.p12` (password from `--sign-pass-env`, default `RV_SIGN_PASSWORD`, or asked for), every
+PDF of the verification is signed with a CMS detached signature; the certificate's subject and SHA-256 are logged
+(`signing_certificate_loaded`) and printed in every report. The password is never logged.
+
+## Chain-of-custody form per item
+
+Each verified item gets a custody form for the case's jurisdiction (`co`: Colombian *registro de cadena de
+custodia* style, Spanish; `fr`: French *fiche de scellé / suivi*, French) plus an English copy, pre-filled from the
+run (case, item, size, digests, UTC times, tool, examiner, audit entries). For the hub the item is the case log, a
+run's audit log or an evidence file, as verified; the form records that verification step. It is an internal
+working record, not the official Fiscalía or court form.
 
 ## Evidence handling
 
 ```mermaid
 flowchart LR
-    O[("Original media")] -->|write blocker + imaging tool| C[("Verified working copy")]
-    C -->|read-only open| T["RV Hub"]
-    T --> L["logs/"]
-    T --> R["reports/"]
-    L & R --> K["Case file<br/>(keep together)"]
+    O[("Original media")] -->|write blocker + imaging| C[("Verified working copy")]
+    C -->|rv-hashinv intake| K[("Case folder")]
+    K -->|read-only| H["RV Hub verify"]
+    H -->|own run folder +<br/>2 case-log entries| K
 ```
 
-- Files are opened with read-only access; modification times are compared before and after hashing
-  (`mtime_unchanged` in `item_hashed`).
-- Symbolic links are never followed (no escape outside the selected folders).
-- The tool does not replace imaging tools or write blockers: run it on a verified copy.
+- Every file in the case is opened read-only; evidence files are streamed in chunks.
+- The hub never edits, moves or deletes another tool's file. A broken case log is never extended.
+- The hub is not an imaging tool or a write blocker; the evidence it re-hashes should be the working copies.
 
 ## Mapping to ISO/IEC 27037:2012
 
 | 27037 principle / activity | How RV Hub supports it |
 | --- | --- |
-| Auditability (5.3.2) | Every action logged with actor, UTC time and chain hash; `verify-log` checks the chain and its end against the timestamp and the case log |
-| Repeatability (5.3.3) | `environment.json` records exact tool and dependency versions; same input → same hashes |
-| Reproducibility (5.3.4) | Independent verifier (`tests/verify_chain.py`), standard algorithms, and a second implementation of the tool (the other profile) that numbers, hashes and verifies identically |
-| Justifiability (5.3.5) | Every finding states what it shows and what it does **not** prove; limitations in every report |
-| Preservation (7.1.4) | Read-only access; hashes of every file and of every report produced |
-| Documentation / chain of custody | Hash register, reports, and log folder form the record of the examination |
+| Auditability (5.3.2) | Every launch and every check is a chained entry with actor and UTC time; `verify-log` and `tests/verify_chain.py` check the chains |
+| Repeatability (5.3.3) | `environment.json` records the hub's exact version and dependencies; the same case gives the same findings and digests |
+| Reproducibility (5.3.4) | Independent verifier in another language; the cross-check asks a second implementation (each run's own tool) |
+| Justifiability (5.3.5) | Every finding states what it shows and what it does **not** prove; four limitations in every report |
+| Preservation (7.1.4) | Read-only access; re-hash against the registry; digests of every report written |
+| Documentation / chain of custody | The session log (which tool build, on which case) and the verification run (what was checked, with what result) |
 
-Colombian practice (Ley 906 de 2004, Manual de cadena de custodia) and French practice (Code de procédure
-pénale, art. 156 ff. for expertise) both expect the examiner to document the method and preserve integrity;
-the log folder plus the reports are that documentation for this step of the examination.
+Colombian practice (Ley 906 de 2004, Fiscalía custody manual) and French practice (Code de procédure pénale, arts.
+156 ff.) both expect the method to be documented and integrity preserved; the session log, the verification run
+folder and the tools' own run folders together are that documentation.

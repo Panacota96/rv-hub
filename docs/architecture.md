@@ -78,7 +78,7 @@ sequenceDiagram
     S-->>T: SignedRakvor | SignedOtherRoot | Invalid | Unsigned | NotChecked
     alt Rakvor-signed (or not checkable: not Windows)
         T->>X: describe --json (timeout 10 s)
-        X-->>T: rakvor.describe/1 (extra fields kept; other schema refused)
+        X-->>T: rakvor.describe/1 (extra fields kept, other schema refused)
     else signed by someone else / unsigned / invalid
         T->>T: never executed
     end
@@ -86,7 +86,7 @@ sequenceDiagram
 ```
 
 `signature/windows.rs` calls `WinVerifyTrust` (`WINTRUST_ACTION_GENERIC_VERIFY_V2`, `WTD_UI_NONE`, no revocation,
-cache-only URL retrieval: no network in v1), reads the signer chain built by the provider
+cache-only URL retrieval: the signature check makes no network request), reads the signer chain built by the provider
 (`WTHelperProvDataFromStateData` → `WTHelperGetProvSignerFromChain` → the chain context of
 `CertGetCertificateChain`), copies the root certificate and closes the state. `classify` (safe, tested everywhere)
 compares the root's SHA-256 with the bundled `packaging/signing/rakvor-code-signing-root.cer`. A valid signature
@@ -132,7 +132,7 @@ sequenceDiagram
         R->>C: case-log run_started (under lock, after re-verifying)
         R->>H: audit: run_started, case_linked
     else case log broken (never extended)
-        R->>H: written to --out instead; audit: case_not_extended
+        R->>H: written to --out instead, audit: case_not_extended
     end
     loop each item: case log, each run, (--rehash) each evidence file
         R->>H: item_started, item_hashed
@@ -151,10 +151,16 @@ sequenceDiagram
 ```
 
 Run items carry two verdicts. **Full** is exactly `verify::verify_log` (chain, timestamp tokens, review log and
-truncation against the timestamp and the case log): what rv-hashinv and rv-rsmf's `verify-log` answer.
-**Chain** leaves out the truncation check against the case log: what rv-pdfauth and rv-imgauth's current
-`verify-log` answer. The cross-check accepts the tool's verdict when it equals either; anything else is
-`TOOL_VERIFY_DISAGREES` (high). The hub's own findings never depend on the tool.
+truncation against the timestamp and the case log): what rv-hashinv, rv-rsmf and rv-certcheck's `verify-log`
+answer. **Chain** leaves out the truncation check against the case log: what rv-pdfauth and rv-imgauth's current
+`verify-log` answer ([rv-hub#21](https://github.com/Panacota96/rv-hub/issues/21)). The cross-check accepts the
+tool's verdict when it equals either, for every tool; anything else is `TOOL_VERIFY_DISAGREES` (high). The hub's
+own findings never depend on the tool. `RUN_LOG_INTACT` is decided in `checks::check_run`, before the cross-check
+adds its finding, so both can appear on one run ([theory.md B6](theory.md#b6-the-cross-check-rule-two-verdicts)).
+
+Tools for the cross-check: `RunConfig::tools` when the front-end passes them (the GUI passes its Tools-tab
+inventory, added folders included), else `tools::discover(DiscoverOptions::from_env(vec![]))` (the CLI: registry,
+install folder, `PATH`; no added folders), plus `--tool-exe` overrides, which are used whatever their signature.
 
 | Code | Severity | Raised when |
 | --- | --- | --- |
@@ -168,11 +174,15 @@ truncation against the timestamp and the case log): what rv-hashinv and rv-rsmf'
 | `UNKNOWN_LOG_FORMAT` | medium | another `*.jsonl` in a run's `logs/` |
 | `TIMESTAMP_PENDING` | low | `timestamp_pending` without a later `timestamp_obtained` |
 | `CROSSCHECK_UNAVAILABLE` | info | tool not installed / not Rakvor-signed / failed / run folder missing |
-| `RUN_LOG_INTACT` | info | a run item with no high finding |
+| `RUN_LOG_INTACT` | info | a run item with no high finding from the hub's own checks (before the cross-check) |
 
 The hub never writes another tool's file: only `runs/rv-hub/<RUN-ID>/` and its two case-log entries
 (`role: analysis`, `purpose: verification`). The case log is hashed as found, before those entries; since it is
 append-only, the digests cover its first *N* bytes (recorded in the item's facts).
+
+The only network access of `run` is the optional RFC 3161 request for the hub's own chain head (`trust::timestamp_head`,
+`--tsa-url`, on by default; `--no-timestamp` / `RV_NO_TIMESTAMP=1`). Timestamp tokens of the runs are checked for the
+hash they cover (`trust::verify_timestamps`), not for the TSA's CMS signature.
 
 ## Case dashboard and suggestions
 
@@ -181,6 +191,15 @@ append-only, the digests cover its first *N* bytes (recorded in the item's facts
 (timestamp status) and `reports/statistics.json` (findings by severity, examined evidence ids).
 `suggest::suggest` applies the table in `suggest.rs` using each tool's `accepts` (describe or built-in), reading
 at most the first few kilobytes of an evidence file, read-only, and only when it exists.
+
+## GUI state
+
+`src/gui/src/state/` holds every rule the window enforces, without drawing code, so it is unit-tested headless:
+`mod.rs` (`HubState`: tabs, session log, `audit` of every `ui_*` action, launch confirmation, verify config),
+`tools.rs` (cards and badges), `case.rs` (dashboard model), `verify.rs` (Verify options → `RunConfig`, progress) and
+`settings.rs` (`settings.json`, `rakvor.hub-settings/1`, with a temp-directory fallback). `app.rs` only draws.
+`src/gui/examples/hub_screenshot.rs` renders the window headless to the PNGs in `docs/images/`, with a faked
+discovery of the released tool versions.
 
 ## Run states (as the GUI sees them)
 
