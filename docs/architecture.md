@@ -160,8 +160,8 @@ except that `RUN_LOG_INTACT`, decided in `checks::check_run`, is withdrawn by th
 `TOOL_VERIFY_DISAGREES` for that run ([theory.md B6](theory.md#b6-the-cross-check-rule-two-verdicts)).
 
 Tools for the cross-check: `RunConfig::tools` when the front-end passes them (the GUI passes its Tools-tab
-inventory, added folders included), else `tools::discover(DiscoverOptions::from_env(vec![]))` (the CLI: registry,
-install folder, `PATH`; no added folders), plus `--tool-exe` overrides, which are used whatever their signature.
+inventory, added folders included), else `tools::discover(DiscoverOptions::from_env(cfg.add_folders))` (the CLI: registry,
+install folder, `PATH`, and the `--add-folder` folders), plus `--tool-exe` overrides, which are used whatever their signature.
 
 | Code | Severity | Raised when |
 | --- | --- | --- |

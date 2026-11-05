@@ -303,7 +303,7 @@ These are stated here so that nobody has to find them by cross-examination. Each
 | ID | Gap | Affects | Mitigation now | Remedy |
 | --- | --- | --- | --- | --- |
 | HG1 | Signature check Windows only; no revocation check | CO-P9, ISO-3 | Verify on Windows; keep the inventory (`rv-hub tools --json`) with the case | Revocation (CRL/OCSP) of the Rakvor signing certificate; rv-certcheck can validate the chain offline |
-| HG2 | Cross-check depends on installed, signed tools; CLI ignores added folders | CO-P14, CO-J8 | Install the tools on the verifying workstation, or use `--tool-exe` and state it | Add `--add-folder` to `verify` |
+| HG2 | Cross-check depends on Rakvor-signed tools being found (installed, or in an `--add-folder` folder) | CO-P14, CO-J8 | Install the tools on the verifying workstation, pass `--add-folder`, or use `--tool-exe` and state it | Bundle the tools with the hub (Rakvor Suite) |
 | HG3 | Integrity, not content | all content claims | Limitation printed in every report (H11) | — (by design) |
 | HG4 | `verify-log` semantics differ between tools; chain-level fallback for rv-pdfauth and rv-imgauth | CO-P14, US-2 | Read the cross-check reason in the technical report | rv-hub#21: one semantics across the tools; then empty `VERIFY_LOG_WITHOUT_TRUNCATION` |
 | HG5 | No validated error rates, no per-release validation record | CO-P15, CO-P16, CO-J8, 27041, ISO-12, US-6, US-12, UK-1 | H12 sample and variants; CI | Validation report per release (17025 §7.2.2.4, SWGDE §6), independent tester, separate dataset (G6) |

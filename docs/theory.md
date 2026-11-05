@@ -398,8 +398,9 @@ With `--crosscheck auto` (`run.rs` `crosscheck`), for each run that is not the h
 
 1. the executable is the `--tool-exe NAME=PATH` override (any signature), else the discovered CLI of that tool that
    is `SignedRakvor`. None → `CROSSCHECK_UNAVAILABLE` (info: not installed / not Rakvor-signed). In the CLI,
-   discovery for the cross-check uses the registry, the install folder and `PATH` only (no added folders); the GUI
-   passes the tools of its Tools tab, added folders included;
+   discovery for the cross-check uses the registry, the install folder, `PATH` and the `--add-folder` folders (with
+   their subfolders, recorded in `run_started.add_folders`); the GUI passes the tools of its Tools tab, added folders
+   included;
 2. a run with no log folder (full verdict *not verifiable*) → `CROSSCHECK_UNAVAILABLE`;
 3. `<exe> verify-log <CASE>/runs/<tool>/<RUN-ID>/logs`, 120 s limit. Exit 0 → *intact*, 3 → *broken*, anything
    else (other code, signal, timeout, cannot start) → `CROSSCHECK_UNAVAILABLE`;

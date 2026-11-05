@@ -53,6 +53,8 @@ pub struct RunConfig {
     pub tool_overrides: BTreeMap<String, PathBuf>,
     /// Discovered tools for the cross-check. None = discover them now (only with `CrossCheckMode::Auto`).
     pub tools: Option<Vec<ToolInfo>>,
+    /// Folders also searched (with their subfolders) when the tools are discovered now (`--add-folder`).
+    pub add_folders: Vec<PathBuf>,
     pub crosscheck_timeout: Duration,
     /// Algorithms for the digests of the hub's own files and of the verified logs (1–2).
     pub algorithms: Vec<HashAlgo>,
@@ -92,6 +94,7 @@ impl Default for RunConfig {
             crosscheck: CrossCheckMode::Auto,
             tool_overrides: BTreeMap::new(),
             tools: None,
+            add_folders: vec![],
             crosscheck_timeout: Duration::from_secs(120),
             algorithms: vec![HashAlgo::Sha256],
             langs: vec!["en".into()],
@@ -448,6 +451,7 @@ fn pipeline(
             "case_dir": dir.display().to_string(), "rehash": cfg.rehash, "evidence_ids": cfg.evidence_ids,
             "evidence_dirs": cfg.evidence_dirs.iter().map(|p| p.display().to_string()).collect::<Vec<_>>(),
             "crosscheck": if cfg.crosscheck == CrossCheckMode::Auto { "auto" } else { "off" },
+            "add_folders": cfg.add_folders.iter().map(|p| p.display().to_string()).collect::<Vec<_>>(),
             "tool_overrides": cfg.tool_overrides.iter().map(|(k, v)| (k.clone(), json!(v.display().to_string()))).collect::<serde_json::Map<_, _>>(),
             "jurisdiction": cfg.jurisdiction, "tsa_url": cfg.tsa_url,
             "tsa_ca": cfg.tsa_ca.as_ref().map(|p| p.display().to_string()),
@@ -517,9 +521,10 @@ fn pipeline(
     let tools: Vec<ToolInfo> = match (&cfg.tools, cfg.crosscheck) {
         (_, CrossCheckMode::Off) => vec![],
         (Some(t), _) => t.clone(),
-        (None, CrossCheckMode::Auto) => {
-            tools::discover(&tools::DiscoverOptions::from_env(vec![]), &OsVerifier)
-        }
+        (None, CrossCheckMode::Auto) => tools::discover(
+            &tools::DiscoverOptions::from_env(cfg.add_folders.clone()),
+            &OsVerifier,
+        ),
     };
     if cfg.crosscheck == CrossCheckMode::Auto {
         log.record(

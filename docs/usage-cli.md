@@ -82,8 +82,9 @@ DESCRIPTION:
     3. with --rehash, every registered evidence file, read again and compared with the
        registry digests (--evidence-dir: where the copies are now, looked up by file name).
   Cross-check (--crosscheck auto|off): with auto (default) each run is also verified by the
-  run's own tool (<tool> verify-log <run>/logs) when that tool is installed and signed by
-  Rakvor, or given with --tool-exe NAME=PATH; a different verdict is a high-severity finding
+  run's own tool (<tool> verify-log <run>/logs) when that tool is installed (or found in an
+  --add-folder folder) and signed by Rakvor, or given with --tool-exe NAME=PATH; a different verdict
+  is a high-severity finding
   (TOOL_VERIFY_DISAGREES), a tool that cannot be asked is CROSSCHECK_UNAVAILABLE (info).
   Outputs: the verification is itself a run. Reports and a hash-chained audit log go to
   <CASE>/runs/rv-hub/<RUN-ID>/ and the run is recorded in the case log; when the case log
@@ -119,6 +120,14 @@ Options:
           Cross-check every run with its own tool (`<tool> verify-log <run>/logs`): auto or off.
           
           Default: auto. Example: --crosscheck off
+
+      --add-folder <DIR>
+          Also look for the tools of the cross-check in this folder and its subfolders (e.g.
+          portable
+          copies on a USB stick), as `tools --add-folder` does. Only Rakvor-signed executables found
+          there are asked. Repeat for several. Recorded in run_started.
+          
+          Default: none (registry, install folder, PATH). Example: --add-folder E:\usb
 
       --tool-exe <NAME=PATH>
           Executable to use for a tool's cross-check, whatever its signature: NAME=PATH. Repeat for
@@ -216,6 +225,8 @@ EXAMPLES:
     rv-hub verify --case-dir E:\CASE-014 --rehash --evidence-dir F:\copies
   Re-hash two items only, without asking the tools, machine-readable progress:
     rv-hub verify --case-dir E:\CASE-014 -E E0001,E0002 --crosscheck off --progress jsonl
+  Cross-check with the Rakvor-signed tools of a portable folder too:
+    rv-hub verify --case-dir E:\CASE-014 --add-folder E:\rakvor-portable
   Cross-check with a tool that is not installed (e.g. a portable copy, any signature):
     rv-hub verify --case-dir E:\CASE-014 --tool-exe rv-pdfauth=D:\portable\rv-pdfauth.exe
 

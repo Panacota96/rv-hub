@@ -368,6 +368,62 @@ fn tools_add_folder_is_scanned_with_subfolders() {
     assert!(pdf.contains("folder"), "{pdf}");
 }
 
+/// `verify --add-folder` searches that folder for the cross-check's tools, as `tools --add-folder` does. Here
+/// (no Authenticode) the tool found there is not Rakvor-signed, so it is reported as found but not asked.
+#[cfg(unix)]
+#[test]
+fn verify_add_folder_is_used_for_the_crosscheck() {
+    let d = tempfile::tempdir().unwrap();
+    let empty = d.path().join("empty");
+    std::fs::create_dir_all(&empty).unwrap();
+    let usb = d.path().join("usb");
+    std::fs::create_dir_all(&usb).unwrap();
+    fake_tools(&usb, &d.path().join("m"));
+    let reason = |extra: &[&std::ffi::OsStr]| {
+        let case = d.path().join(format!("case-{}", extra.len()));
+        copy_dir(&root().join("examples/sample/case"), &case);
+        let out = hub_bin(&empty, &d.path().join("hub"))
+            .args(["verify", "--progress", "none", "--case-dir"])
+            .arg(&case)
+            .args(extra)
+            .output()
+            .unwrap();
+        assert_eq!(out.status.code(), Some(0), "{out:?}");
+        let run = std::fs::read_dir(case.join("runs/rv-hub"))
+            .unwrap()
+            .next()
+            .unwrap()
+            .unwrap()
+            .path();
+        let audit = std::fs::read_to_string(run.join("logs/audit.jsonl")).unwrap();
+        let entries: Vec<Value> = audit
+            .lines()
+            .map(|l| serde_json::from_str(l).unwrap())
+            .collect();
+        let started = entries
+            .iter()
+            .find(|e| e["action"] == "run_started")
+            .unwrap();
+        let x = entries
+            .iter()
+            .find(|e| e["action"] == "crosscheck" && e["details"]["tool"] == "rv-pdfauth")
+            .unwrap();
+        (
+            started["details"]["add_folders"].clone(),
+            x["details"]["reason"]
+                .as_str()
+                .unwrap_or_default()
+                .to_string(),
+        )
+    };
+    let (folders, why) = reason(&[]);
+    assert_eq!(folders, serde_json::json!([]));
+    assert!(why.contains("is not installed"), "{why}");
+    let (folders, why) = reason(&["--add-folder".as_ref(), usb.as_os_str()]);
+    assert_eq!(folders, serde_json::json!([usb.display().to_string()]));
+    assert!(why.contains("is not Rakvor-signed"), "{why}");
+}
+
 fn found_with(dir: &Path, status: SignatureStatus) -> Vec<ToolInfo> {
     discover(
         &DiscoverOptions {

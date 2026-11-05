@@ -69,7 +69,8 @@ Save the inventory with the case: `rv-hub tools --json > D:\cases\CASE-2026-014\
 next to the case, not inside it: the hub never adds files to a case outside its own run folder, and you should not
 either).
 
-A portable copy on a USB stick: `rv-hub tools --add-folder E:\rakvor-portable` (for this call), or *Tools → Add a
+A portable copy on a USB stick: `rv-hub tools --add-folder E:\rakvor-portable` (for this call; `verify` takes the
+same option for its cross-check), or *Tools → Add a
 portable folder* in the GUI (remembered).
 
 ### 2.2 Create the case (intake)
