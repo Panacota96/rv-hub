@@ -35,6 +35,40 @@ pub const KNOWN_TOOLS: [&str; 5] = [
 ];
 pub const DEFAULT_DESCRIBE_TIMEOUT: Duration = Duration::from_secs(10);
 
+/// Tools whose `verify-log` checks the hash chain, the timestamp tokens and the review log, but not truncation
+/// against the case log (rv-hub#21): (tool, first version with that check; None = no released version has it).
+/// The cross-check compares only these tools' verdict with the hub's chain-level verdict; every other tool's
+/// verdict is compared with the full one.
+pub const VERIFY_LOG_WITHOUT_TRUNCATION: [(&str, Option<&str>); 2] =
+    [("rv-pdfauth", None), ("rv-imgauth", None)];
+
+fn version_triple(v: &str) -> Option<(u64, u64, u64)> {
+    let core = v.trim().trim_start_matches('v');
+    let core = core.split(['-', '+']).next()?;
+    let mut it = core.split('.').map(|p| p.parse::<u64>().ok());
+    Some((
+        it.next()??,
+        it.next().flatten().unwrap_or(0),
+        it.next().flatten().unwrap_or(0),
+    ))
+}
+
+/// True when `tool` at `version` is known to lack the truncation check in its `verify-log`
+/// ([`VERIFY_LOG_WITHOUT_TRUNCATION`]). An unknown version of a listed tool counts as lacking it.
+pub fn verify_log_lacks_truncation_check(tool: &str, version: Option<&str>) -> bool {
+    match VERIFY_LOG_WITHOUT_TRUNCATION
+        .iter()
+        .find(|(t, _)| *t == tool)
+    {
+        None => false,
+        Some((_, None)) => true,
+        Some((_, Some(fixed))) => match (version.and_then(version_triple), version_triple(fixed)) {
+            (Some(v), Some(f)) => v < f,
+            _ => true,
+        },
+    }
+}
+
 /// An Inno Setup AppId of a Rakvor tool and what it is known to install.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct KnownAppId {
@@ -804,6 +838,23 @@ mod tests {
         for t in KNOWN_TOOLS.iter().filter(|t| **t != "rv-pdfauth") {
             assert!(APP_IDS.iter().any(|k| k.tool == Some(*t)), "{t}");
         }
+    }
+
+    #[test]
+    fn only_listed_tools_lack_the_truncation_check() {
+        assert!(verify_log_lacks_truncation_check(
+            "rv-pdfauth",
+            Some("0.3.0")
+        ));
+        assert!(verify_log_lacks_truncation_check("rv-imgauth", None));
+        for t in ["rv-hashinv", "rv-rsmf", "rv-certcheck", "rv-other"] {
+            assert!(!verify_log_lacks_truncation_check(t, Some("0.1.0")), "{t}");
+            assert!(!verify_log_lacks_truncation_check(t, None), "{t}");
+        }
+        assert_eq!(version_triple("0.2.1"), Some((0, 2, 1)));
+        assert_eq!(version_triple("v1.4"), Some((1, 4, 0)));
+        assert_eq!(version_triple("1.0.0-rc.1"), Some((1, 0, 0)));
+        assert_eq!(version_triple("x"), None);
     }
 
     #[test]

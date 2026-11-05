@@ -607,6 +607,56 @@ fn a_tool_that_disagrees_is_a_high_finding() {
     assert_eq!(stats["case"]["verification"]["crosscheck_disagreed"], 1);
 }
 
+/// The chain-level comparison is only for the tools known to lack the truncation check (rv-pdfauth,
+/// rv-imgauth). The same "intact" answer on a truncated run is accepted from rv-pdfauth and is a disagreement
+/// from rv-hashinv, whose verify-log does check truncation.
+#[cfg(unix)]
+#[test]
+fn chain_level_fallback_is_only_for_tools_without_the_truncation_check() {
+    use std::os::unix::fs::PermissionsExt;
+    let tmp = tempfile::tempdir().unwrap();
+    let case = sample_copy(tmp.path());
+    let fake = tmp.path().join("fake-verify-log");
+    std::fs::write(&fake, "#!/bin/sh\necho \"OK  chain intact\"\nexit 0\n").unwrap();
+    std::fs::set_permissions(&fake, std::fs::Permissions::from_mode(0o755)).unwrap();
+    // Remove the last entry of two runs' audit logs: the chain stays intact, the case log says it is short.
+    for tool in ["rv-hashinv", "rv-pdfauth"] {
+        let audit = only_dir(&case.join("runs").join(tool)).join("logs/audit.jsonl");
+        let full = std::fs::read(&audit).unwrap();
+        let cut = full[..full.len() - 1]
+            .iter()
+            .rposition(|&b| b == b'\n')
+            .unwrap()
+            + 1;
+        std::fs::write(&audit, &full[..cut]).unwrap();
+    }
+    let out = verify(&case)
+        .args(["--crosscheck", "auto"])
+        .arg("--tool-exe")
+        .arg(format!("rv-hashinv={}", fake.display()))
+        .arg("--tool-exe")
+        .arg(format!("rv-pdfauth={}", fake.display()))
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(3));
+    let stats = statistics(&hub_runs(&case).last().unwrap().join("reports"));
+    let c = codes(&stats);
+    assert_eq!(c.get("TOOL_VERIFY_DISAGREES"), Some(&1), "{c:?}");
+    let runs: Vec<&Value> = stats["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|i| i["kind"] == "run")
+        .collect();
+    let of = |tool: &str| {
+        runs.iter()
+            .find(|r| r["tool"] == tool)
+            .map(|r| r["crosscheck"].clone())
+    };
+    assert_eq!(of("rv-pdfauth"), Some("agrees".into()), "{runs:#?}");
+    assert_eq!(of("rv-hashinv"), Some("disagrees".into()), "{runs:#?}");
+}
+
 #[test]
 fn jsonl_progress_is_one_event_per_line_with_elapsed_time() {
     let tmp = tempfile::tempdir().unwrap();

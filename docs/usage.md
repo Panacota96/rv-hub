@@ -208,7 +208,8 @@ The technical report of a broken run says what failed, e.g.
 | `RUN_LOG_INTACT` | info | The run's record is unchanged. Read the other codes of the same run too. |
 
 The cross-check reason "same verdict at chain level; this tool's verify-log does not check truncation against the
-case log" is not a problem: it is the known difference between tools (rv-hub#21), see
+case log" is not a problem: it is the known difference between tools (rv-hub#21), given only for rv-pdfauth and
+rv-imgauth (every other tool is compared with the full verdict), see
 [theory.md B6](theory.md#b6-the-cross-check-rule-two-verdicts).
 
 Full wording (shows / does not prove) of every code: [reports.md](reports.md#finding-codes).

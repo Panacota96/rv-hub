@@ -19,7 +19,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Read-only case dashboard and next-step suggestions (`rv-hub case`, Case tab).
 - Whole-case verification (`rv-hub verify`, Verify tab): case log, every run's audit log, review log, case links,
   timestamp tokens, unannounced runs, unknown logs, optional evidence re-hash (`--rehash`, `--evidence-dir`), and a
-  cross-check with each run's own tool (`verify-log`, full and chain-only verdicts); reports in en/es/fr.
+  cross-check with each run's own tool (`verify-log`, full verdict; chain-only verdict for rv-pdfauth and rv-imgauth,
+  whose `verify-log` lacks the truncation check); reports in en/es/fr.
 - CLI commands `tools`, `case`, `launch`, `verify`, `describe`; GUI tabs Tools, Case and Verify.
 - Sample case made by the tools, with six tampered variants and their expected findings.
 - Timestamp tokens are verified like rv-pdfauth and rv-imgauth do: the TSA's CMS signature (ESS

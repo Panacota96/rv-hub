@@ -1058,6 +1058,8 @@ fn crosscheck(
         it.fact("fact_crosscheck", "skipped (RV Hub's own run)");
         return Ok(x);
     }
+    // Version of the executable that answers (None for --tool-exe, or when discovery could not tell).
+    let mut exe_version: Option<String> = None;
     let exe = if let Some(p) = cfg.tool_overrides.get(&run.tool) {
         Some(p.clone())
     } else {
@@ -1066,7 +1068,10 @@ fn crosscheck(
             .filter(|t| t.tool == run.tool && t.cli_exe.is_some())
             .collect();
         match found.iter().find(|t| t.cli_signature.is_rakvor()) {
-            Some(t) => t.cli_exe.clone(),
+            Some(t) => {
+                exe_version = t.version.clone();
+                t.cli_exe.clone()
+            }
             None => {
                 let why = match found.first() {
                     None => format!("{} is not installed on this workstation", run.tool),
@@ -1160,9 +1165,13 @@ fn crosscheck(
                 ),
             );
         }
-        // Older verify-log implementations (rv-pdfauth, rv-imgauth) check the chain, the timestamp tokens and the
-        // review log, but not truncation against the case log: their verdict is compared at that level.
-        Some(tv) if Some(tv) == it.chain_verdict => {
+        // The tools known to lack the truncation check against the case log (rv-pdfauth, rv-imgauth:
+        // tools::VERIFY_LOG_WITHOUT_TRUNCATION) check the chain, the timestamp tokens and the review log: only
+        // their verdict is compared at that level. Every other tool gets the full verdict.
+        Some(tv)
+            if Some(tv) == it.chain_verdict
+                && tools::verify_log_lacks_truncation_check(&run.tool, exe_version.as_deref()) =>
+        {
             x.outcome = "agrees".into();
             x.reason = Some("same verdict at chain level; this tool's verify-log does not check truncation against the case log".into());
             it.fact(
@@ -1203,7 +1212,8 @@ fn crosscheck(
         Some(&run.rel),
         json!({"tool": run.tool, "exe": x.exe, "exe_sha256": x.exe_sha256, "args": ["verify-log", log_dir.display().to_string()],
                "exit_code": x.exit_code, "outcome": x.outcome, "reason": x.reason, "hub_verdict": hub,
-               "hub_chain_verdict": it.chain_verdict,
+               "hub_chain_verdict": it.chain_verdict, "exe_version": exe_version,
+               "chain_level_only": tools::verify_log_lacks_truncation_check(&run.tool, exe_version.as_deref()),
                "output": output, "override": cfg.tool_overrides.contains_key(&run.tool)}),
     )
     .map_err(io)?;

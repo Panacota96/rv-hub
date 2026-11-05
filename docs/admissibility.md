@@ -275,10 +275,10 @@ These are stated here so that nobody has to find them by cross-examination. Each
    matching evidence hash does not make the evidence authentic, nor show anything that happened before intake. A
    timestamp proves when a log existed, not that the examined copy matches the original source.
 4. **The tools' `verify-log` commands differ** ([rv-hub#21](https://github.com/Panacota96/rv-hub/issues/21)).
-   rv-hashinv, rv-rsmf and rv-certcheck check the run against the case log; rv-pdfauth and rv-imgauth do not. The hub
-   therefore accepts a tool's answer when it equals either its full or its chain-only verdict, for every tool. Where
-   the two verdicts differ (truncation against the case log, or a broken case log), the cross-check cannot detect a
-   tool that misses that check. The hub's own `RUN_LOG_BROKEN` / `CASE_LOG_BROKEN` findings are unaffected
+   rv-hashinv, rv-rsmf and rv-certcheck check the run against the case log; rv-pdfauth and rv-imgauth do not. For
+   these two only, the hub accepts an answer that equals either its full or its chain-only verdict; where the two
+   verdicts differ (truncation against the case log, or a broken case log), the cross-check cannot detect that they
+   miss that check. Every other tool is compared with the full verdict. The hub's own `RUN_LOG_BROKEN` / `CASE_LOG_BROKEN` findings are unaffected
    ([theory.md B6](theory.md#b6-the-cross-check-rule-two-verdicts)).
 5. **There are no validated error rates**, and no per-release validation record (plan, acceptance criteria, results,
    sign-off). The tests and the sample variants are evidence towards one, not a substitute.
@@ -303,7 +303,7 @@ These are stated here so that nobody has to find them by cross-examination. Each
 | HG1 | Signature check Windows only; no revocation check | CO-P9, ISO-3 | Verify on Windows; keep the inventory (`rv-hub tools --json`) with the case | Revocation (CRL/OCSP) of the Rakvor signing certificate; rv-certcheck can validate the chain offline |
 | HG2 | Cross-check depends on installed, signed tools; CLI ignores added folders | CO-P14, CO-J8 | Install the tools on the verifying workstation, or use `--tool-exe` and state it | Add `--add-folder` to `verify` |
 | HG3 | Integrity, not content | all content claims | Limitation printed in every report (H11) | — (by design) |
-| HG4 | `verify-log` semantics differ between tools; chain-level fallback applies to every tool | CO-P14, US-2 | Read the cross-check reason in the technical report | rv-hub#21: one semantics across the tools; then drop the fallback for tools that check the case log |
+| HG4 | `verify-log` semantics differ between tools; chain-level fallback for rv-pdfauth and rv-imgauth | CO-P14, US-2 | Read the cross-check reason in the technical report | rv-hub#21: one semantics across the tools; then empty `VERIFY_LOG_WITHOUT_TRUNCATION` |
 | HG5 | No validated error rates, no per-release validation record | CO-P15, CO-P16, CO-J8, 27041, ISO-12, US-6, US-12, UK-1 | H12 sample and variants; CI | Validation report per release (17025 §7.2.2.4, SWGDE §6), independent tester, separate dataset (G6) |
 | HG6 | TSA chain validated only with `--tsa-ca`; no revocation check of the TSA certificate | EU-4, CO-L9 | Pass `--tsa-ca` with the TSA's roots; check revocation with OpenSSL or rv-certcheck ([forensic-audit.md](forensic-audit.md#timestamps)) | Offline CRL/OCSP response checking |
 | HG7 | `--tool-exe` accepts any signature | CO-P9 | Recorded as `override: true`; state it in the report | Show overrides in the statistics report |

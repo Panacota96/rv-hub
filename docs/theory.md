@@ -409,19 +409,25 @@ With `--crosscheck auto` (`run.rs` `crosscheck`), for each run that is not the h
 flowchart TB
     T["Tool's verdict<br/>(exit 0 intact / 3 broken)"] --> A{"= hub full verdict?"}
     A -- yes --> AG["agrees"]
-    A -- no --> B{"= hub chain-only verdict?"}
+    A -- no --> K{"tool listed in<br/>VERIFY_LOG_WITHOUT_TRUNCATION?<br/>(rv-pdfauth, rv-imgauth)"}
+    K -- no --> DIS["TOOL_VERIFY_DISAGREES (high)"]
+    K -- yes --> B{"= hub chain-only verdict?"}
     B -- yes --> AG2["agrees at chain level<br/>(reason recorded:<br/>tool does not check truncation)"]
-    B -- no --> DIS["TOOL_VERIFY_DISAGREES (high)"]
+    B -- no --> DIS
 ```
 
 Every cross-check is recorded in the hub's audit log (`crosscheck`: exe, exe SHA-256, arguments, exit code, first 20
-lines of output, outcome, both hub verdicts, whether it was an override).
+lines of output, outcome, both hub verdicts, the executable's version, whether only the chain level was compared,
+whether it was an override).
 
-What the rule accepts and what it costs: the chain-level fallback applies to **every** tool, not only to the two
-whose `verify-log` lacks the case-log check. So when the full and chain-only verdicts differ (truncation against
-the case log, or a broken case log), *either* answer from the tool is accepted, and the cross-check cannot detect a
-tool that misses that particular check. The hub's own findings (`RUN_LOG_BROKEN`, `CASE_LOG_BROKEN`) are unaffected:
-they never depend on the tool's answer. This stays until rv-hub#21 aligns the tools.
+What the rule accepts and what it costs: the chain-level fallback applies **only** to the tools listed in
+`tools::VERIFY_LOG_WITHOUT_TRUNCATION` (rv-pdfauth and rv-imgauth, identified by the run's tool name; each entry can
+name the first version that has the check, none does yet, and an unknown version counts as lacking it). For those
+two, when the full and chain-only verdicts differ (truncation against the case log, or a broken case log), *either*
+answer is accepted, so the cross-check cannot detect that they miss that check. rv-hashinv, rv-rsmf, rv-certcheck
+and any other tool are compared with the full verdict: a tool that answers *intact* on a truncated run is
+`TOOL_VERIFY_DISAGREES`. The hub's own findings (`RUN_LOG_BROKEN`, `CASE_LOG_BROKEN`) are unaffected: they never
+depend on the tool's answer. The list shrinks as rv-hub#21 aligns the tools.
 
 Measured on the sample (`examples/sample`, variant `case_log_line_edited`, `--tool-exe rv-pdfauth=…`): hub full
 verdict *broken*, chain-only *intact*, rv-pdfauth exit 0 → outcome *agrees*, reason "same verdict at chain level";
