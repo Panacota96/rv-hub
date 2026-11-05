@@ -4,7 +4,7 @@ One engine, two front-ends. The engine (`src/core`, crate `rv_hub_core`) does al
 CLI and the GUI turn user input into calls of its public API and render what it returns (for the main verb, the
 `Event` stream). Both interfaces therefore produce identical logs and reports.
 
-RV Hub is the main app of the four Rakvor tools (rv-hashinv, rv-pdfauth, rv-imgauth, rv-rsmf). Each tool stays a
+RV Hub is the main app of the five Rakvor tools (rv-hashinv, rv-pdfauth, rv-imgauth, rv-rsmf, rv-certcheck). Each tool stays a
 separate signed program; the hub discovers them, checks their signatures, launches them on a case folder, shows a
 read-only case dashboard with next-step suggestions, and verifies the whole case.
 
