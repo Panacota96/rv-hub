@@ -248,8 +248,8 @@ With the timestamp enabled but no network, the run completes with `timestamp_pen
 | Signing certificate | wherever you keep it; only its path, subject and SHA-256 fingerprint are logged, never the password |
 
 The CLI writes a session log for `tools` and `launch`; `case`, `describe` and `verify` do not (a verification
-writes its own run log in the case). The GUI starts one session log per window; when it cannot create one,
-launching is disabled, because a launch must be recorded.
+writes its own run log in the case). The GUI starts one session log per window; when it cannot create one, the
+window says so and every launch is refused, because a launch must be recorded.
 
 ## 10. The planned Rakvor Suite installer
 
@@ -327,5 +327,5 @@ provenance attestation binds the released binary to the commit, and the sample r
 | A tool is missing from the list | Not in the registry, `%LOCALAPPDATA%\Programs\Rakvor\*\`, `PATH` (known names only) or an added folder: add its folder. |
 | A tool shows version unknown, "+builtin" | That version has no `describe`, or it was not run (not Rakvor-signed). The built-in table is used. |
 | RV PDFAuth disappeared after installing RV ImgAuth | Shared AppId of rv-imgauth 0.2.0: reinstall RV PDFAuth ([step 7](#7-the-rakvor-tools)). |
-| "launching is disabled" in the window | No session log could be created (data folder and temp folder not writable). Fix the permissions or set `RV_HUB_DATA_DIR`. |
+| The window says no session log could be created, and launches are refused | No session log could be created (data folder and temp folder not writable). Fix the permissions or set `RV_HUB_DATA_DIR`. |
 | `self-test` prints `FAIL` | Do not use this build; re-download and repeat steps 2–4. |
