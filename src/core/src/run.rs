@@ -469,6 +469,7 @@ fn pipeline(
                 json!({"case_id": case.case_id, "case_dir": case.dir.display().to_string(), "role": cfg.case_role.name(),
                        "run_dir": run_rel, "case_created": false, "case_log_seq_at_start": seq,
                        "case_log_head_at_start": head, "registry_sha256": case::registry_digest(&case.dir),
+                       "registry_csv_sha256": case::registry_csv_digest(&case.dir),
                        "registry_items": case.items.len(), "jurisdiction": case.jurisdiction}),
             )
             .map_err(io)?;
@@ -477,7 +478,8 @@ fn pipeline(
             log.record(
                 "case_not_extended",
                 None,
-                json!({"case_id": case_id, "case_dir": dir.display().to_string(), "reason": reason}),
+                json!({"case_id": case_id, "case_dir": dir.display().to_string(), "reason": reason,
+                       "registry_sha256": case::registry_digest(dir), "registry_csv_sha256": case::registry_csv_digest(dir)}),
             )
             .map_err(io)?;
         }

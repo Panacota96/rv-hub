@@ -266,6 +266,12 @@ pub fn registry_digest(dir: &Path) -> Option<String> {
     sha256_file(&dir.join(REGISTRY_JSON))
 }
 
+/// SHA-256 of `evidence/registry.csv` (None when it is missing). The CSV is a convenience copy of the registry:
+/// the case log records no digest for it, so readers and writers record this one in their own audit log.
+pub fn registry_csv_digest(dir: &Path) -> Option<String> {
+    sha256_file(&dir.join(REGISTRY_CSV))
+}
+
 fn read_json(p: &Path) -> Result<Value, String> {
     let text =
         std::fs::read_to_string(p).map_err(|e| format!("cannot read {}: {}", p.display(), e))?;
@@ -764,7 +770,8 @@ impl Case {
             "evidence_registered",
             json!({"tool": w.tool, "version": w.version,
                    "evidence_ids": out.iter().map(|o| o.evidence_id.clone()).collect::<Vec<_>>(),
-                   "added": added, "registry_items": items.len(), "registry_sha256": digest}),
+                   "added": added, "registry_items": items.len(), "registry_sha256": digest,
+                   "registry_csv_sha256": registry_csv_digest(&self.dir)}),
         )?;
         self.items = items;
         Ok((out, seq))

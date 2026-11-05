@@ -194,6 +194,7 @@
     "fact_case_log_entries": "Entrées du journal de l'affaire",
     "fact_registry_items": "Éléments enregistrés",
     "fact_registry_sha256": "SHA-256 du registre",
+    "fact_registry_csv_sha256": "SHA-256 de registry.csv (tel que trouvé, non vérifié)",
     "fact_case_id": "ID de l'affaire",
     "fact_registered_path": "Chemin enregistré",
     "fact_located_at": "Fichier lu",

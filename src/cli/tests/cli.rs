@@ -300,6 +300,18 @@ fn sample_case_verifies_and_the_hub_writes_only_its_run_and_the_case_log_tail() 
     for f in ["audit.jsonl", "audit.log", "hashes.csv", "environment.json"] {
         assert!(logs.join(f).is_file(), "{}", f);
     }
+    // registry.csv has no digest in the case log: the hub records the SHA-256 it read.
+    let linked: Value = std::fs::read_to_string(logs.join("audit.jsonl"))
+        .unwrap()
+        .lines()
+        .map(|l| serde_json::from_str::<Value>(l).unwrap())
+        .find(|e| e["action"] == "case_linked")
+        .unwrap();
+    let csv = std::fs::read(case.join("evidence/registry.csv")).unwrap();
+    assert_eq!(
+        linked["details"]["registry_csv_sha256"].as_str(),
+        Some(rv_hub_core::hash::hash_bytes(&csv, rv_hub_core::HashAlgo::Sha256).as_str())
+    );
     let stats = statistics(&reports);
     assert_eq!(
         stats["totals"]["items"], 10,

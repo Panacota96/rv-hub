@@ -29,7 +29,7 @@ flowchart LR
   case-log.lock                exists only while a tool appends (created exclusively, then removed)
   evidence/registry.json       {"schema":"rakvor.registry/1","items":[{"evidence_id","path","size","hashes",
                                 "registered_by":{…},"registered_utc"}]}
-  evidence/registry.csv        the same, as CSV
+  evidence/registry.csv        the same, as CSV (no digest in the case log; RV Hub records its SHA-256 in its audit log)
   runs/<tool>/<RUN-ID>/logs/     audit.jsonl, audit.log, hashes.csv, environment.json, timestamp-*.tsr|.json,
                                  review.jsonl (rv-imgauth, after the run)
   runs/<tool>/<RUN-ID>/reports/  statistics.*, items/<NNNNN>-<NAME>/{technical,summary,custody}.*

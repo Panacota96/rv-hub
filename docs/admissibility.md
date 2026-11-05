@@ -289,7 +289,8 @@ These are stated here so that nobody has to find them by cross-examination. Each
 7. **The dashboard and suggestions are not verified.** They read the tools' reports as they are, and suggestions
    read evidence at its registered path or in the `--evidence-dir` folders (CLI; the GUI's Case tab uses registered
    paths only).
-8. **`evidence/registry.csv` is not covered** by the registry digest (only `registry.json` is).
+8. **`evidence/registry.csv` is not covered** by the registry digest (only `registry.json` is). The hub records the
+   SHA-256 it found in its own audit log (`registry_csv_sha256`), so a later change is visible, not an earlier one.
 9. **Launch swap window (Linux, macOS):** on Windows the executable is locked against writes, renames and deletes
    from the hash to the start; elsewhere it is re-hashed just before the start, and a swap in the short window
    between that hash and the start is not excluded ([theory.md B3](theory.md#b3-launch)).

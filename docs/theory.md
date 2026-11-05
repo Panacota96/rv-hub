@@ -361,7 +361,10 @@ problem:
 - entry #1 is `case_created`, its `case_id` equals `case.json`'s, and `case.json`'s SHA-256 equals the
   `case_json_sha256` recorded there;
 - `evidence/registry.json`'s SHA-256 equals the last `registry_sha256` recorded in the case log (missing file, or a
-  file with no recorded digest, is also a problem). `registry.csv` is not covered;
+  file with no recorded digest, is also a problem). `registry.csv` is not covered: the case log records no digest
+  for it, so the hub records the SHA-256 it found (`registry_csv_sha256` in `case_linked` / `case_not_extended`,
+  fact *registry.csv SHA-256* of the case-log item), which shows later changes to it but cannot show whether it
+  changed before this verification;
 - no `run_finished` without its `run_started`.
 
 **Each run** (`checks::check_run`), finding `RUN_LOG_BROKEN` (high) for each problem, unless noted:

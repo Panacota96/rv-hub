@@ -194,6 +194,7 @@
     "fact_case_log_entries": "Case-log entries",
     "fact_registry_items": "Registered items",
     "fact_registry_sha256": "Registry SHA-256",
+    "fact_registry_csv_sha256": "registry.csv SHA-256 (as found, not checked)",
     "fact_case_id": "Case ID",
     "fact_registered_path": "Registered path",
     "fact_located_at": "File read",

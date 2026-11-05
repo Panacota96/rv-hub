@@ -103,6 +103,11 @@ pub fn check_case_log(dir: &Path, entries: &[Value], item: &mut Item) -> bool {
                 "fact_registry_sha256",
                 state.registry_sha256.unwrap_or_else(|| "-".into()),
             );
+            // registry.csv has no digest in the case log: its SHA-256 as found is recorded, not checked.
+            item.fact(
+                "fact_registry_csv_sha256",
+                case::registry_csv_digest(dir).unwrap_or_else(|| "-".into()),
+            );
             vec![]
         }
         Err(p) => p,
