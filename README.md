@@ -128,8 +128,12 @@ rv-hub tools --add-folder E:\rakvor-portable --check-signatures
 rv-hub case --case-dir D:\cases\CASE-2026-014       # read-only summary and suggested next steps
 rv-hub launch rv-pdfauth --case-dir D:\cases\CASE-2026-014
 
-# Verify the whole case: logs, links, timestamps, cross-check with each run's own tool
+# Verify the whole case: logs, links, timestamps, cross-check with each run's own tool. The hub's own run is
+# timestamped by an online TSA by default (only its chain head is sent); --no-timestamp for offline labs.
 rv-hub verify --case-dir D:\cases\CASE-2026-014 --actor "Ana Ruiz"
+
+# ...validating the TSA certificate chain of every token against your CA bundle
+rv-hub verify --case-dir D:\cases\CASE-2026-014 --tsa-ca C:\certs\tsa-roots.pem
 
 # ...and read every registered evidence file again (copies moved to F:\copies)
 rv-hub verify --case-dir D:\cases\CASE-2026-014 --rehash --evidence-dir F:\copies --lang es

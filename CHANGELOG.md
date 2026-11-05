@@ -34,6 +34,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - GUI screenshots regenerated with the released tool versions (rv-hashinv 0.3.1, rv-pdfauth 0.3.0, rv-rsmf 0.2.0,
   rv-imgauth 0.2.0, rv-certcheck 0.2.0).
 
+### Build
+- Release signing embeds the Rakvor root in every signature (`signtool sign /ac rakvor-code-signing-root.cer`), so
+  the full chain to the pinned root is in the file on machines where the root is not installed.
+
 ### Known limitations
 - Signatures are checked on Windows only, without revocation.
 - The cross-check needs the tools installed and Rakvor-signed; the tools' `verify-log` commands differ (rv-hub#21).

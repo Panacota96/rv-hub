@@ -1029,6 +1029,27 @@ fn golden_case_from_the_other_profile_verifies() {
     }
 }
 
+/// Every release signature embeds the Rakvor root (`signtool sign /ac <root>`), so the chain to the pinned root can be
+/// built on a machine where that root is not installed.
+#[test]
+fn release_signing_embeds_the_rakvor_root() {
+    let wf = std::fs::read_to_string(
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../.github/workflows/release.yml"),
+    )
+    .unwrap();
+    let signs: Vec<&str> = wf
+        .lines()
+        .filter(|l| l.contains("signtool") && l.contains(" sign "))
+        .collect();
+    assert!(!signs.is_empty());
+    for l in signs {
+        assert!(
+            l.contains("/ac _signing\\packaging\\signing\\rakvor-code-signing-root.cer"),
+            "{l}"
+        );
+    }
+}
+
 /// CI and release build with the toolchain pinned in rust-toolchain.toml (never a floating `stable`).
 #[test]
 fn workflows_use_the_pinned_toolchain() {

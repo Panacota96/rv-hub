@@ -184,7 +184,10 @@ Options:
           Example: --jurisdiction fr
 
       --tsa-url <URL>
-          RFC 3161 time-stamping authority for the audit chain head.
+          RFC 3161 time-stamping authority for the audit chain head. ON BY DEFAULT: at the end of
+          the
+          run the chain head (one SHA-256, nothing else from the case) is sent to this URL over the
+          network; use --no-timestamp (or RV_NO_TIMESTAMP=1) for offline labs.
           Default: http://timestamp.digicert.com
           Example: --tsa-url https://freetsa.org/tsr
 
@@ -272,9 +275,14 @@ FORENSIC NOTES:
     line is detected by `verify-log`. Removing the last lines is detected against the case log.
   - MD5 and SHA-1 are accepted for compatibility with older case files; pair them with SHA-256 or
   BLAKE3.
-  - The chain head is timestamped by an RFC 3161 authority (proves when the log existed). Offline?
-  The run
-    finishes with `timestamp_pending`; run `rv-hub timestamp <LOG>` later.
+  - The chain head is timestamped by an RFC 3161 authority (proves when the log existed). This is on
+  by
+    default and is the only network access of `verify`: the head (a SHA-256) goes to --tsa-url
+    (default
+    http://timestamp.digicert.com, not a qualified TSA). --no-timestamp turns it off. TSA
+    unreachable? The
+    run finishes with `timestamp_pending`; run `rv-hub timestamp <LOG>` later.
+  - Signatures and TSA certificates are checked offline: revocation (CRL/OCSP) is never checked.
   - With --sign-cert every PDF is signed with the examiner's certificate; the password is never
   logged.
 ```

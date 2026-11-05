@@ -250,8 +250,19 @@ Two consequences matter in court:
 - **The root is pinned, not taken from the Windows store.** A signature that Windows itself calls "untrusted root"
   (because the private Rakvor root is not installed) is still `SignedRakvor` when the chain ends at the bundled
   root; and a signature that Windows trusts (a public code-signing CA) is still `SignedOtherRoot` for the hub.
-- **Revocation is not checked**, so a revoked Rakvor signing certificate would still give `SignedRakvor`. The
-  WinTrust call can only return `CERT_E_REVOKED` if revocation data is already cached; the code asks for none.
+- **Revocation is not checked** (`WTD_REVOKE_NONE`), so a revoked Rakvor signing certificate would still give
+  `SignedRakvor`. The WinTrust call can only return `CERT_E_REVOKED` if revocation data is already cached; the code
+  asks for none.
+
+  *Why:* the hub is offline by default (`WTD_CACHE_ONLY_URL_RETRIEVAL`: no CRL or OCSP download). Verification
+  workstations are often air-gapped, and a revocation check that needs the network would give a different status
+  on the same file depending on whether the machine is online, and could stall each check on a network timeout.
+  The internal Rakvor PKI also publishes no CRL or OCSP responder that a lab could reach. *What it means:* the
+  status says the file is unmodified since it was signed by a certificate chaining to the Rakvor root, not that the
+  certificate was still trusted at check time. If a Rakvor signing key is ever compromised, revocation must be
+  handled outside the hub: re-issue, re-sign and re-install the tools, and compare the executables' SHA-256 (kept
+  in the inventory, `rv-hub tools --json`) with the release's checksums. Revocation can be checked separately on a
+  connected machine (`certutil -verify -urlfetch <exe>`) or with rv-certcheck.
 
 ```mermaid
 flowchart TB

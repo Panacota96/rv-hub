@@ -88,7 +88,11 @@ Rakvor signs its releases with an **internal code-signing certificate** whose ro
 `packaging/signing/rakvor-code-signing-root.cer` (in the source tree and installed on Rakvor machines). The release
 workflow signs `rv-hub.exe`, `rv-hub-gui.exe` and the installer only when the signing secret is configured
 (`SIGN_PFX_BASE64`; SHA-256 with an RFC 3161 timestamp), and then proves on the runner that the signatures chain to
-that root (`signtool verify /pa`).
+that root (`signtool verify /pa`). Every signature embeds the root itself (`signtool sign /ac
+rakvor-code-signing-root.cer`), so the whole chain, leaf to Rakvor root, is in the file: RV Hub can read the root
+from the chain even on a machine where the Rakvor root is not installed (Windows then reports "untrusted root",
+which the hub accepts only when that root is the pinned one). Revocation is not checked
+([theory.md B2](theory.md#b2-the-signature-check)).
 
 The root's SHA-256 thumbprint, the value the hub compiles in and compares with:
 
