@@ -5,13 +5,23 @@
 ```mermaid
 flowchart LR
   A[rv-hub] --> B[verify]
+  A --> TL[tools]
+  A --> CS[case]
+  A --> L[launch]
   A --> C[verify-log]
   A --> D[self-test]
   A --> T[timestamp]
   A --> V[verify-case]
+  A --> DS[describe]
   T --> E
   B --> K[(CASE folder)]
   B --> E[(runs/rv-hub/RUN-ID)]
+  CS -. read only .-> K
+  TL --> X[[tool executables]]
+  L --> X
+  TL --> S[(hub session log)]
+  L --> S
+  X -. --case-dir .-> K
   V --> K
   C --> E
 ```
@@ -19,25 +29,23 @@ flowchart LR
 ## rv-hub
 
 ```text
-DESCRIPTION:
-  rv-hub verify checks a Rakvor case folder as a whole, without changing anything in it:
-    1. the case log (case-log.jsonl): hash chain, case.json and the evidence-registry digest;
-    2. every run folder runs/<TOOL>/<RUN-ID>: its audit.jsonl chain, its link with the case log
-       (case_linked <-> run_started, the audit head recorded at run_finished), its RFC 3161
-       timestamp tokens and, when present, its review.jsonl (anchored to run_finished);
-    3. with --rehash, every registered evidence file, read again and compared with the registry.
-  With --crosscheck auto (default) each run is also verified by the run's own tool
-  (<tool> verify-log <run>/logs) when that tool is installed and signed by Rakvor; a different
-  verdict is a high-severity finding (TOOL_VERIFY_DISAGREES).
-  The verification is itself a run: reports and a hash-chained audit log are written to
-  <CASE>/runs/rv-hub/<RUN-ID>/ and the run is recorded in the case log. No evidence input is
-  needed: --case-dir is the only required option.
+RV Hub, the main app of the Rakvor tools (rv-hashinv, rv-pdfauth, rv-imgauth, rv-rsmf,
+rv-certcheck). Everything the desktop app does can be done here, without a display:
+  verify    verify a whole case folder and cross-check each run with its own tool (main verb)
+  tools     list the installed tools with their version, source and signature
+  case      read-only summary of a case folder, with suggested next steps
+  launch    open a tool's desktop app on a case folder
+Only `verify` writes into a case folder (its own run folder and two case-log entries); `tools`
+and `launch` write only the hub's session log; `case` writes nothing.
 
 Usage: rv-hub <COMMAND>
 
 Commands:
   verify       Verify a whole case folder (case log, every run, optionally the evidence) and
                cross-check each run with its own tool
+  tools        List the installed Rakvor tools with their version, source and signature status
+  case         Read-only summary of a case folder: evidence, runs, findings, problems, next steps
+  launch       Open a tool's desktop app on a case folder (refused for a tool not signed by Rakvor)
   verify-log   Verify an audit log (audit.jsonl): edited, deleted or re-ordered entries, and
                truncation
   self-test    Check every hash algorithm against known-answer test vectors
@@ -61,16 +69,24 @@ Run `rv-hub <COMMAND> --help` for the options, examples and exit codes of each c
 DESCRIPTION:
   rv-hub verify checks a Rakvor case folder as a whole, without changing anything in it:
     1. the case log (case-log.jsonl): hash chain, case.json and the evidence-registry digest;
-    2. every run folder runs/<TOOL>/<RUN-ID>: its audit.jsonl chain, its link with the case log
-       (case_linked <-> run_started, the audit head recorded at run_finished), its RFC 3161
-       timestamp tokens and, when present, its review.jsonl (anchored to run_finished);
-    3. with --rehash, every registered evidence file, read again and compared with the registry.
-  With --crosscheck auto (default) each run is also verified by the run's own tool
-  (<tool> verify-log <run>/logs) when that tool is installed and signed by Rakvor; a different
-  verdict is a high-severity finding (TOOL_VERIFY_DISAGREES).
-  The verification is itself a run: reports and a hash-chained audit log are written to
-  <CASE>/runs/rv-hub/<RUN-ID>/ and the run is recorded in the case log. No evidence input is
-  needed: --case-dir is the only required option.
+    2. every run folder runs/<TOOL>/<RUN-ID>:
+       - its audit log (logs/audit.jsonl): hash chain, no edited, deleted or re-ordered entry;
+       - its review log (logs/review.jsonl, rv-imgauth), when present: chain and anchor to
+         the run's run_finished entry;
+       - its links with the case log: case_linked <-> run_started, and the audit head that the
+         case log recorded at run_finished (a run folder the case log never announced is a
+         finding);
+       - its RFC 3161 timestamp tokens (logs/timestamp-<SEQ>.tsr), or a pending timestamp;
+    3. with --rehash, every registered evidence file, read again and compared with the
+       registry digests (--evidence-dir: where the copies are now, looked up by file name).
+  Cross-check (--crosscheck auto|off): with auto (default) each run is also verified by the
+  run's own tool (<tool> verify-log <run>/logs) when that tool is installed and signed by
+  Rakvor, or given with --tool-exe NAME=PATH; a different verdict is a high-severity finding
+  (TOOL_VERIFY_DISAGREES), a tool that cannot be asked is CROSSCHECK_UNAVAILABLE (info).
+  Outputs: the verification is itself a run. Reports and a hash-chained audit log go to
+  <CASE>/runs/rv-hub/<RUN-ID>/ and the run is recorded in the case log; when the case log
+  itself is broken it is never extended and the outputs go to --out instead.
+  No evidence input is needed: --case-dir is the only required option.
 
 Usage: rv-hub verify [OPTIONS] --case-dir <DIR>
 
@@ -222,6 +238,8 @@ FILES WRITTEN:
 FORENSIC NOTES:
   - The case folder is read-only for RV Hub: every file is opened for reading; only the hub's own
     run folder and two case-log entries are written, after re-verifying the case log under the lock.
+  - The hub never edits, moves or deletes another tool's files: a broken run stays as it is, for
+    the examiner to explain; RV Hub only reports it.
   - The checks use the same verifier code as the tools (hash chain, case log, timestamps, review
     log), and each run's own tool is asked for its verdict: one verifier lineage, checked twice.
   - Verification proves integrity, not content: an intact run log does not make a tool's findings
@@ -237,6 +255,246 @@ FORENSIC NOTES:
     finishes with `timestamp_pending`; run `rv-hub timestamp <LOG>` later.
   - With --sign-cert every PDF is signed with the examiner's certificate; the password is never
   logged.
+```
+
+## rv-hub tools
+
+```text
+DESCRIPTION:
+  Lists the Rakvor tools installed on this workstation, as a table: tool, version, source,
+  signature status and folder. Tools are found, in this order, in:
+    - the Windows uninstall registry (the tools' installer AppIds; source "registry");
+    - %LOCALAPPDATA%\Programs\Rakvor\<tool>\ (source "install folder");
+    - the folders of PATH (the five known tools only; source "PATH");
+    - the folders given with --add-folder, and their subfolders (source "folder").
+  The same folder found twice is listed once. Each tool's own `describe --json` gives its
+  version and what it accepts; it is run only for a Rakvor-signed executable (or where the
+  signature cannot be checked). Older versions without `describe` are described from the
+  built-in table ("+builtin", version unknown). Known tools that are not found are listed as
+  "not installed".
+  Signatures (Windows): Authenticode, and the signer's chain must end at the Rakvor root. Every
+  call is recorded in the hub's session log (tools_listed). --json prints the inventory as
+  one rakvor.hub-tools/1 object (schemas/hub-tools.schema.json).
+
+Usage: rv-hub tools [OPTIONS]
+
+Options:
+      --json
+          Print the inventory as one JSON object (schema rakvor.hub-tools/1) instead of the table.
+          
+          Default: off (table). Example: --json
+
+      --check-signatures
+          Also print the signature of every executable (CLI and GUI): status, finding code and
+          severity, reason or root thumbprint. Signatures are always checked; this shows the
+          details.
+          
+          Default: off (one status per tool in the table). Example: --check-signatures
+
+  -a, --actor <NAME>
+          Name written in the hub's session log.
+          
+          Default: the operating-system user name. Example: --actor "Ana Ruiz"
+
+  -l, --lang <LANG>
+          Language of the printed text: en, es or fr (help texts are in English).
+          
+          Default: en. Example: --lang fr
+
+      --add-folder <DIR>
+          Also look for tools in this folder and its subfolders (e.g. portable copies on a USB
+          stick). Repeat for several. Used for this call only.
+          
+          Default: none (registry, install folder, PATH). Example: --add-folder E:\usb
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+EXAMPLES:
+  List the installed tools:
+    rv-hub tools
+  Also look in a portable folder on a USB stick, with the details of every signature:
+    rv-hub tools --add-folder E:\rakvor-portable --check-signatures
+  Machine-readable inventory, Spanish warnings:
+    rv-hub tools --json --lang es > tools.json
+
+EXIT CODES:
+  0  Inventory printed; no executable has a bad signature (unsigned executables, e.g.
+     developer builds, give a warning line on stderr but still exit 0).
+  1  Runtime error (the session log cannot be written).
+  2  Usage error (unknown option, bad value).
+  3  At least one executable is signed under another root (TOOL_SIGNED_OTHER_ROOT) or has a
+     signature that does not verify (TOOL_SIGNATURE_INVALID): do not use that copy.
+
+FILES WRITTEN:
+  <HUB-DATA>/logs/<SESSION-ID>/audit.jsonl       Hub session log (hash chain): session_started,
+                                                 environment_recorded, tools_listed.
+  <HUB-DATA>/logs/<SESSION-ID>/audit.log         The same, human-readable.
+  <HUB-DATA>/logs/<SESSION-ID>/environment.json  Hub version, OS, host, user.
+  <HUB-DATA> is %LOCALAPPDATA%\Rakvor\RV Hub (Windows), $XDG_DATA_HOME/rakvor/rv-hub or
+  ~/.local/share/rakvor/rv-hub (Linux), or RV_HUB_DATA_DIR. No case folder is written.
+
+FORENSIC NOTES:
+  - The inventory records the SHA-256 of every executable: a report can name exactly which
+    build of a tool was used.
+  - An executable that is not Rakvor-signed is never run, not even for `describe`.
+  - On other systems than Windows the signature is "not checked"; that is not a valid
+    signature (limitation SIGNATURE_CHECK_WINDOWS_ONLY).
+```
+
+## rv-hub case
+
+```text
+DESCRIPTION:
+  Prints a read-only summary of a case folder, as the desktop app's Case tab shows it:
+    - case id, jurisdiction (co: Colombia, fr: France) and creation date (case.json);
+    - the number of registered evidence items (evidence/registry.json);
+    - a quick check of the case log chain (case-log.jsonl);
+    - the runs table: tool, run id, start time, status, findings by severity
+      (high/medium/low/info, from reports/statistics.json) and trusted-timestamp status;
+    - the problems found while reading (missing or malformed files, run folders the case log
+      never announced, ...);
+    - the suggested next steps, each with its reason in the --lang language: which tool
+      should still examine which registered items (by extension or first bytes, using each
+      installed tool's `describe`, else the built-in table), and runs whose timestamp is
+      pending.
+  This is a summary, not a verification: `rv-hub verify` checks every chain and link. --json
+  prints one rakvor.hub-case/1 object (schemas/hub-case.schema.json).
+
+Usage: rv-hub case [OPTIONS] --case-dir <DIR>
+
+Options:
+      --case-dir <DIR>
+          The case folder to summarise (the one that holds case.json). Required.
+          
+          Default: none. Example: --case-dir E:\CASE-014
+
+      --json
+          Print the summary as one JSON object (schema rakvor.hub-case/1) instead of text.
+          
+          Default: off (text). Example: --json
+
+  -l, --lang <LANG>
+          Language of the printed text: en, es or fr (help texts are in English).
+          
+          Default: en. Example: --lang fr
+
+      --add-folder <DIR>
+          Also look for tools in this folder and its subfolders (e.g. portable copies on a USB
+          stick). Repeat for several. Used for this call only.
+          
+          Default: none (registry, install folder, PATH). Example: --add-folder E:\usb
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+EXAMPLES:
+  Summary of a case:
+    rv-hub case --case-dir E:\CASE-014
+  In French, with the tools of a portable folder for the suggestions:
+    rv-hub case --case-dir E:\CASE-014 --lang fr --add-folder E:\rakvor-portable
+  Machine-readable:
+    rv-hub case --case-dir E:\CASE-014 --json > case.json
+
+EXIT CODES:
+  0  Summary printed (problems, if any, are listed: they do not change the exit code; use
+     `rv-hub verify` for a verdict).
+  1  The folder has no case.json (not a case yet); the summary is still printed.
+  2  Usage error (unknown option, bad value, the folder does not exist).
+
+FILES WRITTEN:
+  None. The case folder is only read (evidence files: at most their first 4 KiB, to recognise
+  their type); no session log is written either.
+
+FORENSIC NOTES:
+  - Nothing in the case changes, so the summary can be taken at any time, even while a tool
+    is running on the case.
+  - Findings and timestamp states are read from the tools' own reports and logs as they are;
+    an edited report would show edited numbers: only `rv-hub verify` proves integrity.
+```
+
+## rv-hub launch
+
+```text
+DESCRIPTION:
+  Opens a tool's desktop app on a case folder: <tool>-gui.exe --case-dir CASE, started on its
+  own (RV Hub does not wait for it). Before it starts, the executable is hashed (SHA-256) and
+  must be the one just inventoried, and its signature is checked again. A tool that is not
+  signed by Rakvor (another root, invalid signature, unsigned, or not checkable on this
+  system) is refused unless --yes-untrusted is given; that confirmation is recorded first.
+  Analysis tools need an existing case (case.json); only the intake tool (rv-hashinv) may
+  open a folder that is not a case yet, because the hub never creates case.json itself.
+  When a tool is installed more than once, the Rakvor-signed copy is used first, then the
+  registry install, the install folder, PATH and the added folders. The pid is printed.
+
+Usage: rv-hub launch [OPTIONS] --case-dir <DIR> <TOOL>
+
+Arguments:
+  <TOOL>
+          The tool to open: rv-hashinv, rv-pdfauth, rv-imgauth, rv-rsmf or rv-certcheck (or another
+          rv-* tool found in an added folder). Required.
+          
+          Default: none. Example: rv-pdfauth
+
+Options:
+      --case-dir <DIR>
+          The case folder the tool opens (passed as --case-dir). Required.
+          
+          Default: none. Example: --case-dir E:\CASE-014
+
+      --yes-untrusted
+          Launch even when the tool is not signed by Rakvor (developer builds). The confirmation
+          is recorded in the session log before the tool starts.
+          
+          Default: off (an untrusted tool is refused, exit 3). Example: --yes-untrusted
+
+  -a, --actor <NAME>
+          Name written in the hub's session log.
+          
+          Default: the operating-system user name. Example: --actor "Ana Ruiz"
+
+  -l, --lang <LANG>
+          Language of the printed text: en, es or fr (help texts are in English).
+          
+          Default: en. Example: --lang fr
+
+      --add-folder <DIR>
+          Also look for tools in this folder and its subfolders (e.g. portable copies on a USB
+          stick). Repeat for several. Used for this call only.
+          
+          Default: none (registry, install folder, PATH). Example: --add-folder E:\usb
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+EXAMPLES:
+  Open RV PDFAuth on a case:
+    rv-hub launch rv-pdfauth --case-dir E:\CASE-014
+  Start a new case with the intake tool:
+    rv-hub launch rv-hashinv --case-dir E:\CASE-015
+  A developer build (not signed) from a portable folder, Spanish messages:
+    rv-hub launch rv-imgauth --case-dir E:\CASE-014 --add-folder D:\dev --yes-untrusted -l es
+
+EXIT CODES:
+  0  The tool was started (its pid is printed).
+  1  Runtime error: the tool is not installed, it could not be started, or the session log
+     cannot be written.
+  2  Usage error: unknown tool name, or the folder is not a case (no case.json) for an
+     analysis tool.
+  3  Refused: the tool is not Rakvor-signed and --yes-untrusted was not given, or its
+     executable changed since it was inventoried.
+
+FILES WRITTEN:
+  <HUB-DATA>/logs/<SESSION-ID>/audit.jsonl|audit.log|environment.json  Hub session log:
+      tool_launched (tool, version, exe SHA-256, signature, case, pid), and before it
+      tool_untrusted_confirmed (--yes-untrusted) or, when refused, tool_launch_refused.
+  No case folder is written by RV Hub; the launched tool writes its own run as usual.
+
+FORENSIC NOTES:
+  - The session log proves which executable (SHA-256) was started on which case, when and by
+    whom, and whether an untrusted build was knowingly used.
+  - --yes-untrusted is for developer builds only: reports of a run made with an untrusted
+    build should say so.
 ```
 
 ## rv-hub verify-log
@@ -379,5 +637,35 @@ EXIT CODES:
   1  The folder is not a case folder (no case.json).
   3  At least one check failed: the case was edited, truncated or re-ordered, or (--rehash)
      an evidence file differs from the registry.
+```
+
+## rv-hub describe
+
+```text
+Describe RV Hub as JSON (schema rakvor.describe/1), as every Rakvor tool does
+
+Usage: rv-hub describe [OPTIONS]
+
+Options:
+      --json
+          Print JSON: one pretty-printed object with sorted keys.
+          Default: on (JSON is the only format)
+          Example: --json
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+DESCRIPTION:
+  Prints what RV Hub is, in the same rakvor.describe/1 schema as every Rakvor tool
+  (schemas/describe.schema.json): schema, tool, title, version, role (analysis: the hub's
+  verification runs are recorded in the case log as analysis runs), main_verb (verify),
+  accepts (the case folder's JSON and JSON Lines files), case_formats, log_formats, cli_exe,
+  gui_exe, exit_codes. Nothing is read or written; no session log is created.
+
+EXAMPLES:
+  rv-hub describe --json
+
+EXIT CODES:
+  0  The description was printed.
 ```
 

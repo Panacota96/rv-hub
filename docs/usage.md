@@ -60,7 +60,7 @@ TSA (`tests/fake_tsa.py`); paths are shortened.
 ### 2.1 Intake: register the evidence
 
 ```powershell
-rv-hub scan --case-dir D:\cases\CASE-2026-014 --case CASE-2026-014 --jurisdiction co `
+rv-hashinv scan --case-dir D:\cases\CASE-2026-014 --case CASE-2026-014 --jurisdiction co `
     -i E:\export -r --hash sha256,md5 --actor "Ana Ruiz" --sign-cert C:\certs\ana-ruiz.p12
 ```
 
@@ -144,6 +144,32 @@ one or two hash algorithms, set the report language and examiner in *3. Reports*
 lists every evidence id and its status. Every setting you change before starting is written to the run's audit log
 (`ui_*` actions). The engine, outputs and findings are the same as the CLI's. Details:
 [usage-gui.md](usage-gui.md).
+
+### 2.5 The hub from the command line: tools, case summary, launch
+
+Everything the desktop app shows is also a command, so the hub can be scripted and tested without a display.
+Only `verify` writes into a case; `tools` and `launch` write only the hub's session log
+(`%LOCALAPPDATA%\Rakvor\RV Hub\logs\<SESSION-ID>\`, or `RV_HUB_DATA_DIR`), and `case` writes nothing at all.
+
+```powershell
+rv-hub tools                                     # inventory: tool, version, source, signature, path
+rv-hub tools --add-folder E:\rakvor-portable --check-signatures
+rv-hub tools --json > tools.json                 # schema rakvor.hub-tools/1 (schemas/hub-tools.schema.json)
+rv-hub case --case-dir D:\cases\CASE-2026-014 --lang es
+rv-hub case --case-dir D:\cases\CASE-2026-014 --json   # schema rakvor.hub-case/1
+rv-hub launch rv-pdfauth --case-dir D:\cases\CASE-2026-014
+```
+
+- `tools` exits 3 when an executable is signed under another root or has an invalid signature; an unsigned
+  executable (developer build) is a warning line and exit 0. Signatures are checked on Windows only; elsewhere the
+  status is "not checked".
+- `case` lists the case id, jurisdiction, evidence count, the runs (findings by severity, timestamp status), the
+  problems found while reading, and the suggested next steps with their reason in the `--lang` language.
+- `launch` starts `<tool>-gui.exe --case-dir CASE` and prints its pid. A tool that is not Rakvor-signed is refused
+  (exit 3) unless `--yes-untrusted` is given; the confirmation, the refusal and the launch (with the executable's
+  SHA-256) are recorded in the session log.
+- `rv-hub describe --json` prints the hub's own self-description, in the same `rakvor.describe/1` schema as the
+  tools (role `analysis`, main verb `verify`).
 
 ## 3. Reading the outputs
 
