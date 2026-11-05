@@ -243,7 +243,7 @@ nothing. Every report prints these limitations:
 <!-- /forge:domain -->
 
 The core never prints; the CLI ([src/cli/src/main.rs](../src/cli/src/main.rs)) and the GUI
-([src/gui/src/state.rs](../src/gui/src/state.rs)) render the same event stream, so both front-ends produce the
+([src/gui/src/state/](../src/gui/src/state/mod.rs)) render the same event stream, so both front-ends produce the
 same audit actions, findings and reports.
 
 <!-- forge:domain -->
