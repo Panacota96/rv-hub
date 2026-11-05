@@ -3,8 +3,9 @@
 //!     cargo run -p rv-hub-gui --example hub_screenshot -- docs/images/hub-tools.png tools [en|es|fr]
 //!     cargo run -p rv-hub-gui --example hub_screenshot -- docs/images/hub-case.png case [en|es|fr]
 //!
-//! The discovery is faked (the five Rakvor tools, with a mix of signature statuses); the Case tab shows a copy of
-//! `examples/sample/case`. A few egui frames run, then egui's tessellated meshes are rasterised on the CPU
+//! The discovery is faked: the five Rakvor tools at their released versions (rv-hashinv 0.3.1, rv-pdfauth 0.3.0,
+//! rv-rsmf 0.2.0, rv-imgauth 0.2.0, rv-certcheck 0.2.0), all Rakvor-signed except one unsigned portable copy of
+//! rv-imgauth, to show the amber badge. The Case tab shows a copy of `examples/sample/case`. A few egui frames run, then egui's tessellated meshes are rasterised on the CPU
 //! (textured triangles, premultiplied alpha), so the picture is what the window draws, minus the GPU.
 #![forbid(unsafe_code)]
 
@@ -12,8 +13,9 @@ use eframe::egui;
 use egui::epaint::{ClippedPrimitive, Color32, ImageData, Primitive, TextureId};
 use rv_hub_core::launch::Spawner;
 use rv_hub_core::signature::{SignatureStatus, StaticVerifier};
+use rv_hub_core::tools::{APP_IDS, Source, ToolInfo};
 use rv_hub_gui::app::HubApp;
-use rv_hub_gui::state::{HubState, Tab, testing::five_tools};
+use rv_hub_gui::state::{HubState, Tab, testing::preview_tool};
 use std::collections::HashMap;
 use std::ffi::OsString;
 use std::path::Path;
@@ -36,6 +38,60 @@ fn copy_dir(from: &Path, to: &Path) {
             std::fs::copy(e.path(), to.join(e.file_name())).expect("copy");
         }
     }
+}
+
+/// The five tools as a workstation with the released versions would list them. AppIds: the real ones of
+/// `rv_hub_core::tools::APP_IDS`. One unsigned portable copy (rv-imgauth) shows the amber "unsigned" badge.
+fn released_tools() -> Vec<ToolInfo> {
+    let programs = r"C:\Users\examiner\AppData\Local\Programs\Rakvor";
+    let p = |title: &str| std::path::PathBuf::from(format!("{programs}\\{title}"));
+    let reg = |tool: &str| Source::Registry {
+        app_id: APP_IDS
+            .iter()
+            .find(|k| k.tool == Some(tool))
+            .map(|k| k.app_id.to_string())
+            .expect("known AppId"),
+    };
+    let signed = SignatureStatus::SignedRakvor;
+    let mut v = vec![
+        preview_tool(
+            &p("RV HashInv"),
+            "rv-hashinv",
+            signed.clone(),
+            "0.3.1",
+            reg("rv-hashinv"),
+        ),
+        preview_tool(
+            &p("RV PDFAuth"),
+            "rv-pdfauth",
+            signed.clone(),
+            "0.3.0",
+            Source::LocalPrograms,
+        ),
+        preview_tool(
+            &p("RV RSMF"),
+            "rv-rsmf",
+            signed.clone(),
+            "0.2.0",
+            reg("rv-rsmf"),
+        ),
+        preview_tool(
+            std::path::Path::new(r"E:\rakvor-portable\rv-imgauth-0.2.0"),
+            "rv-imgauth",
+            SignatureStatus::Unsigned,
+            "0.2.0",
+            Source::UserFolder,
+        ),
+        preview_tool(
+            &p("RV CertCheck"),
+            "rv-certcheck",
+            signed,
+            "0.2.0",
+            reg("rv-certcheck"),
+        ),
+    ];
+    v.sort_by(|a, b| a.tool.cmp(&b.tool));
+    v
 }
 
 const W: usize = 1280;
@@ -144,9 +200,7 @@ fn main() {
     let _ = std::fs::remove_dir_all(&tmp);
 
     let mut s = HubState::new(vec![tmp.join("hub-data")], "Examiner");
-    s.apply_discovery(five_tools(
-        r"C:\Users\examiner\AppData\Local\Programs\Rakvor",
-    ));
+    s.apply_discovery(released_tools());
     s.settings.user_folders = vec![r"E:\rakvor-portable".into()];
     if tab == "case" {
         let case = tmp.join("CASE-SAMPLE-1");
