@@ -38,6 +38,32 @@ flowchart LR
 
 `ci.yml` runs on every push and pull request with read-only permissions.
 
+### Authenticode tests on Windows (real signed binaries)
+
+The signature check (`src/core/src/signature/`) is proven on `windows-latest` with executables signed at run time;
+no key or certificate is committed. `tests/signing/make-fixtures.ps1` makes throwaway roots named
+`CN=RV Hub CI Test …` (trusted in `LocalMachine\Root`, since adding to `CurrentUser\Root` opens a confirmation
+dialog), signs copies of `src/cli/examples/sig_fixture.rs` with `signtool /fd SHA256` and exports their paths as
+`RV_SIGTEST_*`; `tests/signing/remove-test-roots.ps1` deletes the certificates at the end of the job (`if: always()`).
+
+| Fixture | Pinned test root | Bundled Rakvor pin (production) |
+| --- | --- | --- |
+| signed by the test root's leaf | `SignedRakvor` | `SignedOtherRoot` (test root thumbprint) |
+| unsigned | `Unsigned` | `Unsigned` |
+| signed, then one byte changed | `Invalid` (0x80096010) | `Invalid` |
+| signed by another trusted root's leaf | `SignedOtherRoot` (its thumbprint) | `SignedOtherRoot` |
+| root not installed, embedded with `/ac` | `SignedRakvor` (0x800B0109 + pin) | `SignedOtherRoot` |
+
+- `src/core/src/signature/fixture_tests.rs` (unit tests, `cfg(all(test, windows))`) runs the real verifier with the
+  test-only `PinnedRootVerifier` and with `OsVerifier`, and checks the finding codes. `OsVerifier` has no way to
+  change its pin; a test on every platform checks that it pins `packaging/signing/rakvor-code-signing-root.cer`.
+- `src/cli/tests/signature_windows.rs` puts the fixtures in an `--add-folder` as a fake `rv-pdfauth` and checks
+  `rv-hub tools --json` (statuses, findings, exit 3 for other-root and invalid) and `rv-hub launch` (exit 3 and the
+  program not started, unless `--yes-untrusted`).
+- Without the variables the tests are skipped; CI sets `RV_SIGTEST_REQUIRED=1` on Windows so they cannot be
+  skipped there. To run them on a Windows machine, run `make-fixtures.ps1` in an elevated PowerShell, set the
+  printed variables, run `cargo test --workspace`, then `remove-test-roots.ps1`.
+
 ## Releasing
 
 ```mermaid

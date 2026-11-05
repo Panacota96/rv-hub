@@ -17,6 +17,10 @@ use std::path::{Path, PathBuf};
 #[cfg(windows)]
 mod windows;
 
+/// Real Authenticode fixtures built by CI (`tests/signing/make-fixtures.ps1`); skipped when absent.
+#[cfg(all(test, windows))]
+mod fixture_tests;
+
 /// The Rakvor code-signing root, as shipped in the repository.
 pub const RAKVOR_ROOT_DER: &[u8] =
     include_bytes!("../../../../packaging/signing/rakvor-code-signing-root.cer");
@@ -87,33 +91,68 @@ pub trait SignatureVerifier: Send + Sync {
 }
 
 /// The operating system's check: Authenticode + Rakvor root on Windows, `NotChecked` elsewhere.
+///
+/// The pinned root is always the bundled Rakvor root ([`RAKVOR_ROOT_DER`]); there is deliberately no way to
+/// change it at run time (no option, no environment variable). The Windows fixture tests pin a throwaway CI root
+/// through the test-only `PinnedRootVerifier`, which runs exactly the same code path.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct OsVerifier;
 
-impl SignatureVerifier for OsVerifier {
-    fn verify(&self, exe: &Path) -> SignatureStatus {
-        if !exe.is_file() {
-            return SignatureStatus::NotChecked {
-                reason: format!("{} is not a file", exe.display()),
-            };
-        }
-        verify_os(exe)
+impl OsVerifier {
+    /// SHA-256 thumbprint (lower-case hex) of the root this verifier accepts as Rakvor: the bundled root.
+    pub fn pinned_root_sha256(&self) -> String {
+        rakvor_root_sha256()
     }
 }
 
+impl SignatureVerifier for OsVerifier {
+    fn verify(&self, exe: &Path) -> SignatureStatus {
+        verify_pinned(exe, &self.pinned_root_sha256())
+    }
+}
+
+/// Test-only verifier: the OS check of [`OsVerifier`] with another pinned root (the CI test root).
+#[cfg(test)]
+#[derive(Clone, Debug)]
+pub(crate) struct PinnedRootVerifier {
+    root_sha256: String,
+}
+
+#[cfg(test)]
+impl PinnedRootVerifier {
+    pub(crate) fn with_root_der(der: &[u8]) -> PinnedRootVerifier {
+        PinnedRootVerifier {
+            root_sha256: hash_bytes(der, HashAlgo::Sha256),
+        }
+    }
+}
+
+#[cfg(test)]
+impl SignatureVerifier for PinnedRootVerifier {
+    fn verify(&self, exe: &Path) -> SignatureStatus {
+        verify_pinned(exe, &self.root_sha256)
+    }
+}
+
+/// The OS check against `pinned_root_sha256` (shared by [`OsVerifier`] and the test-only pinned verifier).
+fn verify_pinned(exe: &Path, pinned_root_sha256: &str) -> SignatureStatus {
+    if !exe.is_file() {
+        return SignatureStatus::NotChecked {
+            reason: format!("{} is not a file", exe.display()),
+        };
+    }
+    verify_os(exe, pinned_root_sha256)
+}
+
 #[cfg(windows)]
-fn verify_os(exe: &Path) -> SignatureStatus {
+fn verify_os(exe: &Path, pinned_root_sha256: &str) -> SignatureStatus {
     let (hresult, root_der) = windows::verify_file(exe);
     let root = root_der.map(|der| hash_bytes(&der, HashAlgo::Sha256));
-    classify(
-        trust_outcome(hresult),
-        root.as_deref(),
-        &rakvor_root_sha256(),
-    )
+    classify(trust_outcome(hresult), root.as_deref(), pinned_root_sha256)
 }
 
 #[cfg(not(windows))]
-fn verify_os(_exe: &Path) -> SignatureStatus {
+fn verify_os(_exe: &Path, _pinned_root_sha256: &str) -> SignatureStatus {
     SignatureStatus::NotChecked {
         reason: "not Windows: Authenticode signatures are checked on Windows only".into(),
     }
@@ -232,6 +271,27 @@ mod tests {
         assert_eq!(
             rakvor_root_sha256(),
             "dc9ba1a2fcd4f0633c5214b7cceb25bed8f3f7d9ebaf111590250cbcaa83df60"
+        );
+    }
+
+    /// Production pins the bundled root: the thumbprint used by `OsVerifier` equals the SHA-256 of the
+    /// certificate file in the repository (read from disk, independently of `include_bytes!`).
+    #[test]
+    fn os_verifier_pins_the_bundled_root() {
+        let on_disk = std::fs::read(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../packaging/signing/rakvor-code-signing-root.cer"),
+        )
+        .unwrap();
+        assert_eq!(
+            OsVerifier.pinned_root_sha256(),
+            hash_bytes(&on_disk, HashAlgo::Sha256)
+        );
+        assert_eq!(OsVerifier.pinned_root_sha256(), rakvor_root_sha256());
+        // The test-only verifier hashes the DER it is given, like the bundled pin.
+        assert_eq!(
+            PinnedRootVerifier::with_root_der(&on_disk).root_sha256,
+            OsVerifier.pinned_root_sha256()
         );
     }
 
