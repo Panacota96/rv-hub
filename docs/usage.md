@@ -59,6 +59,8 @@ and folder; `--check-signatures` adds one line per executable with its finding c
 
 - every tool you will use is `TOOL_SIGNED_RAKVOR`;
 - `+builtin` / version `-`: that version has no `describe` (or was not run because it is not Rakvor-signed);
+  each tool's version and inputs come from its own `<tool> describe --json` (`rakvor.describe/1`), and `rv-hub
+  describe --json` describes the hub the same way (it takes no `--case-dir`: it reads nothing);
 - the warning *"installed under the AppId shared by RV PDFAuth and RV ImgAuth 0.2.0"*: reinstall RV PDFAuth if you
   installed RV ImgAuth 0.2.0 after it;
 - exit code 3: an executable is signed under another root or its signature is broken. Do not use that copy.
@@ -213,15 +215,25 @@ Full wording (shows / does not prove) of every code: [reports.md](reports.md#fin
 
 ## 4. Timestamps
 
-`verify` asks the TSA (default `http://timestamp.digicert.com`) to stamp its own chain head at the end of the run.
-Offline, the run completes with `timestamp_pending`; later:
+**The timestamp is on by default.** At the end of every `verify` run the hub sends its own chain head (a SHA-256,
+nothing else from the case) to the TSA, default `http://timestamp.digicert.com` (`--tsa-url` for another, e.g. a
+qualified TSA). That request is the only network access of `verify`; `--no-timestamp` or `RV_NO_TIMESTAMP=1` turns it
+off for offline labs. When the TSA cannot be reached, the run completes with `timestamp_pending`; later:
 
 ```powershell
 rv-hub timestamp D:\cases\CASE-2026-014\runs\rv-hub\<RUN-ID>\logs
 ```
 
-The hub checks other runs' tokens for the hash they cover, not the TSA's signature: check that with OpenSSL or
-rv-certcheck ([forensic-audit.md](forensic-audit.md#timestamps)).
+For every run's tokens the hub checks the hash they cover and the TSA's CMS signature. The TSA certificate chain is
+validated only against a CA bundle you give; without it the output says "chain not checked". Revocation is not
+checked ([theory.md B9](theory.md#b9-timestamps-what-the-hub-checks-and-what-it-does-not)):
+
+```powershell
+rv-hub verify --case-dir D:\cases\CASE-2026-014 --tsa-ca C:\certs\tsa-roots.pem
+rv-hub verify-log D:\cases\CASE-2026-014\runs\rv-hub\<RUN-ID>\logs --tsa-ca C:\certs\tsa-roots.pem
+```
+
+`verify-case` checks the TSA signature too, never the chain.
 
 ## 5. Verifying a log, the hub's own record, a case quickly
 
