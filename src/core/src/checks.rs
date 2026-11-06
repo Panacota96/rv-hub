@@ -278,8 +278,7 @@ pub fn check_run(
             }
         }
     }
-    let tokens =
-        crate::trust::verify_timestamps_with(&log_dir, &audit::heads(&audit_path), tsa_anchors);
+    let tokens = crate::trust::verify_timestamps_with(&audit_path, tsa_anchors);
     for p in tokens.problems {
         item.findings.push(broken(p));
     }
@@ -378,7 +377,7 @@ pub fn check_run(
     item.verdict = Some(verdict);
     // Chain level: what every tool's verify-log checks (the truncation check against the case log came later).
     let chain_ok = audit::verify(&audit_path).is_ok()
-        && crate::trust::verify_timestamps(&log_dir, &audit::heads(&audit_path)).is_empty()
+        && crate::trust::verify_timestamps(&audit_path).is_empty()
         && crate::review::verify(&log_dir).is_ok();
     item.chain_verdict = Some(if chain_ok {
         Verdict::Intact

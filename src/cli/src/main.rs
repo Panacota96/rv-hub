@@ -315,12 +315,17 @@ enum Command {
 CHECKS:
   - every entry links to the previous one (hash chain): an edited, deleted or re-ordered entry
     breaks it;
-  - every timestamp token (timestamp-<SEQ>.tsr) covers the hash of the entry it names, and every
-    timestamp_obtained entry still has its token file;
+  - every timestamp token the log records (timestamp_obtained) is still next to it with its
+    metadata (timestamp-<SEQ>.tsr with the recorded SHA-256, timestamp-<SEQ>.json agreeing): a
+    missing file is a problem, never a skipped check; a token file no entry records is checked
+    too. Every token covers the hash of the entry it names;
   - the TSA's CMS signature of every token: signer certificate in the token, ESS
-    signing-certificate binding, message digest over TSTInfo, RSA signature, timeStamping key
-    usage. With --tsa-ca, also the TSA certificate chain up to that CA bundle at the token's
-    genTime; without it the output says \"chain not checked\". Revocation is never checked;
+    signing-certificate binding, message digest over TSTInfo, RSA signature, and an extended key
+    usage that is critical and only timeStamping (RFC 3161). With --tsa-ca, also the TSA
+    certificate path up to that CA bundle at the token's genTime (every candidate issuer tried;
+    CA flag, keyCertSign, pathLenConstraint, directoryName name constraints, no unsupported
+    critical extension); without it the output says \"chain not checked\". Revocation is
+    never checked: establish it from CRL/OCSP evidence covering genTime;
   - review.jsonl in the same folder (viewing after the run, written by rv-imgauth), when present,
     is an intact chain anchored to the run's run_finished entry (\"review entries: N\");
   - truncation: a chain alone cannot show that entries were removed from its end. The log must

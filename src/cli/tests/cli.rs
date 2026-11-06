@@ -861,6 +861,61 @@ fn trust_timestamp_and_signed_reports_with_test_pki() {
         .arg(other.path().join("missing.pem"))
         .assert()
         .code(1);
+    // Review (sidecar bypass): deleting a token's timestamp-*.json must not skip its signature and chain checks.
+    // The audit log's timestamp_obtained entry still names the token, so verification is driven from it: the
+    // missing metadata is a problem, and the token is still checked (an untrusted CA bundle still fails).
+    {
+        let copy = tempfile::tempdir().unwrap();
+        let case2 = copy.path().join("case");
+        copy_dir(&case, &case2);
+        let logs2 = only_dir(&case2.join("runs/rv-hub")).join("logs");
+        let sidecar = std::fs::read_dir(&logs2)
+            .unwrap()
+            .map(|e| e.unwrap().path())
+            .find(|p| {
+                p.file_name()
+                    .is_some_and(|n| n.to_string_lossy().starts_with("timestamp-"))
+                    && p.extension().is_some_and(|x| x == "json")
+            })
+            .unwrap();
+        std::fs::remove_file(&sidecar).unwrap();
+        for ca in [other.path().join("ca.pem"), pki.path().join("ca.pem")] {
+            bin()
+                .arg("verify-log")
+                .arg(&logs2)
+                .arg("--tsa-ca")
+                .arg(&ca)
+                .assert()
+                .code(3)
+                .stdout(predicate::str::contains("metadata"));
+        }
+        bin()
+            .arg("verify-log")
+            .arg(&logs2)
+            .arg("--tsa-ca")
+            .arg(other.path().join("ca.pem"))
+            .assert()
+            .code(3)
+            .stdout(predicate::str::contains("chain not validated"));
+        bin().arg("verify-log").arg(&logs2).assert().code(3);
+        bin()
+            .arg("verify-case")
+            .arg(&case2)
+            .assert()
+            .code(3)
+            .stdout(predicate::str::contains("metadata"));
+        verify(&case2)
+            .args(["--crosscheck", "off", "--tsa-ca"])
+            .arg(other.path().join("ca.pem"))
+            .assert()
+            .code(3)
+            .stdout(predicate::str::contains("RUN_LOG_BROKEN"));
+        verify(&case2)
+            .args(["--crosscheck", "off"])
+            .assert()
+            .code(3)
+            .stdout(predicate::str::contains("RUN_LOG_BROKEN"));
+    }
     // The case jurisdiction (co) decides the custody form: Spanish + English.
     let item = run
         .join("reports/items")
@@ -927,7 +982,8 @@ fn trust_timestamp_and_signed_reports_with_test_pki() {
         .assert()
         .code(3)
         .stdout(predicate::str::contains("missing or altered"));
-    // Even with the recorded token digest updated to match, the signature check catches it.
+    // Updating the digest in the metadata file does not help: the audit log's timestamp_obtained entry is what
+    // the token is checked against, and the metadata now disagrees with it.
     let meta_path = tsr.with_extension("json");
     let mut meta: Value =
         serde_json::from_str(&std::fs::read_to_string(&meta_path).unwrap()).unwrap();
@@ -936,6 +992,25 @@ fn trust_timestamp_and_signed_reports_with_test_pki() {
     bin()
         .arg("verify-log")
         .arg(&logs)
+        .assert()
+        .code(3)
+        .stdout(predicate::str::contains("missing or altered"));
+    // Without the entry (the log cut just before timestamp_obtained, metadata digest updated), the token is
+    // checked from its metadata: the signature check catches the alteration.
+    let cut = tempfile::tempdir().unwrap();
+    let covers = meta["covers_seq"].as_u64().unwrap();
+    let kept: Vec<String> = std::fs::read_to_string(logs.join("audit.jsonl"))
+        .unwrap()
+        .lines()
+        .filter(|l| serde_json::from_str::<Value>(l).unwrap()["seq"].as_u64() <= Some(covers))
+        .map(|l| format!("{l}\n"))
+        .collect();
+    std::fs::write(cut.path().join("audit.jsonl"), kept.concat()).unwrap();
+    std::fs::copy(&tsr, cut.path().join(tsr.file_name().unwrap())).unwrap();
+    std::fs::copy(&meta_path, cut.path().join(meta_path.file_name().unwrap())).unwrap();
+    bin()
+        .arg("verify-log")
+        .arg(cut.path())
         .assert()
         .code(3)
         .stdout(predicate::str::contains("signature value does not verify"));

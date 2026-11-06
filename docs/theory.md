@@ -389,7 +389,7 @@ problem:
 | Chain | `audit::verify(audit.jsonl)` |
 | Case link | the run's `case_linked` entry exists, names this case, and its `case_log_head_at_start` equals the `entry_hash` of its `run_started` entry in the case log |
 | End of the run | entry #`audit_entries` (from `run_finished` in the case log) exists and its `entry_hash` equals the recorded `audit_head`; every later entry must be `timestamp_obtained` |
-| Timestamps | every `timestamp-<SEQ>.json` / `.tsr` pair: the covered entry exists, the token file has the recorded SHA-256, the token's message imprint equals that entry's hash, the TSA's CMS signature verifies, and with `--tsa-ca` the TSA chain ([B9](#b9-timestamps-what-the-hub-checks-and-what-it-does-not)) |
+| Timestamps | driven by the audit log: every `timestamp_obtained` entry's token (`.tsr` with the recorded SHA-256, `.json` metadata present and agreeing), plus any token file next to the log that no entry records; the covered entry exists, the token's message imprint equals that entry's hash, the TSA's CMS signature verifies, and with `--tsa-ca` the TSA chain ([B9](#b9-timestamps-what-the-hub-checks-and-what-it-does-not)) |
 | Pending timestamp | `timestamp_pending` without a later `timestamp_obtained` → `TIMESTAMP_PENDING` (low) |
 | Review log | when `logs/review.jsonl` exists: each `seq` is 1, 2, …; entry #1 holds the `anchor_seq` / `anchor_hash` of this run's `run_finished`; every entry names this run; every `prev_entry_hash` links; every `entry_hash` matches → otherwise `REVIEW_LOG_BROKEN` (high) |
 | Unknown logs | any other `*.jsonl` in `logs/` → `UNKNOWN_LOG_FORMAT` (medium); it is not checked |
@@ -524,26 +524,50 @@ Paths in `hashes.csv` are written as the hub saw them: relative when `--case-dir
 ## B9 Timestamps: what the hub checks and what it does not
 
 A run's RFC 3161 token (`timestamp-<SEQ>.tsr`) covers the `entry_hash` of entry `<SEQ>` (the chain head at the
-time). For each token the hub checks (`trust::verify_timestamps`): the covered entry is still in the log (else
-"truncated"), the `.tsr` file has the SHA-256 recorded in its `.json`, the response status is granted, and the
-token's **message imprint equals that entry's hash**; it reads `genTime`. `verify-log` also requires every
-`timestamp_obtained` entry to still have its token file.
+time). The tokens to check come **from the audit log**, not from the files next to it (`trust::verify_timestamps`,
+fail closed): every `timestamp_obtained` entry names a token, whose `.tsr` must have the SHA-256 recorded in that
+entry and whose `timestamp-<SEQ>.json` must be present and agree with it (file, digest, covered entry). Deleting the
+metadata file therefore no longer skips the token's checks: it is itself a problem, and the token is still checked.
+A `.json` that no entry records (the run could not append the entry) is checked from its own fields; a `.tsr` that
+neither an entry nor a metadata file names is a problem. For each token: the covered entry is still in the log
+(else "truncated"), the response status is granted, and the token's **message imprint equals that entry's hash**;
+it reads `genTime`.
 
 The hub also **verifies the TSA's CMS signature on the token** (`trust::verify_token`, the same code as
 rv-pdfauth and rv-imgauth): the content type is `id-ct-TSTInfo`; there is exactly one SignerInfo and its certificate
 is in the token; the signed attributes carry content-type, a message-digest that equals the digest of the TSTInfo,
 and an ESS signing-certificate (v1 or v2) that matches that certificate; the RSA PKCS#1 v1.5 signature over the
-signed attributes verifies; and the certificate has the `timeStamping` extended key usage (RFC 3161 §2.3). Any
+signed attributes verifies; and the certificate's extended key usage is **critical and contains only**
+`id-kp-timeStamping` (RFC 3161 §2.3; the same rule as rv-certcheck and OpenSSL's `timestampsign` purpose). Any
 failure (an altered token, "signature value does not verify") makes the log not verify (exit 3,
 `RUN_LOG_BROKEN`).
 
 The **TSA certificate chain** is validated only when a CA bundle is given (`--tsa-ca` on `verify-log` and
-`verify`): a path is built from the TSA certificate, through the certificates in the token, to one of the bundle's
-certificates, checking each RSA signature, the validity period at the token's `genTime` and the CA flag of every
-issuer. Without `--tsa-ca` the output says "chain not checked": the token is then shown to be signed by the
-certificate it carries, not that this certificate belongs to a TSA you trust. **Revocation (CRL/OCSP) is never
-checked**, and only RSA signers are supported (an ECDSA token is reported as "signature not checked", which fails
-the log). OpenSSL or rv-certcheck remain an independent second check ([forensic-audit.md](forensic-audit.md#timestamps)).
+`verify`). The path is built from the TSA certificate, through the certificates in the token, to one of the
+bundle's certificates, trying **every candidate issuer and every candidate anchor** (cross-signed intermediates,
+an expired anchor followed by its renewal with the same name and key), depth-first, at most 8 certificates below
+the anchor, never the same certificate twice on one path. A candidate path is accepted only if (a subset of
+RFC 5280 §6.1, implemented in `trust::check_path`):
+
+| Rule | Detail |
+| --- | --- |
+| Signatures, validity | every RSA PKCS#1 v1.5 signature verifies; every certificate, anchor included, is valid at `genTime` |
+| CA | every intermediate has basicConstraints `cA=TRUE`; an anchor too, or (no basicConstraints) is X.509 v1 or has keyCertSign |
+| keyUsage | an issuer with a keyUsage extension has `keyCertSign` |
+| pathLenConstraint | for every issuer, anchor included, the non-self-issued intermediates below it do not exceed it; self-issued key-rollover intermediates (same name, new key) are allowed and not counted |
+| nameConstraints | directoryName subtrees (permitted and excluded) are evaluated against the subject and directoryName subjectAltNames of every certificate below, except self-issued intermediates; names compared per §7.1 (string values case-folded, whitespace collapsed). Other name forms (dNSName, rfc822Name, iPAddress, URI, …) are **not evaluated**: if a certificate below carries a name of a constrained form, the path is rejected (fail closed) |
+| Critical extensions | only basicConstraints, keyUsage, extendedKeyUsage, nameConstraints, certificatePolicies, subjectAltName, subject/authority key identifier are accepted when critical, on any certificate of the path; any other critical extension rejects it. Certificate-policy processing is not implemented, so critical policyConstraints, policyMappings and inhibitAnyPolicy are rejected; a critical certificatePolicies is accepted (no policy is required, so §6.1.5(g) succeeds whatever it says). A critical extendedKeyUsage on a CA must allow timeStamping |
+
+The rules are tested against 34 certificate-path fixtures (`tests/fixtures/tsa-chains`, made by `make_chains.py`),
+each also run through `openssl verify -purpose timestampsign -attime <genTime>`; the tool agrees with OpenSSL except
+where it is deliberately stricter (dNSName constraints, policy extensions, the depth limit) or finds a path OpenSSL
+3.0 misses (a cross-signed intermediate listed first that leads to an untrusted root); `expected.json` records why.
+
+Without `--tsa-ca` the output says "chain not checked": the token is then shown to be signed by the certificate it
+carries, not that this certificate belongs to a TSA you trust. **Revocation (CRL/OCSP) is never checked**, with or
+without `--tsa-ca`: a TSA certificate revoked before `genTime` still validates. It must be established separately,
+from CRL/OCSP evidence that covers `genTime` ([forensic-audit.md](forensic-audit.md#timestamps)). Only RSA signers are
+supported (an ECDSA token is reported as "signature not checked", which fails the log).
 
 The hub's own verification run requests a timestamp by default (`--tsa-url`, default
 `http://timestamp.digicert.com`): that HTTP request is the only network access of `verify`. `--no-timestamp` or

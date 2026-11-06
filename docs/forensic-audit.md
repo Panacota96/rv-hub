@@ -108,20 +108,28 @@ the verification run's chain head is sent to it at the end of the run, and the r
 the run records `timestamp_pending`; `rv-hub timestamp <log folder>` adds the token later (it re-verifies the chain
 first and appends `timestamp_obtained`).
 
-When verifying a case, the hub checks every run's tokens: the covered entry still exists, the token file is
-unchanged, the token's message imprint equals that entry's hash, and the TSA's CMS signature verifies (ESS
-signing-certificate, message digest, RSA signature, `timeStamping` key usage). The **TSA certificate chain** is
-checked only with `--tsa-ca <CA bundle>` (`verify-log` and `verify`); without it the output says "chain not
-checked". **Revocation is never checked.** For an independent second check:
+When verifying a case, the hub checks every token the run's audit log records (`timestamp_obtained`; a recorded
+token whose `.tsr` or `.json` is missing is a problem, never skipped) and any token file next to the log that no
+entry records: the covered entry still exists, the token file is unchanged, the token's message imprint equals that
+entry's hash, and the TSA's CMS signature verifies (ESS signing-certificate, message digest, RSA signature, critical
+`timeStamping`-only key usage). The **TSA certificate chain** is checked only with `--tsa-ca <CA bundle>`
+(`verify-log` and `verify`); without it the output says "chain not checked". **Revocation is never checked.**
+
+An **independent signature and chain check** with OpenSSL (it does not check revocation either: these commands
+supply no CRL and OpenSSL does not query OCSP, so "Verification: OK" says nothing about revocation):
 
 ```bash
 # the covered entry's hash, from timestamp-<SEQ>.json ("head"), as hex
 openssl ts -reply -in timestamp-47.tsr -text                       # shows the TSA, policy, genTime, imprint
 openssl ts -verify -digest <head-hex> -in timestamp-47.tsr \
-        -CAfile tsa-root.pem -untrusted tsa-chain.pem              # "Verification: OK"
+        -CAfile tsa-root.pem -untrusted tsa-chain.pem              # "Verification: OK": signature + chain, not revocation
 ```
 
-or analyse the `.tsr` with rv-certcheck (CMS signature, ESS signing-certificate, TSA chain at `genTime`). A token
+or analyse the `.tsr` with rv-certcheck (CMS signature, ESS signing-certificate, TSA chain at `genTime`).
+**Revocation must be established separately**, from CRL/OCSP evidence that covers `genTime` (a CRL published after
+`genTime` by the TSA's CA, or an OCSP response archived at stamping time): for example `openssl verify -crl_check
+-CRLfile tsa-ca.crl -CAfile tsa-root.pem -untrusted tsa-chain.pem -attime <genTime-epoch> tsa.pem`, or
+`rv-certcheck analyze` with `--crl` / `--ocsp`. Keep that evidence with the case. A token
 from a non-qualified TSA proves the log existed at that time; it carries no eIDAS presumption and no Colombian
 statutory status ([admissibility.md](admissibility.md#53-eidas-regulation-eu-9102014-as-amended-by-eu-20241183)).
 

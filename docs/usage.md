@@ -228,9 +228,11 @@ off for offline labs. When the TSA cannot be reached, the run completes with `ti
 rv-hub timestamp D:\cases\CASE-2026-014\runs\rv-hub\<RUN-ID>\logs
 ```
 
-For every run's tokens the hub checks the hash they cover and the TSA's CMS signature. The TSA certificate chain is
-validated only against a CA bundle you give; without it the output says "chain not checked". Revocation is not
-checked ([theory.md B9](theory.md#b9-timestamps-what-the-hub-checks-and-what-it-does-not)):
+For every token a run's audit log records (and any token file next to it that no entry records) the hub checks the
+hash it covers and the TSA's CMS signature; a recorded token whose `.tsr` or `.json` is missing makes the log not
+verify. The TSA certificate chain is validated (path constraints included) only against a CA bundle you give;
+without it the output says "chain not checked". Revocation is never checked: establish it separately from CRL/OCSP
+evidence covering `genTime` ([theory.md B9](theory.md#b9-timestamps-what-the-hub-checks-and-what-it-does-not)):
 
 ```powershell
 rv-hub verify --case-dir D:\cases\CASE-2026-014 --tsa-ca C:\certs\tsa-roots.pem
