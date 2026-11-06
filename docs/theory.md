@@ -1,801 +1,624 @@
-<!--
-  Template note for the docs agent of a tool scaffolded from rv-hub:
-  sections between forge:domain markers describe what THIS tool does (inventory, file types, duplicates,
-  intake role) and must be rewritten for the new tool. Everything outside the markers (hashing, audit chain,
-  case folder, RFC 3161, signed PDFs, custody forms, determinism) is shared code: keep it, and re-check the
-  numbers against the code. The scaffold replaces the tool name everywhere, so re-read any sentence that
-  names the intake tool.
--->
-
 # Theory of operation
 
-This page explains **why** each step of RV Hub works, at two levels:
+This page explains what RV Hub checks and why those checks can be relied on. It has two parts:
 
-- **[Part A — For clients, lawyers and judges](#part-a--for-clients-lawyers-and-judges)**: plain language,
-  analogies and pictures. No knowledge of computing or cryptography is needed.
-- **[Part B — For examiners and opposing experts](#part-b--for-examiners-and-opposing-experts)**: algorithms,
-  data structures, exact constants, the source file that implements each one, and the standards behind them.
-  Every number in Part B is taken from the code of this commit or computed for this page with the tool itself;
-  where the code and a standard or another page differ, Part B says so.
+- **Part A** is for clients, lawyers and judges. It needs no technical background.
+- **Part B** is for examiners and opposing experts. It names the source file and function behind every rule, gives
+  the constants, and works through real values from the sample case in [`examples/sample/`](../examples/README.md).
 
-It describes what the tool **does**, not what it should do. Known weaknesses are stated where they apply and
-collected in [admissibility.md](admissibility.md#consolidated-gap-list). How to run the tool:
-[usage.md](usage.md). How to install and verify it: [installation.md](installation.md).
+The hub does not analyse evidence. Each Rakvor tool has its own theory page for what *it* finds (for example
+[rv-imgauth](https://github.com/Panacota96/rv-imgauth/blob/main/docs/theory.md)). This page covers only what the
+hub adds: finding and trusting the tools, launching them, summarising a case, and verifying a whole case.
 
 ## Contents
 
-- Part A: [A1 What the tool is](#a1-what-the-tool-is-and-is-not) ·
-  [A2 Digital fingerprints](#a2-digital-fingerprints-hashes) ·
-  [A3 Two fingerprints, one reading](#a3-two-fingerprints-one-reading) ·
-  [A4 What a file really is](#a4-what-a-file-really-is-its-first-bytes) ·
-  [A5 Identical copies](#a5-identical-copies) ·
-  [A6 The case folder](#a6-the-case-folder-one-register-for-the-whole-case) ·
-  [A7 The tool's own diary](#a7-the-tools-own-diary-the-audit-log) ·
-  [A8 Proving when](#a8-proving-when-trusted-timestamps) ·
-  [A9 Signed reports](#a9-signed-reports) ·
-  [A10 Custody forms](#a10-custody-forms) ·
-  [A11 Reading a clean result](#a11-what-no-findings-means)
-- Part B: [B1 Source map](#b1-source-map-and-constants) ·
-  [B2 Pipeline](#b2-pipeline-and-reads-of-the-evidence) ·
-  [B3 Hashing](#b3-single-pass-dual-hashing) ·
-  [B4 Type detection](#b4-type-detection-by-magic-bytes-and-extension-mismatch) ·
-  [B5 Duplicates](#b5-duplicate-detection-by-digest) ·
-  [B6 Audit chain](#b6-the-audit-hash-chain) ·
-  [B7 Case folder](#b7-the-case-folder) ·
-  [B8 RFC 3161](#b8-rfc-3161-trusted-timestamp) ·
-  [B9 Signed reports](#b9-signed-pdf-reports) ·
-  [B10 Custody forms](#b10-custody-forms) ·
-  [B11 Determinism](#b11-determinism-and-repeatability) ·
-  [B12 What findings do not prove](#b12-what-each-finding-does-not-prove) ·
-  [B13 References](#b13-references)
+- [Part A: for clients, lawyers and judges](#part-a-for-clients-lawyers-and-judges)
+  - [A1 What RV Hub is (and is not)](#a1-what-rv-hub-is-and-is-not)
+  - [A2 The case folder](#a2-the-case-folder)
+  - [A3 Why each tool stays a separate signed program](#a3-why-each-tool-stays-a-separate-signed-program)
+  - [A4 The diaries: case log, run logs, review logs](#a4-the-diaries-case-log-run-logs-review-logs)
+  - [A5 What "verify the whole case" means](#a5-what-verify-the-whole-case-means)
+  - [A6 Asking each tool for a second opinion](#a6-asking-each-tool-for-a-second-opinion)
+  - [A7 What a clean verification can and cannot show](#a7-what-a-clean-verification-can-and-cannot-show)
+- [Part B: for examiners and opposing experts](#part-b-for-examiners-and-opposing-experts)
+  - [B1 Discovery](#b1-discovery)
+  - [B2 The signature check](#b2-the-signature-check)
+  - [B3 Launch](#b3-launch)
+  - [B4 The hash chain shared by every log](#b4-the-hash-chain-shared-by-every-log)
+  - [B5 Case-log, run-log and review-log checks](#b5-case-log-run-log-and-review-log-checks)
+  - [B6 The cross-check rule: two verdicts](#b6-the-cross-check-rule-two-verdicts)
+  - [B7 Re-hashing the evidence](#b7-re-hashing-the-evidence)
+  - [B8 The hash register and the append-only case-log prefix rule](#b8-the-hash-register-and-the-append-only-case-log-prefix-rule)
+  - [B9 Timestamps: what the hub checks and what it does not](#b9-timestamps-what-the-hub-checks-and-what-it-does-not)
+  - [B10 The dashboard and the suggestion rules](#b10-the-dashboard-and-the-suggestion-rules)
+  - [B11 Exit codes and determinism](#b11-exit-codes-and-determinism)
 
 ---
 
-# Part A — For clients, lawyers and judges
+# Part A: for clients, lawyers and judges
 
-<!-- forge:domain -->
-## A1 What the tool is (and is not)
+## A1 What RV Hub is (and is not)
 
-RV Hub is the **intake desk** of a digital investigation. Before anyone examines a file, the tool writes down
-what was received: every file's exact digital fingerprint, its size, what kind of file it really is, and whether
-anything looks wrong (a photo that is really a PDF, a program hidden under another name, an empty file, two
-identical copies). In a case folder it gives each file an evidence number (`E0001`, `E0002`, …) so that every
-later tool can prove it looked at exactly the same bytes.
+RV Hub is the "front desk" of the Rakvor tools. An examiner uses it to see which tools are on the workstation and
+whether they are genuine, to open a tool on a case, to see what has been done in a case and what is still to do,
+and, before a case is handed over, to check that nothing recorded in the case has changed.
 
-It never says "this file is genuine" or "this file is fake". Each observation is written as a **finding** that
-says, in plain words, **what it shows** and **what it does not prove**. The conclusion belongs to a human
-examiner.
+RV Hub does **not** examine evidence. It does not decide whether a document is forged or a photo edited; the
+analysis tools (rv-pdfauth, rv-imgauth, rv-certcheck) report signals for an examiner to weigh, and each of them
+documents its own method. RV Hub never changes what the tools wrote. When it finds a problem, it reports it and
+leaves the files exactly as they were, so the examiner can explain them.
+
+## A2 The case folder
+
+All the Rakvor tools of one case share one folder. Think of it as a case binder:
+
+- a **cover sheet** (`case.json`): the case number and the country whose custody form applies (Colombia or France);
+- an **evidence register** (`evidence/registry.json`): every item received, with a number (`E0001`, `E0002`, …) and
+  its digital fingerprint (a hash, see [A4](#a4-the-diaries-case-log-run-logs-review-logs));
+- a **case diary** (`case-log.jsonl`): one line each time a tool starts or finishes working on the case;
+- one **section per piece of work** (`runs/<tool>/<RUN-ID>/`): what that tool did, its own diary and its reports.
+
+Only the intake tool, rv-hashinv, opens a new binder and adds evidence to the register. The hub never does: its
+*Create case* button simply starts rv-hashinv.
 
 ```mermaid
 flowchart LR
-    S[("Source<br/>(phone, laptop, export)")] -->|forensic copy| C[("Verified copy")]
-    C -->|read only| T["RV Hub<br/>intake"]
-    T --> F["Findings<br/>what it shows / what it does not prove"]
-    T --> R[["Evidence register<br/>E0001, E0002, …"]]
-    T --> L[("Audit log<br/>every step, sealed")]
-    R --> A["Later tools<br/>re-check each file"]
-    F --> E["Examiner's opinion"]
-    L --> E
+    I["1 · Intake<br/>rv-hashinv registers E0001…"] --> A["2 · Analysis<br/>rv-pdfauth · rv-imgauth<br/>rv-rsmf · rv-certcheck"]
+    A --> V["3 · Verify<br/>RV Hub checks every diary<br/>and every link"]
+    V --> H["4 · Hand over<br/>case folder + verification report"]
+    I -.-> C[("Case folder")]
+    A -.-> C
+    V -.->|"adds only its own section<br/>and two diary lines"| C
 ```
 
-| The tool can tell you | The tool cannot tell you |
+## A3 Why each tool stays a separate signed program
+
+A tool that is used as evidence must be identifiable: a court may ask *which program, which version, built by whom*.
+Each Rakvor tool is therefore its own program, released and tested on its own, and **digitally signed** by Rakvor.
+A digital signature on a program works like a tamper-evident seal: if a single byte of the program changes after
+signing, the seal breaks.
+
+Keeping the tools separate means each one can be validated and defended on its own, without the hub. If the hub
+were one big program containing all the tools, any change to one part would call the whole into question.
+
+Before the hub runs a tool, even just to ask its version, it checks that seal and that it was made with **Rakvor's
+own key** (the hub carries a copy of Rakvor's root certificate, the "master" of that key). A tool sealed by anybody
+else, or not sealed at all, is never run unless the examiner confirms, and that confirmation is written down first.
+The signature check exists on Windows only; on other systems the hub says "not checked", which is not the same as
+"signed".
+
+## A4 The diaries: case log, run logs, review logs
+
+Every tool keeps a diary of what it does (`audit.jsonl`). Each line of the diary contains the fingerprint of the line
+before it. A fingerprint (a SHA-256 hash) is a 64-character code computed from the content: change one letter and
+the code changes completely, and nobody can make two different texts with the same code. So the lines form a
+chain: editing, deleting or re-ordering any line breaks every link after it, and a check finds the break.
+
+There are three kinds of diaries in a case:
+
+- the **case log**, shared by every tool, which records each piece of work starting and finishing;
+- one **run log** per piece of work;
+- for rv-imgauth, a **review log**, which records what the examiner looked at in the image viewer after the work
+  finished. It is chained to the last line of the run log, so it can only belong to that one run.
+
+The case log and the run logs vouch for each other. When a tool starts, its run log records the case log's latest
+fingerprint; when it finishes, the case log records the run log's final fingerprint and its number of lines. Neither
+can then be edited, shortened or swapped without the other showing it.
+
+## A5 What "verify the whole case" means
+
+`rv-hub verify` (or the *Verify* tab) re-reads the whole binder and checks, without changing anything:
+
+1. the **case diary**: its chain, the cover sheet, and the fingerprint of the evidence register;
+2. **every piece of work**: its diary's chain, its links with the case diary, its trusted timestamp (if any), its
+   review log (if any), and that the case diary actually announced it;
+3. optionally (**re-hash**) **every registered evidence file**: it is read again and its fingerprint compared with
+   the one in the register.
+
+The hub writes its findings as a piece of work of its own, in its own section, with its own diary and reports, and
+adds two lines to the case diary (started, finished). It does that only when the case diary is intact: a broken case
+is never extended, and the verification is then written outside the case.
+
+## A6 Asking each tool for a second opinion
+
+The hub's checks use the same code the tools are built on. To make sure the two never silently disagree, the hub
+also asks **each run's own tool** to check its diary (`<tool> verify-log`) and compares the two answers. If they
+disagree, that is a serious finding (`TOOL_VERIFY_DISAGREES`): it means two implementations of the same check
+differ, and the case must not be relied on until that is explained.
+
+The second opinion needs the tool to be installed on the workstation and signed by Rakvor. When it is not, the hub
+says so (`CROSSCHECK_UNAVAILABLE`, information only), and only the hub's own check applies.
+
+## A7 What a clean verification can and cannot show
+
+| A clean verification shows | It does not show |
 | --- | --- |
-| The exact fingerprint of every file it received, and that later copies are identical | That the copy it received equals the original source |
-| That a file's content does not match its name (e.g. a PDF called `.jpg`) | Why it was renamed, or by whom |
-| That two files have identical content | Who copied them, or when |
-| Every action it performed, in a log that shows any later edit | Whether the workstation's clock was right |
-<!-- /forge:domain -->
+| The case diary, every run diary and every review log are exactly as they were written | That what the tools *found* is correct |
+| Every piece of work in the folder is announced in the case diary, and every announced piece is there | That nothing happened *before* intake: the register starts at intake |
+| With re-hash: every evidence file still has the fingerprint it had at intake | That the evidence is authentic, or what it means |
+| With a trusted timestamp: the run diary existed in this form at that time | That the workstation's clock was right for the lines in between |
+| With the second opinion: the tool's own check agrees | Anything about a tool that could not be asked |
 
-## A2 Digital fingerprints (hashes)
-
-A **hash** is a short code computed from every byte of a file — a fingerprint. Change one character and the
-fingerprint changes completely; keep the file identical and the fingerprint is the same on any computer, with any
-correct program.
-
-Real example (SHA-256), using the sample file `examples/sample/evidence/acta.txt` (61 bytes):
-
-| Text (last line of the file) | SHA-256 fingerprint |
-| --- | --- |
-| `Firmado: Ana Ruiz` | `80e089ad6704c831e386b430adf92c5f5b72ec4428566d3580660e103c183c3c` |
-| `Firmado: Ana Ruis` | `590570db76a9735f7b3782c73679fc6af6ac4041be4c41bcba1df0b648115523` |
-
-One letter differs; the two fingerprints share nothing recognisable. This is why a hash proves that a file was
-**not** changed: if today's fingerprint equals the one written down at intake, the file is the same, bit for bit.
-
-## A3 Two fingerprints, one reading
-
-The examiner may choose **one or two** fingerprint methods (for example SHA-256, the modern standard, plus MD5,
-which older case files often use). The tool reads each file **once** and feeds every piece it reads to both
-methods at the same time, like a cashier who scans each item once while two tills add it up. Both fingerprints
-therefore describe exactly the same bytes. More than two methods at once are refused, so that the work stays
-fast on very large folders.
-
-<!-- forge:domain -->
-## A4 What a file really is: its first bytes
-
-The name of a file (`holiday.jpg`) is a label anyone can change. The **first bytes** of the content are harder to
-fake by accident: most formats start with a fixed "signature" — PDF documents start with `%PDF-`, JPEG photos with
-the bytes `FF D8 FF`, Windows programs with `MZ`. The tool compares the label with the signature.
-
-The sample `foto-vacaciones.jpg` ("holiday photo") starts with `%PDF-1.4`: it is a PDF renamed as a photo, so the
-tool reports *Extension does not match content*. A program hidden under a document name is reported with higher
-severity, because opening it could run it.
-
-Limits a court should know: the tool knows 15 common signatures (unknown types are reported as unknown, not as
-suspicious); a file without an extension is not compared; and some signatures are very short (2 bytes), so an
-ordinary text that happens to start with `MZ` would be reported as a program.
-
-## A5 Identical copies
-
-When two files have the same fingerprint, their contents are identical, whatever their names. The tool groups
-them and reports *Duplicate content*. In the sample, `acta.txt` and `acta-copia.txt` are one such pair. A
-duplicate is information, not a problem: copies are normal. It does not say which copy came first.
-<!-- /forge:domain -->
-
-## A6 The case folder: one register for the whole case
-
-In a real case several Rakvor tools work one after the other. They share **one case folder**, which holds a
-register of the evidence. The intake tool writes each file into it once, with its fingerprints and an evidence
-number. Every later tool, before examining a file, takes its fingerprint again and compares it with the register:
-same fingerprint, same evidence; different fingerprint, a high-severity warning.
-
-```mermaid
-flowchart LR
-    I["Intake tool"] -->|"writes once"| R[["Register<br/>E0001 · E0002 · E0003"]]
-    R -->|"compare fingerprints"| A1["Analysis tool 1"]
-    R -->|"compare fingerprints"| A2["Analysis tool 2"]
-    I --> J[("Case diary<br/>who worked on the case, when")]
-    A1 --> J
-    A2 --> J
-```
-
-The case folder also keeps a **case diary** in which every tool notes when it started and finished and the final
-seal of its own diary (A7). The two diaries quote each other, so one cannot be edited without breaking the other.
-
-## A7 The tool's own diary (the audit log)
-
-Everything the tool does is written to a diary, `audit.jsonl`. Each line carries the seal (hash) of the line
-before it, like numbered pages where every page quotes the seal of the previous page. Editing, inserting,
-deleting or reordering a page breaks the seals from that point on, and `rv-hub verify-log` (or an independent
-Python script) detects it.
-
-```mermaid
-flowchart LR
-    G["start<br/>000…000"] --> E1["#1 run started<br/>seal 6db9fbe2…"]
-    E1 --> E2["#2 3 files found<br/>quotes 6db9fbe2…<br/>seal 4c78f96c…"]
-    E2 --> E3["#3 acta.txt hashed<br/>quotes 4c78f96c…"]
-    X["someone edits #2:<br/>3 files becomes 2"] -.->|"seal becomes f6a7e0fc…<br/>#2 no longer matches"| E2
-```
-
-One honest limit: if the **last** pages are torn out, the remaining pages still agree with each other. That is
-why the diary's final seal is also written in the case diary, printed in the reports and sent to a notary (A8).
-
-## A8 Proving when: trusted timestamps
-
-The diary proves its own consistency, not *when* it was written. For that, the tool sends the latest seal to a
-**time-stamping authority** — an independent online notary — which signs "I saw this seal at 15:30:01 UTC on
-21 October 2026". The notary never sees the evidence, only a 32-byte seal.
-
-```mermaid
-sequenceDiagram
-    participant T as RV Hub
-    participant N as Time-stamping authority (notary)
-    T->>N: latest seal of the diary (32 bytes)
-    N-->>T: signed receipt "seen at 2026-10-21 15:30:01 UTC"
-    Note over T: receipt stored next to the diary (timestamp-NNNNN.tsr)
-```
-
-Without internet the run still finishes; the receipt can be requested later with `rv-hub timestamp`. A
-timestamp proves the diary existed at that time — not that its content is true.
-
-## A9 Signed reports
-
-With the examiner's certificate, every PDF report is digitally signed, so any later change to a report is
-detectable with Adobe Reader or another validator. The HTML and JSON reports are not signed, but their
-fingerprints are written in the diary, which is timestamped.
-
-## A10 Custody forms
-
-For every file the tool pre-fills a **chain-of-custody form** — Colombian style (Spanish) or French style (French),
-always with an English copy — with the case number, the evidence number, the fingerprints and the times of the
-work, and leaves empty rows for the people who hand over and receive the evidence to sign. It is an internal
-record that accompanies, but does not replace, the official form of the police, prosecutor or court.
-
-<!-- forge:domain -->
-## A11 What "no findings" means
-
-A file without findings is **not** proven authentic. It only means that the checks this tool applies found
-nothing. Every report prints these limitations:
-
-- Type detection uses a limited table of common file signatures; unknown types are reported as unknown, not as
-  suspicious.
-- Modification times come from the file system of the examined copy and may differ from the original source.
-- A result without findings does not prove that a file is authentic or unaltered before acquisition.
-- A trusted timestamp proves the audit log existed in this exact form at the stated time; it does not prove that
-  the examined copy matches the original source.
-<!-- /forge:domain -->
+The hub's error rate as a *method* is not measured (see [admissibility.md](admissibility.md#consolidated-gap-list));
+what it checks are exact, mathematical properties (does this fingerprint match, does this line link), not
+estimates.
 
 ---
 
-# Part B — For examiners and opposing experts
+# Part B: for examiners and opposing experts
 
-## B1 Source map and constants
+Source map (all under `src/core/src/`): discovery `tools.rs`; signature `signature/mod.rs` and
+`signature/windows.rs`; launch `launch.rs`; hub session log `session.rs`; dashboard `case_view.rs`; suggestions
+`suggest.rs`; verification `run.rs` (pipeline, cross-check) and `checks.rs` (per-item checks); finding codes
+`findings.rs`; chain primitives `audit.rs`; `verify-log` rules `verify.rs`; case log `case.rs`; review log
+`review.rs`; timestamps `trust.rs`.
 
-| Process | Implementation | Key constants (value in this commit) |
-| --- | --- | --- |
-| Input collection | [src/core/src/input.rs](../src/core/src/input.rs) | folders 1 level unless `--recursive`; symbolic links never followed; paths made absolute and lexically normalised, de-duplicated, sorted by that string bytewise (UTF-8; same rule as the Python profile), numbered from 1; a UTF-8 BOM at the start of an `--input-list` file is ignored |
-| Log verification | [src/core/src/verify.rs](../src/core/src/verify.rs) | chain + timestamps + truncation anchors (timestamp `covers_seq`, case log `run_finished`) |
-| Hashing | [src/core/src/hash.rs](../src/core/src/hash.rs) | `CHUNK` = 1 MiB (1 048 576 bytes); `MAX_SELECTED` = 2; head kept for detection = first 4 096 bytes; known answers for `"abc"` |
-| Pipeline | [src/core/src/run.rs](../src/core/src/run.rs) | progress events every 150 ms; run id = `YYYYMMDDTHHMMSSZ-` + 6 hex of SHA-256(clock, pid, host) |
-| Audit chain | [src/core/src/audit.rs](../src/core/src/audit.rs), [tests/verify_chain.py](../tests/verify_chain.py) | genesis = 64 zeros; SHA-256 over canonical JSON |
-| Case folder | [src/core/src/case.rs](../src/core/src/case.rs) | schemas `rakvor.case/1`, `rakvor.registry/1`; lock wait 30 s; stale lock 600 s; ids `E%04d` |
-| Timestamp, report signing | [src/core/src/trust.rs](../src/core/src/trust.rs) | default TSA `http://timestamp.digicert.com`; HTTP timeout 15 s; response ≤ 1 MiB; nonce 8 bytes |
-| PDF writer | [src/core/src/report/pdf.rs](../src/core/src/report/pdf.rs) | A4 595 × 842 pt; signature placeholder 16 384 bytes |
-| Reports | [src/core/src/report/mod.rs](../src/core/src/report/mod.rs) | duplicate partners listed ≤ 10, duplicate paths ≤ 20 per group; 6 blank custody transfer rows; item folder name ≤ 60 characters |
-| Environment record | [src/core/src/env.rs](../src/core/src/env.rs), [src/core/build.rs](../src/core/build.rs) | compiler, target and every `Cargo.lock` package embedded at build time; product version from `version.txt` |
+## B1 Discovery
 
-<!-- forge:domain -->
-| Domain process | Implementation | Key constants |
-| --- | --- | --- |
-| Type detection, extension mismatch, executables, empty files | [src/core/src/analyzer.rs](../src/core/src/analyzer.rs) | 15 signatures; text extensions `txt csv log xml json html` |
-| Duplicates, intake registration | [src/core/src/report/mod.rs](../src/core/src/report/mod.rs) `duplicate_groups`; [src/core/src/run.rs](../src/core/src/run.rs) `register_items` | primary (first) algorithm; size > 0 |
-| Role in the case folder | [src/core/src/lib.rs](../src/core/src/lib.rs) `CASE_ROLE` | `Intake` |
-<!-- /forge:domain -->
+`tools::discover(&DiscoverOptions, &dyn SignatureVerifier)` collects executables named `rv-<x>[.exe]` (the CLI) and
+`rv-<x>-gui[.exe]` (the GUI), keyed by **(normalised folder, tool name)**, from four sources in this order:
 
-The core never prints; the CLI ([src/cli/src/main.rs](../src/cli/src/main.rs)) and the GUI
-([src/gui/src/state.rs](../src/gui/src/state.rs)) render the same event stream, so both front-ends produce the
-same audit actions, findings and reports.
-
-<!-- forge:domain -->
-## B2 Pipeline and reads of the evidence
-
-```mermaid
-sequenceDiagram
-    autonumber
-    participant R as run.rs
-    participant A as audit.jsonl
-    participant C as case folder
-    participant E as Evidence (read-only)
-    participant O as reports folder
-    R->>C: verify case log + registry, append run_started (under lock)
-    R->>A: run_started, case_linked, ui_* (GUI), environment_recorded, inputs_resolved
-    loop every item
-        R->>A: item_started (size, mtime)
-        R->>E: File::open, 1 MiB chunks, 1–2 digests + first 4 KiB
-        R->>A: item_hashed (digests, bytes_read, mtime_unchanged)
-        R->>A: item_analyzed (type, extension, findings, status)
-    end
-    R->>C: register items, write registry, append evidence_registered (under lock)
-    R->>A: evidence_registered ×N, duplicate_group, hash_register_written
-    R->>O: per-item reports, then item_reports_written ×N
-    R->>A: timestamp_obtained / timestamp_pending, statistics_report_written, run_finished
-    R->>C: run_finished with the final audit head (under lock)
-```
-
-The evidence is read **once**, sequentially, with `File::open` (read-only access). The type check uses the first
-4 096 bytes kept during that same read, so there is no second read and no window in which the bytes hashed and
-the bytes examined could differ. The modification time is read before and after hashing and compared
-(`mtime_unchanged` in `item_hashed`); a change means the file was being written during the read.
-
-Ordering facts an opposing expert may test:
-
-- Registration happens **after** all items are hashed and **before** duplicates are computed, so a cancelled run
-  still registers the items it finished.
-- The timestamp is requested after the last `item_reports_written` and **before** the statistics report, so the
-  token covers every evidence digest, finding and item-report digest, but not the statistics report or
-  `run_finished` (both are written after it; see [B8](#b8-rfc-3161-trusted-timestamp)).
-- A wrong certificate password stops the run (`run_failed`) before any evidence byte is read.
-<!-- /forge:domain -->
-
-## B3 Single-pass dual hashing
-
-| Algorithm | Standard | Output | Status for evidence |
+| # | Source (`Source`) | What is read | Restriction |
 | --- | --- | --- | --- |
-| `md5` | RFC 1321 | 128 bit | Practical collisions since 2004–2005 (Wang & Yu); legacy matching only |
-| `sha1` | FIPS 180-4 | 160 bit | Practical collision 2017 (Stevens et al., "SHAttered"); legacy matching only |
-| `sha256` | FIPS 180-4 | 256 bit | Default; recommended primary |
-| `sha512` | FIPS 180-4 | 512 bit | Recommended |
-| `sha3-256` | FIPS 202 | 256 bit | Sound; less familiar to courts |
-| `blake3` | BLAKE3 specification (2020) | 256 bit | Sound; not a NIST-approved hash |
+| 1 | `registry {app_id}` | `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\{AppId}_is1` → `InstallLocation`, `DisplayVersion`, for the five AppIds in `APP_IDS` (Windows only) | the five known tools; another `rv-*` only when Rakvor-signed |
+| 2 | `local_programs` | every direct subfolder of `%LOCALAPPDATA%\Programs\Rakvor` | the five known tools; another `rv-*` only when Rakvor-signed |
+| 3 | `path` | every folder of `PATH` | **the five known tools only** (`KNOWN_TOOLS`) |
+| 4 | `user_folder` | each folder the user added, and its direct subfolders | any `rv-*` |
 
-Implementations: RustCrypto `md-5`, `sha1`, `sha2`, `sha3` and the official `blake3` crate (exact versions in each
-run's `environment.json` → `dependencies`).
+`rv-hub` itself is excluded. A name outside `KNOWN_TOOLS` is run (`describe --json`) only from a folder the user
+added, or when its executable is Rakvor-signed; otherwise it is neither run nor listed. On Linux and macOS, where
+signatures are *not checked*, only the five known tools are run from sources 1–3. When several sources find the same folder, the entry is listed once with every source
+(the sample test finds one rv-pdfauth folder through the registry, the install folder and `PATH`). The same tool in
+two different folders gives two entries; `launch` then prefers a Rakvor-signed GUI, then the lowest source, then the
+folder name (`src/cli/src/hub.rs` `pick`).
 
-```text
-hash_reader(r, algos)                                        src/core/src/hash.rs
-  validate_selection: 1 ≤ len ≤ 2, the two different        → else usage error (exit 2)
-  loop:
-    n = r.read(buf[0 .. 1 048 576])                          Interrupted → retry; other error → UNREADABLE
-    if n = 0: break
-    head += buf[0 .. min(n, 4096 − len(head))]               first 4 KiB, for type detection
-    for each hasher h: h.update(buf[0 .. n])                 the same slice feeds both digests
-    total += n
-    if on_chunk(total) = false: return cancelled             cancel granularity = one chunk
-  return (digests in selection order, total, head)
-```
+The known AppIds (`tools.rs` `APP_IDS`):
 
-- **Same bytes for both digests.** Each chunk is passed to every hasher before the next read, so the two digests
-  can only describe the same byte stream. The unit test `one_pass_feeds_two_digests_identically_to_separate_passes`
-  checks a 3 MiB + 17-byte stream against separate one-shot digests.
-- **Primary algorithm.** The first selected algorithm is the primary: it groups duplicates, is shown as the
-  customer's "digital fingerprint" and is compared first with the case registry.
-- **`self-test`** checks every algorithm against the published digest of `"abc"` (e.g. SHA-256
-  `ba7816bf…f20015ad`, FIPS 180-4 example). It proves the build computes correct digests; it does not test type
-  detection or reports.
-- **Avalanche, measured** for [A2](#a2-digital-fingerprints-hashes): the two inputs differ in one character
-  (`'z'` = 0x7A, `'s'` = 0x73, 2 bits); their SHA-256 digests differ in **136 of 256 bits** (≈ 128 expected for an
-  ideal function), and only 4 of the 64 hexadecimal positions coincide.
-- **No hash policy.** The tool accepts `md5,sha1` without any SHA-2/SHA-3/BLAKE3 algorithm. Choosing at least
-  one collision-resistant algorithm is the examiner's job ([admissibility.md](admissibility.md#consolidated-gap-list), G11).
-- **Size.** `item_started` records the size from the file system; `item_hashed` records `bytes_read`. The reports
-  use `bytes_read`. A difference between the two means the file changed size while it was being read.
+| AppId | Tool | Note |
+| --- | --- | --- |
+| `{6D3F3B0E-5B7A-4B2C-9E61-2A1C7D4E9F10}` | rv-hashinv | |
+| `{B2454915-B966-44CD-9C5B-5413F38185AE}` | rv-pdfauth, **and rv-imgauth 0.2.0 by mistake** | the key names whichever was installed last; the folder's executables say which tool it is, and the warning "if you installed RV ImgAuth 0.2.0 after RV PDFAuth, reinstall RV PDFAuth" is attached |
+| `{7E0DA535-8638-4E9D-8680-ED046DCA9F45}` | rv-rsmf | |
+| `{04A0C3C3-4929-42ED-81F7-93DB361940C8}` | rv-imgauth (corrected AppId, from 0.2.1) | |
+| `{32343DE5-B0E4-4454-8A42-A5CF82EEC9BF}` | rv-certcheck | |
 
-<!-- forge:domain -->
-## B4 Type detection by magic bytes and extension mismatch
+A test (`installer_app_ids_are_unique`) checks that these and the hub's own installer AppId
+`{703D49A5-7B83-4C62-A97F-ED13C341CC23}` are all different.
 
-### Signature table ([analyzer.rs](../src/core/src/analyzer.rs) `SIGNATURES`, first match wins)
+Then, per entry:
 
-| # | Detected type | Offset | Magic bytes | Expected extensions | Executable |
-| --: | --- | --: | --- | --- | :-: |
-| 1 | PDF document | 0 | `25 50 44 46 2D` (`%PDF-`) | pdf | |
-| 2 | PNG image | 0 | `89 50 4E 47 0D 0A 1A 0A` | png | |
-| 3 | JPEG image | 0 | `FF D8 FF` | jpg jpeg jpe jfif | |
-| 4 | GIF image | 0 | `47 49 46 38` (`GIF8`) | gif | |
-| 5 | ZIP / Office Open XML | 0 | `50 4B 03 04` (`PK..`) | zip docx xlsx pptx odt ods jar apk epub | |
-| 6 | OLE2 (legacy Office, MSG) | 0 | `D0 CF 11 E0 A1 B1 1A E1` | doc xls ppt msg | |
-| 7 | Windows executable (PE) | 0 | `4D 5A` (`MZ`) | exe dll sys scr com efi | yes |
-| 8 | Linux executable (ELF) | 0 | `7F 45 4C 46` | so bin elf o | yes |
-| 9 | SQLite database | 0 | `SQLite format 3` + `00` | db sqlite sqlite3 | |
-| 10 | 7-Zip archive | 0 | `37 7A BC AF 27 1C` | 7z | |
-| 11 | RAR archive | 0 | `52 61 72 21 1A 07` | rar | |
-| 12 | GZIP archive | 0 | `1F 8B` | gz tgz | |
-| 13 | Windows event log (EVTX) | 0 | `ElfFile` + `00` | evtx | |
-| 14 | Windows registry hive | 0 | `72 65 67 66` (`regf`) | dat hve | |
-| 15 | MP4 / QuickTime video | 4 | `66 74 79 70` (`ftyp`) | mp4 m4v mov m4a 3gp heic | |
-
-### Annotated example: `examples/sample/evidence/foto-vacaciones.jpg` (112 bytes)
-
-```text
-offset  bytes                                            text
-     0  25 50 44 46 2D 31 2E 34 0A 25 20 73 61 6D 70 6C  %PDF-1.4.% sampl   ◄ bytes 0–4 = signature #1 "PDF document"
-    16  65 3A 20 61 20 50 44 46 20 72 65 6E 61 6D 65 64  e: a PDF renamed
-    32  20 61 73 20 61 20 70 68 6F 74 6F 0A 31 20 30 20   as a photo.1 0
-   ...
-    96  20 31 20 30 20 52 20 3E 3E 0A 25 25 45 4F 46 0A   1 0 R >>.%%EOF.
-name "foto-vacaciones.jpg" → extension "jpg" (lower-cased text after the last dot)
-"jpg" ∉ {pdf}  and  "jpg" is a known extension (signature #3)  → EXTENSION_MISMATCH (medium)
-                                                                 detected = "PDF document", extension = "jpg"
-```
-
-### Decision ([analyzer.rs](../src/core/src/analyzer.rs) `analyze`)
+1. both executables' signatures are checked ([B2](#b2-the-signature-check)) and their SHA-256 computed;
+2. **`<cli> describe --json` is run only when the CLI is `SignedRakvor` or `NotChecked`** (`describe_untrusted`
+   is false in both front-ends). So on Windows an executable signed under another root, unsigned or invalid is never
+   executed; on Linux, where nothing can be checked, executables in the scanned folders are executed;
+3. the answer must be `rakvor.describe/1` JSON with a non-empty `version`, an `rv-*` tool name equal to the file's,
+   and `rakvor.audit/1` among `log_formats` (`parse_describe`); unknown extra fields are kept;
+4. timeout 10 s (`DEFAULT_DESCRIBE_TIMEOUT`). The limit (`proc::run`) covers the whole call, reading the output
+   included: a program whose descendants keep its stdout/stderr open past it counts as timed out, and on Linux and
+   macOS the program is started in its own process group, which is killed as a whole;
+5. if `describe` is not run, fails, times out or is invalid, the **built-in table** (`builtin`) describes the tool,
+   `describe_source` is `builtin`, the version falls back to the registry's `DisplayVersion` or stays unknown, and
+   the reason is kept in `describe_problem`. An unknown `rv-*` program without a valid `describe` is dropped.
 
 ```mermaid
 flowchart TB
-    S["name, size, first 4 KiB"] --> Z{"size = 0?"}
-    Z -->|yes| E0["EMPTY_FILE (info)"]
-    S --> D{"a signature matches<br/>at its offset?"}
-    D -->|no| U["detected_type = unknown<br/>no type finding"]
-    D -->|yes| X{"file name has<br/>an extension?"}
-    X -->|no| N["no finding"]
-    X -->|yes| L{"extension in the<br/>signature's list?"}
-    L -->|yes| N
-    L -->|no| P{"executable<br/>signature?"}
-    P -->|yes| H["EXECUTABLE_CONTENT (high)"]
-    P -->|no| K{"extension known to any signature<br/>or txt csv log xml json html?"}
-    K -->|yes| M["EXTENSION_MISMATCH (medium)"]
-    K -->|no| N
+    S["Sources 1–4<br/>registry · install folder · PATH (known names) · added folders"] --> K["Group by (folder, tool)<br/>merge sources"]
+    K --> SIG["Signature of CLI and GUI<br/>+ SHA-256"]
+    SIG --> Q{"CLI SignedRakvor<br/>or NotChecked?"}
+    Q -- no --> B["Not executed:<br/>built-in table, describe_problem = not_run"]
+    Q -- yes --> D["describe --json (10 s)"]
+    D --> P{"rakvor.describe/1,<br/>version, same tool,<br/>rakvor.audit/1?"}
+    P -- yes --> OK["describe_source = describe"]
+    P -- no --> B2["Built-in table<br/>describe_problem = failed / not_json / unknown_schema / invalid"]
+    B --> KN{"Known tool?"}
+    B2 --> KN
+    KN -- no --> DROP["Not listed"]
+    KN -- yes --> L["ToolInfo"]
+    OK --> L
 ```
 
-Consequences that matter in court (all from the code, all tested or testable with the samples):
+## B2 The signature check
 
-- A program **without an extension** (`invoice`) or with an unlisted one (`notes.md`) gets no finding: the
-  comparison needs an extension, and non-executable mismatches need a known or text extension.
-- The PE test is only 2 bytes (`MZ`) and GZIP only 2 bytes (`1F 8B`): a text file `notes.txt` that begins with
-  `MZ` is reported as `EXECUTABLE_CONTENT` (false positive). Confirm with a PE parser before relying on it.
-- Containers are typed by their outer signature: a `.docx` and a `.jar` are both "ZIP / Office Open XML", so a
-  `.jar` renamed `.docx` gives no finding. HEIC and MP4 share `ftyp`.
-- Matching is on the content's first bytes only; the extension is case-insensitive (`.JPG` = `.jpg`).
-- No error rates have been measured on a labelled corpus ([admissibility.md](admissibility.md#consolidated-gap-list), G5).
+`signature::OsVerifier` (Windows) does two things, in this order.
 
-## B5 Duplicate detection by digest
+**1. `WinVerifyTrust`** (`signature/windows.rs` `verify_file`): action `WINTRUST_ACTION_GENERIC_VERIFY_V2`,
+`WTD_UI_NONE`, `WTD_REVOKE_NONE` (**no revocation check**), `WTD_CACHE_ONLY_URL_RETRIEVAL` (no network). This is
+the operating system's Authenticode check: the file's digest against the signed digest, and the signer's certificate
+chain.
+
+**2. The chain root.** Before closing the WinTrust state, the root certificate of the first signer's chain is copied:
+the last element of the chain context the provider built (`WTHelperProvDataFromStateData` →
+`WTHelperGetProvSignerFromChain` → `pChainContext`, which the provider builds with `CertGetCertificateChain`), else
+the last certificate of the provider's list. Its SHA-256 is compared, case-insensitively, with the SHA-256 of the
+root certificate compiled into the hub from `packaging/signing/rakvor-code-signing-root.cer`:
 
 ```text
-duplicate_groups(items)                                     src/core/src/report/mod.rs
-  key = primary digest (first selected algorithm)
-  only items that were hashed (no UNREADABLE) and have size > 0 (empty files are all identical)
-  groups = items sharing a key, if 2 or more            → audit: duplicate_group {algorithm, hash, items}
-  each member gets DUPLICATE (info) {algorithm, count, others}, others capped at 10 names + "… (+N)"
+rakvor_root_sha256() = dc9ba1a2fcd4f0633c5214b7cceb25bed8f3f7d9ebaf111590250cbcaa83df60
 ```
 
-Two different files with the same SHA-256 would require a collision; no SHA-256 collision is publicly known, and
-the generic birthday bound for 256-bit digests is about 2¹²⁸ operations. With `md5` or `sha1` as the primary,
-deliberately colliding files can be produced (B3), so a duplicate group computed on MD5 alone proves less. The
-complete groups (paths, not only names) are in `statistics.json` and `hashes.csv`.
-<!-- /forge:domain -->
+The decision (`trust_outcome` + `classify`) is plain Rust, unit-tested on every platform:
 
-## B6 The audit hash chain
+| WinVerifyTrust result | Root thumbprint | Status | Inventory finding |
+| --- | --- | --- | --- |
+| `S_OK`, or `CERT_E_UNTRUSTEDROOT` / `CERT_E_UNTRUSTEDTESTROOT` | = Rakvor root | `SignedRakvor` | `TOOL_SIGNED_RAKVOR` (info) |
+| same | another root | `SignedOtherRoot { root_sha256 }` | `TOOL_SIGNED_OTHER_ROOT` (high) |
+| same | no chain available | `Invalid` ("the signer's certificate chain is not available") | `TOOL_SIGNATURE_INVALID` (high) |
+| `TRUST_E_NOSIGNATURE`, `TRUST_E_SUBJECT_FORM_UNKNOWN`, `TRUST_E_PROVIDER_UNKNOWN` | — | `Unsigned` | `TOOL_UNSIGNED` (medium) |
+| any other HRESULT (e.g. `TRUST_E_BAD_DIGEST` 0x80096010: modified after signing) | — | `Invalid { reason }` | `TOOL_SIGNATURE_INVALID` (high) |
+| not Windows, or the path is not a file | — | `NotChecked { reason }` | none; the limitation `SIGNATURE_CHECK_WINDOWS_ONLY` applies |
 
-Each line of `audit.jsonl` is one JSON object: `seq`, `ts_utc`, `run_id`, `actor`, `action`, optional `item`,
-`details`, `prev_entry_hash`, `entry_hash` ([audit.rs](../src/core/src/audit.rs)). `audit.log` is a readable copy of
-the same actions; it is not chained and not authoritative.
+Two consequences matter in court:
+
+- **The root is pinned, not taken from the Windows store.** A signature that Windows itself calls "untrusted root"
+  (because the private Rakvor root is not installed) is still `SignedRakvor` when the chain ends at the bundled
+  root; and a signature that Windows trusts (a public code-signing CA) is still `SignedOtherRoot` for the hub.
+- **Revocation is not checked** (`WTD_REVOKE_NONE`), so a revoked Rakvor signing certificate would still give
+  `SignedRakvor`. The WinTrust call can only return `CERT_E_REVOKED` if revocation data is already cached; the code
+  asks for none.
+
+  *Why:* the hub is offline by default (`WTD_CACHE_ONLY_URL_RETRIEVAL`: no CRL or OCSP download). Verification
+  workstations are often air-gapped, and a revocation check that needs the network would give a different status
+  on the same file depending on whether the machine is online, and could stall each check on a network timeout.
+  The internal Rakvor PKI also publishes no CRL or OCSP responder that a lab could reach. *What it means:* the
+  status says the file is unmodified since it was signed by a certificate chaining to the Rakvor root, not that the
+  certificate was still trusted at check time. If a Rakvor signing key is ever compromised, revocation must be
+  handled outside the hub: re-issue, re-sign and re-install the tools, and compare the executables' SHA-256 (kept
+  in the inventory, `rv-hub tools --json`) with the release's checksums. Revocation can be checked separately on a
+  connected machine (`certutil -verify -urlfetch <exe>`) or with rv-certcheck.
+
+```mermaid
+flowchart TB
+    E["Executable"] --> F{"Is a file?<br/>Windows?"}
+    F -- no --> NC["NotChecked"]
+    F -- yes --> W["WinVerifyTrust<br/>GENERIC_VERIFY_V2, no UI,<br/>no revocation, cache-only"]
+    W --> R{"HRESULT"}
+    R -- "NOSIGNATURE /<br/>SUBJECT_FORM_UNKNOWN /<br/>PROVIDER_UNKNOWN" --> U["Unsigned"]
+    R -- "other error" --> I["Invalid (reason + code)"]
+    R -- "S_OK or<br/>UNTRUSTEDROOT" --> C{"Chain root<br/>available?"}
+    C -- no --> I
+    C -- yes --> T{"SHA-256(root) =<br/>bundled Rakvor root?"}
+    T -- yes --> RK["SignedRakvor"]
+    T -- no --> OR["SignedOtherRoot"]
+```
+
+`signature/windows.rs` is the only `unsafe` code in the hub (the crate is `forbid(unsafe_code)` off Windows and
+`deny(unsafe_code)` on Windows, with an `allow` in that one module). Every pointer stays inside `verify_file`, is
+checked for null, and only the HRESULT and a copy of the root certificate's bytes leave it.
+
+## B3 Launch
+
+`launch::launch_with` (`launch.rs`) starts `<gui_exe> --case-dir <normalised case folder>` (or no argument for
+"open without a case"), detached: no console, its own process group, stdin/stdout/stderr closed, working folder =
+the executable's folder; the hub never waits for it. Before starting it:
+
+1. the GUI executable must exist;
+2. for a case folder: it must not be a file, and **without `case.json` only the intake tool may open it**
+   (`ToolRole::Intake`); an analysis tool is refused;
+3. the executable is opened (on Windows with share mode `FILE_SHARE_READ` only, see below) and hashed through that
+   handle; if its SHA-256 differs from the one inventoried, the launch is refused (`Changed`: refresh the list);
+4. its signature is checked again; anything but `SignedRakvor` (including `NotChecked`) needs
+   `confirm_untrusted = true`, and **`tool_untrusted_confirmed` is written to the session log before the process
+   starts**;
+5. just before the start, the file at the path is hashed once more and must still have the hash checked in step 3;
+   otherwise nothing is started, `tool_launch_failed` is recorded and the launch is refused (`Changed`);
+6. `tool_launched` records tool, version, exe path, exe SHA-256, signature status, case folder, arguments, pid,
+   `confirmed_untrusted` and `exe_locked`. A failed start records `tool_launch_failed`; the CLI records a refusal as
+   `tool_launch_refused`.
+
+The session log is `<data>/logs/<SESSION-ID>/audit.jsonl` with `audit.log` and `environment.json`, where `<data>` is
+`%LOCALAPPDATA%\Rakvor\RV Hub` (Windows), `$XDG_DATA_HOME/rakvor/rv-hub` or `~/.local/share/rakvor/rv-hub`
+(Linux), or `RV_HUB_DATA_DIR` (`session.rs`). It uses the same chain as every run log ([B4](#b4-the-hash-chain-shared-by-every-log))
+and `rv-hub verify-log` checks it.
+
+Swap between check and start (time of check / time of use). On **Windows** the hub opens the executable before
+hashing it with share mode `FILE_SHARE_READ` only (`launch::lock_exe`) and holds that handle until `CreateProcess`
+has returned: while it is held, no process can open the file for writing, rename it or delete it, so the file
+hashed and signature-checked is the file started (`exe_locked: true`). Reading and executing stay allowed, which is
+what `WinVerifyTrust` and `CreateProcess` need. Residual window on Windows: none for the file itself; a process
+with the rights to change the folder's other files (DLLs the tool loads from its folder) is outside this check.
+On **Linux and macOS** no lock is taken (`exe_locked: false`; advisory locks do not stop a writer): the re-hash of
+step 5 detects a swap made during the checks, but a replacement in the short window between that last hash and the
+`exec` is not excluded. Signatures are not checked there either, so such a launch already needs the examiner's
+confirmation.
+
+## B4 The hash chain shared by every log
+
+Every log the hub reads or writes (`case-log.jsonl`, every `audit.jsonl`, the hub session log) uses one rule
+(`audit.rs`):
 
 ```text
-canonical(e)      = JSON of e without "entry_hash"; keys sorted at every level; no whitespace; UTF-8,
-                    non-ASCII not escaped; integers only
-                    (Python: json.dumps(e, sort_keys=True, separators=(",", ":"), ensure_ascii=False))
-entry_hash_n      = SHA-256( canonical(e_n) )                 hex, lower case
-prev_entry_hash_1 = 64 × "0";   prev_entry_hash_n = entry_hash_(n-1);   seq_n = n
+entry_hash      = SHA-256( canonical JSON of the entry without "entry_hash" )
+canonical JSON  = keys sorted at every level, no whitespace, UTF-8
+                  (Python: json.dumps(e, sort_keys=True, separators=(",", ":"), ensure_ascii=False))
+prev_entry_hash = entry_hash of the previous entry; 64 zeros for entry #1
+seq             = 1, 2, 3, … with no gap
 ```
 
-**Worked example** (computed for this page with the rule above; `rv-hub verify-log` accepts these three lines):
+An independent implementation in 80 lines of standard-library Python is in
+[`tests/verify_chain.py`](../tests/verify_chain.py). A chain alone detects an edited, inserted, deleted or re-ordered
+line, but **not the removal of the last lines**: the shortened file is still a valid chain. Truncation is detected
+only against a record kept outside the log: a timestamp that covers a later entry, or the case log
+([B5](#b5-case-log-run-log-and-review-log-checks)).
 
-```text
-#1 canonical (287 bytes)
-{"action":"run_started","actor":"Ana Ruiz","details":{"algorithms":["sha256","md5"],"tool":"rv-hub",
-"version":"0.1.0"},"prev_entry_hash":"0000000000000000000000000000000000000000000000000000000000000000",
-"run_id":"20261021T152805Z-e8fd7a","seq":1,"ts_utc":"2026-10-21T15:28:05.817Z"}
-   entry_hash = 6db9fbe2ebb025947fc663b32c09cab8d2ed072e7ae5d7ec3250671c34ee71c9
-
-#2 canonical (245 bytes)
-{"action":"inputs_resolved","actor":"Ana Ruiz","details":{"bytes":234,"items":3},
-"prev_entry_hash":"6db9fbe2…34ee71c9","run_id":"20261021T152805Z-e8fd7a","seq":2,"ts_utc":"2026-10-21T15:28:05.819Z"}
-   entry_hash = 4c78f96cb3e945d2705676d5bafa1942cad3146342a9fff9bf94e89f905754aa
-
-#3 canonical (381 bytes)
-{"action":"item_hashed","actor":"Ana Ruiz","details":{"bytes_read":61,"hashes":{"sha256":"80e089ad…183c3c"},
-"index":2,"mtime_unchanged":true},"item":"D:\\ev\\acta.txt","prev_entry_hash":"4c78f96c…905754aa", …,"seq":3,…}
-   entry_hash = 558b0ea25f29bcc8af1cbbcbbc191d1511ad8d040fffea1db6d1a79f76376223
-
-#2 edited ("items":2) → f6a7e0fc0991175781ba340d8a338b11060c28db304e3e33bcf12f3e30a04264 ≠ stored
-```
-
-What `verify-log` prints for the three variants (real output):
-
-```text
-original           OK  3 entries, chain intact: ./audit.jsonl                                        exit 0
-#2 edited          BROKEN  - line 2: entry_hash does not match its content (edited entry)            exit 3
-#2 deleted         BROKEN  - line 2: sequence 3 where 2 was expected (deleted or re-ordered entry)
-                           - line 2: prev_entry_hash does not link to the previous entry             exit 3
-#3 removed (end)   OK  2 entries, chain intact                                                       exit 0
-                       truncation not detectable without a timestamp or case record
-```
-
-The last variant is why `verify-log` also compares the end of the log with records kept outside it (next
-paragraphs): on a standalone log with no timestamp it can only say so.
+The review log (`review.jsonl`, `rakvor.review/1`, written by rv-imgauth's viewer) has the same canonical rule, with
+two differences (`review.rs`): its entries carry `at_utc` instead of `ts_utc`, and its first entry's
+`prev_entry_hash` is the **anchor**, the `entry_hash` of the run's `run_finished` audit entry, also recorded as
+`anchor_seq` / `anchor_hash`.
 
 ```mermaid
 flowchart LR
-    L["read line n<br/>(blank lines skipped)"] --> J{"valid JSON<br/>object?"}
-    J -->|no| X["broken: not JSON"]
-    J -->|yes| S{"seq = expected?"}
-    S -->|no| D["broken: deleted or re-ordered"]
-    S -->|yes| P{"prev_entry_hash =<br/>previous entry_hash?"}
-    P -->|no| D
-    P -->|yes| H{"SHA-256(canonical) =<br/>stored entry_hash?"}
-    H -->|no| Y["broken: edited"]
-    H -->|yes| L
+    subgraph CL["case-log.jsonl"]
+        C1["#1 case_created"] --> C2["#5 run_started<br/>(rv-pdfauth)"] --> C3["#6 run_finished<br/>audit_entries 14<br/>audit_head bcfc84…"]
+    end
+    subgraph AU["runs/rv-pdfauth/RUN/logs/audit.jsonl"]
+        A1["#1 run_started"] --> A2["#2 case_linked<br/>case_log_head_at_start = hash of C-log #5"] --> A3["… #14 run_finished<br/>entry_hash bcfc84…"]
+    end
+    subgraph RV["review.jsonl (rv-imgauth only)"]
+        R1["#1 anchor_seq, anchor_hash = run_finished"] --> R2["#2 …"]
+    end
+    C2 -. "head at start" .-> A2
+    A3 -. "final head + count" .-> C3
+    A3 -. "anchor" .-> R1
 ```
 
-| Proves | Does not prove, on its own |
+## B5 Case-log, run-log and review-log checks
+
+The verification plan (`run.rs` `pipeline`) is: item 1 the case log; items 2…n every run, **in case-log order, then
+the run folders the case log never announced** (`checks::runs_of_case`); then, with `--rehash`, every registered
+evidence item. The case log is read once, before the hub appends anything, and that snapshot is what is checked.
+
+**Case log** (`checks::check_case_log` → `case::verify_log_and_registry`), finding `CASE_LOG_BROKEN` (high) for each
+problem:
+
+- the chain is intact ([B4](#b4-the-hash-chain-shared-by-every-log));
+- entry #1 is `case_created`, its `case_id` equals `case.json`'s, and `case.json`'s SHA-256 equals the
+  `case_json_sha256` recorded there;
+- `evidence/registry.json`'s SHA-256 equals the last `registry_sha256` recorded in the case log (missing file, or a
+  file with no recorded digest, is also a problem). `registry.csv` is not covered: the case log records no digest
+  for it, so the hub records the SHA-256 it found (`registry_csv_sha256` in `case_linked` / `case_not_extended`,
+  fact *registry.csv SHA-256* of the case-log item), which shows later changes to it but cannot show whether it
+  changed before this verification;
+- no `run_finished` without its `run_started`.
+
+**Each run** (`checks::check_run`), finding `RUN_LOG_BROKEN` (high) for each problem, unless noted:
+
+| Check | Rule |
 | --- | --- |
-| No entry was edited, inserted, deleted or reordered **before the last entry present** | That entries were not removed **from the end**: a shorter chain is still valid (see the last line above). Only an anchor outside the log shows that |
-| The order of work equals the order of entries | That the whole chain was not recomputed by someone who rewrote it from scratch |
-| Report and output digests are bound to the run | When the entries were written (host clock, `ts_utc`) |
+| Announced | a run folder with no `run_started` in the case log → `RUN_NOT_IN_CASE_LOG` (high) |
+| Present | a run announced but whose folder or `logs/audit.jsonl` is missing is broken, except a run that finished with `audit_entries: 0` (it failed before writing) |
+| Chain | `audit::verify(audit.jsonl)` |
+| Case link | the run's `case_linked` entry exists, names this case, and its `case_log_head_at_start` equals the `entry_hash` of its `run_started` entry in the case log |
+| End of the run | entry #`audit_entries` (from `run_finished` in the case log) exists and its `entry_hash` equals the recorded `audit_head`; every later entry must be `timestamp_obtained` |
+| Timestamps | driven by the audit log: every `timestamp_obtained` entry's token (`.tsr` with the recorded SHA-256, `.json` metadata present and agreeing), plus any token file next to the log that no entry records; the covered entry exists, the token's message imprint equals that entry's hash, the TSA's CMS signature verifies, and with `--tsa-ca` the TSA chain ([B9](#b9-timestamps-what-the-hub-checks-and-what-it-does-not)) |
+| Pending timestamp | `timestamp_pending` without a later `timestamp_obtained` → `TIMESTAMP_PENDING` (low) |
+| Review log | when `logs/review.jsonl` exists: each `seq` is 1, 2, …; entry #1 holds the `anchor_seq` / `anchor_hash` of this run's `run_finished`; every entry names this run; every `prev_entry_hash` links; every `entry_hash` matches → otherwise `REVIEW_LOG_BROKEN` (high) |
+| Unknown logs | any other `*.jsonl` in `logs/` → `UNKNOWN_LOG_FORMAT` (medium); it is not checked |
+| Verify-log | `verify::verify_log` (the rules of `<tool> verify-log`, including every `timestamp_obtained` entry's token still present with its recorded SHA-256): each of its problems the checks above did not already report → `RUN_LOG_BROKEN`, except "the case log is broken: it cannot vouch for this log's length", which is the case log's `CASE_LOG_BROKEN` (the run then gets neither code). A run whose verdict is not intact never gets `RUN_LOG_INTACT` |
+| Intact | when the verify-log verdict is intact and the run item has no high finding at this point → `RUN_LOG_INTACT` (info) |
 
-External anchors close those gaps: a complete run ends with `run_finished` (or `run_failed` / `run_cancelled`);
-the case log records the run's final entry count and head ([B7](#b7-the-case-folder)); the RFC 3161 token binds
-entry *N* ([B8](#b8-rfc-3161-trusted-timestamp)); the statistics report prints the head and entry count at the
-time it was written; a signed PDF report binds that head to the examiner's key.
+Note on ordering: `RUN_LOG_INTACT` is decided before the cross-check; when the cross-check then raises
+`TOOL_VERIFY_DISAGREES` for the run, `RUN_LOG_INTACT` is withdrawn and the run is not counted in `runs_intact` (the
+tally is taken after the cross-check). Read the item's full code list, not `RUN_LOG_INTACT` alone.
 
-`verify-log` uses the first two automatically ([src/core/src/verify.rs](../src/core/src/verify.rs)):
+When the case log fails (`case::verify_log_and_registry` is `Err`), the hub **does not append** to it: the
+verification run writes `case_not_extended` and goes to `--out` (`run.rs` `open_target`). Otherwise it appends
+`run_started` (role `analysis`, `purpose: verification`) under the case lock (`case-log.lock`; the hub waits up to 30 s,
+and a lock older than 10 minutes is reported as stale and must be removed by hand, never automatically), after
+re-verifying the case log, and appends `run_finished` with its audit head at the end,
+also after a cancel or a failure.
 
-| Anchor found | Check | Result line |
-| --- | --- | --- |
-| `timestamp-<K>.json` | entry `#K` exists and its hash is the token's imprint; every `timestamp_obtained` entry still has its token file | `truncation: entries up to #K are anchored by the RFC 3161 timestamp (…); n entries after it (…) cannot be proven complete` |
-| run in `<CASE>/runs/<tool>/<RUN-ID>/logs` | `run_finished` in the case log: entry `#M` = `audit_entries` exists with hash `audit_head`; only `timestamp_obtained` after it | `truncation: the final entry #M is anchored by the case log (run_finished)` |
-| neither | — | `truncation not detectable without a timestamp or case record` |
+## B6 The cross-check rule: two verdicts
 
-A log that ends before `#K` or `#M` is reported as `truncated: …` (exit 3). The highest anchor wins; when it is
-the final entry, the log is complete as far as anything outside it can tell.
+For each run item, `checks::check_run` sets two verdicts:
 
-Independent check: [tests/verify_chain.py](../tests/verify_chain.py) re-implements the chain in Python (standard
-library) and re-hashes the evidence listed in `hashes.csv` (it needs that file: it is a run checker, not a case-log
-checker). The append-only file is opened with `create_new` + `append`: an existing log is never overwritten; only
-the `timestamp` command re-opens a log, after verifying it.
+- **full** (`item.verdict`) = the result of `verify::verify_log(audit.jsonl)`, which is exactly what `rv-hub
+  verify-log` answers: chain, timestamp tokens and their files, review log, and **truncation against the case log**
+  (the log must end at the head recorded at `run_finished`; when the case log itself is broken, it cannot vouch for
+  the length, and the full verdict is broken);
+- **chain-only** (`item.chain_verdict`) = chain + timestamp tokens + review log, without the case-log comparison.
 
-## B7 The case folder
+Why two: the tools' own `verify-log` commands do not all check the same things
+([rv-hub#21](https://github.com/Panacota96/rv-hub/issues/21)). rv-hashinv, rv-rsmf (and rv-certcheck, which carries
+the same `verify.rs`) also check the run against the case log; rv-pdfauth and rv-imgauth check the chain, the
+timestamps and (rv-imgauth) the review log only. On an edited case log the two groups give opposite answers.
 
-Layout and contract: [case-folder.md](case-folder.md). This section explains why the design holds.
+With `--crosscheck auto` (`run.rs` `crosscheck`), for each run that is not the hub's own:
 
-```text
-<CASE>/case.json               {"schema":"rakvor.case/1","case_id","jurisdiction","created_utc","created_by":{…}}
-<CASE>/case-log.jsonl          same chain rule as audit.jsonl; first entry case_created (carries case_json_sha256)
-<CASE>/case-log.lock           exists only while a tool appends (created with create_new, removed on drop)
-<CASE>/evidence/registry.json  {"schema":"rakvor.registry/1","items":[{evidence_id, path, size, hashes,
-                               registered_by:{tool, version, run_id, audit_seq}, registered_utc}]}
-<CASE>/evidence/registry.csv   evidence_id,path,size,<algorithms present>,run_id
-<CASE>/runs/<tool>/<RUN-ID>/{logs,reports}/
-```
-
-Real registry entry from an intake of the sample (path shortened):
-
-```json
-{
-  "evidence_id": "E0003",
-  "hashes": { "md5": "d0532b1672c85a82f561ad2de7e9a57a",
-              "sha256": "42503ebb0f9892b30b72e11cfa0cbf5bcb5d60f667d611fa9598c9b4e835c643" },
-  "path": "D:\\export\\foto-vacaciones.jpg",
-  "registered_by": { "audit_seq": 12, "run_id": "20261021T152805Z-e8fd7a", "tool": "rv-hub", "version": "0.1.0" },
-  "registered_utc": "2026-10-21T15:28:05.909Z",
-  "size": 112
-}
-```
-
-`registered_by.audit_seq` = 12 points at the `item_hashed` entry of that run's `audit.jsonl` that holds the same
-digests, so every registry row can be traced to a sealed log entry.
-
-### Rules
-
-| Rule | Code | Why |
-| --- | --- | --- |
-| A broken case is never extended | every append re-runs `verify_log_and_registry` under the lock: case-log chain, first entry `case_created`, `case.json` digest, registry digest = last `registry_sha256` in the log | a tool cannot silently build on an edited case |
-| One writer at a time | `case-log.lock` created exclusively; wait ≤ 30 s; a lock older than 600 s is reported as stale and **never deleted automatically** | two tools never interleave entries |
-| Only the intake role writes the registry | `register` (intake); analysis tools only read it | the reference values cannot drift |
-| Paths are compared normalised | `normalize_path`: absolute, lexically normalised (`.`/`..` removed); `same_path`: case-insensitive on Windows (`to_lowercase`), exact elsewhere | the same file is found again by path; `D:\Evidence\a.pdf` = `d:\evidence\A.PDF` on Windows |
-| A case run always shares an algorithm with the registry | `ensure_case_algorithm`: if the selection is disjoint from the algorithms present in **every** registered item, add SHA-256 (or the registry's first algorithm), replacing the second choice if two were selected; audited as `case_algorithm_added` | comparison is always possible |
-| Evidence ids are never reused | next id = highest number + 1; same path **and** same content keeps its id | an id means one content forever |
-
-### Matching an item against the registry (analysis role)
+1. the executable is the `--tool-exe NAME=PATH` override (any signature), else the discovered CLI of that tool that
+   is `SignedRakvor`. None → `CROSSCHECK_UNAVAILABLE` (info: not installed / not Rakvor-signed). In the CLI,
+   discovery for the cross-check uses the registry, the install folder, `PATH` and the `--add-folder` folders (with
+   their subfolders, recorded in `run_started.add_folders`); the GUI passes the tools of its Tools tab, added folders
+   included;
+2. a run with no log folder (full verdict *not verifiable*) → `CROSSCHECK_UNAVAILABLE`;
+   a discovered executable (not a `--tool-exe` override) is then checked again, as at launch ([B3](#b3-launch)):
+   opened (on Windows with `FILE_SHARE_READ` only, held until it has answered), re-hashed and compared with the
+   SHA-256 taken at discovery (`ToolInfo::cli_sha256`), its signature re-checked (`SignedRakvor`), and re-hashed at
+   its path just before the start. Any difference → `TOOL_CHANGED_SINCE_DISCOVERY` (medium): it is not run, and the
+   audit log's `crosscheck` entry records `changed_since_discovery: true`, both hashes and the reason. This matters
+   in the GUI, which passes tools discovered earlier;
+3. `<exe> verify-log <CASE>/runs/<tool>/<RUN-ID>/logs`, 120 s limit (the whole call, as for `describe`). Exit 0 → *intact*, 3 → *broken*, anything
+   else (other code, signal, timeout, cannot start) → `CROSSCHECK_UNAVAILABLE`;
+4. compare:
 
 ```mermaid
-stateDiagram-v2
-    [*] --> ById: item selected with --evidence
-    [*] --> ByPath: other items
-    ById --> Compare: registry entry of that id
-    ByPath --> Compare: latest entry with the same normalised path
-    ByPath --> ByContent: no entry with that path
-    ByContent --> Compare: first entry whose common digests match
-    ByContent --> NotRegistered: none
-    Compare --> Verified: every common algorithm equal
-    Compare --> Mismatch: one algorithm differs (or none in common)
-    Verified --> [*]: evidence_verified_against_case match true
-    Mismatch --> [*]: EVIDENCE_HASH_MISMATCH_WITH_CASE (high), analysis continues
-    NotRegistered --> [*]: EVIDENCE_NOT_IN_CASE_REGISTRY (medium)
+flowchart TB
+    T["Tool's verdict<br/>(exit 0 intact / 3 broken)"] --> A{"= hub full verdict?"}
+    A -- yes --> AG["agrees"]
+    A -- no --> K{"tool listed in<br/>VERIFY_LOG_WITHOUT_TRUNCATION?<br/>(rv-pdfauth, rv-imgauth)"}
+    K -- no --> DIS["TOOL_VERIFY_DISAGREES (high)"]
+    K -- yes --> B{"= hub chain-only verdict?"}
+    B -- yes --> AG2["agrees at chain level<br/>(reason recorded:<br/>tool does not check truncation)"]
+    B -- no --> DIS
 ```
 
-<!-- forge:domain -->
-This tool is the **intake** role (`CASE_ROLE = Intake`): it does not run the matching above. It registers every
-item that was hashed: same path and same content keeps the existing id (`already_registered`); a registered path
-with other content gets a **new** id and the finding `REGISTRY_PATH_CONTENT_CHANGED` (medium); anything else gets
-a new id. Unreadable items are not registered. The analysis matching is in the same code and runs in every tool
-scaffolded from this one.
-<!-- /forge:domain -->
+Every cross-check is recorded in the hub's audit log (`crosscheck`: exe, exe SHA-256, arguments, exit code, first 20
+lines of output, outcome, both hub verdicts, the executable's version, whether only the chain level was compared,
+whether it was an override).
 
-### Cross-linking of the two chains
+What the rule accepts and what it costs: the chain-level fallback applies **only** to the tools listed in
+`tools::VERIFY_LOG_WITHOUT_TRUNCATION` (rv-pdfauth and rv-imgauth, identified by the run's tool name; each entry can
+name the first version that has the check, none does yet, and an unknown version counts as lacking it). For those
+two, when the full and chain-only verdicts differ (truncation against the case log, or a broken case log), *either*
+answer is accepted, so the cross-check cannot detect that they miss that check. rv-hashinv, rv-rsmf, rv-certcheck
+and any other tool are compared with the full verdict: a tool that answers *intact* on a truncated run is
+`TOOL_VERIFY_DISAGREES`. The hub's own findings (`RUN_LOG_BROKEN`, `CASE_LOG_BROKEN`) are unaffected: they never
+depend on the tool's answer. The list shrinks as rv-hub#21 aligns the tools.
 
-```mermaid
-sequenceDiagram
-    autonumber
-    participant C as case-log.jsonl
-    participant A as run audit.jsonl
-    C->>C: #2 run_started {run_dir, role}  entry_hash 57d5208e…a6a0
-    A->>A: #1 run_started
-    A->>A: #2 case_linked {case_log_seq_at_start 2, case_log_head_at_start 57d5208e…a6a0, registry_sha256}
-    C->>C: #3 evidence_registered {added E0001–E0003, registry_sha256 60c195b9…199c}
-    A->>A: #14–#16 evidence_registered {evidence_id, case_log_seq 3, registry_sha256}
-    A->>A: #23 run_finished  entry_hash 92040a6e…ea62
-    C->>C: #4 run_finished {audit_entries 23, audit_head 92040a6e…ea62}
-```
+Measured on the sample (`examples/sample`, variant `case_log_line_edited`, `--tool-exe rv-pdfauth=…`): hub full
+verdict *broken*, chain-only *intact*, rv-pdfauth exit 0 → outcome *agrees*, reason "same verdict at chain level";
+the case is still reported `CASE_LOG_BROKEN` and exits 3.
 
-(Values from a real intake of the sample.) `verify-case` checks, for every `run_started` in the case log: the run's
-`audit.jsonl` chain and timestamp tokens; that its `case_linked` names this case and quotes the `run_started` hash;
-and that entry `audit_entries` of the run has hash `audit_head`, with only `timestamp_obtained` allowed after it.
-It also warns about run folders the case log never announced. Editing either chain therefore breaks a link, and
-truncating a finished run's audit log is detected here (and by `verify-log` on that run, which finds the case log
-from the run folder's location, [B6](#b6-the-hash-chained-audit-log)).
+## B7 Re-hashing the evidence
 
-With `--rehash`, `verify-case` also re-hashes the evidence: every registry entry whose path is still a file is
-read once with the entry's own algorithms (at most two, standard order) and compared with the registry. A path
-registered more than once (its content changed between intakes, so it received a new id) is compared with its
-latest registration; the earlier ids are listed as superseded. A difference is a problem (exit 3); an unreachable
-or unreadable file is a warning, because evidence copies often live on another workstation.
+With `--rehash` (or `--evidence E0001,…`, which implies it), each registered item is planned, except an item whose
+path is registered again later (the later registration supersedes it; `evidence_superseded` is logged).
 
-What `verify-case` does **not** do: verify TSA signatures (B8), or prove that the registry's first content equals
-the original source.
+- **Where:** the registered path if it is a file, else `<dir>/<file name>` for each `--evidence-dir` in order
+  (`checks::locate`). Matching is by file name only, so the examiner must make sure the folder holds the right
+  copies; the digest comparison then shows whether they are.
+- **Algorithms:** at most two per read: first an algorithm the registry holds (one of the examiner's `--hash`
+  choices if possible, else the first the registry holds in the order md5, sha1, sha256, sha512, sha3-256, blake3),
+  then the examiner's other choices up to two. The comparison uses the algorithms both sides have
+  (`case::compare`).
+- **Results:** any difference → `EVIDENCE_REHASH_MISMATCH` (high, with algorithm, expected and actual digest); not
+  found, unreadable, or no algorithm in common → `EVIDENCE_MISSING` (high). A match gives no finding.
+- Files are opened read-only and streamed in chunks (progress and cancel between chunks).
 
-## B8 RFC 3161 trusted timestamp
+## B8 The hash register and the append-only case-log prefix rule
 
-```mermaid
-sequenceDiagram
-    autonumber
-    participant T as trust.rs
-    participant L as audit.jsonl
-    participant A as TSA
-    T->>L: … last item_reports_written (entry N, entry_hash H)
-    T->>A: HTTP POST application/timestamp-query, TimeStampReq v1 {SHA-256, H}, nonce, certReq
-    A-->>T: TimeStampResp, status + token (CMS SignedData with TSTInfo)
-    T->>T: status granted? TSTInfo imprint = H? nonce echoed (when present)?
-    T->>L: timestamp_obtained {covers_seq N, head H, gen_time, tsa, token_sha256}
-    T->>L: statistics_report_written, run_finished (after the token)
-```
+`logs/hashes.csv` is the hub's hash register: one row per item it read (index, path, size, the selected digests,
+status, error). For a run item, the file hashed is that run's `audit.jsonl`; for an evidence item, the evidence
+file; for item 1, **the case log as read at the start**, before the hub appended its own `run_started`.
 
-The **message imprint is the chain head itself**: the 32 bytes of `entry_hash` of entry *N*, declared as a SHA-256
-value. It is not hashed again, so `openssl ts -verify -digest <H>` works directly. Request layout (69 bytes; head
-from the worked example of B6, example nonce):
+That creates a subtlety. By the time anyone re-checks the register, the case log is longer (the hub, and later
+tools, appended to it), so its full digest no longer matches. Because the case log is append-only, the hub records
+the **size it read** and the digest of those bytes; the item's technical report states it as
+`fact_as_found = "first N bytes of case-log.jsonl"`. The independent verifier applies the same rule
+(`tests/verify_chain.py` `verify_register`): for a row whose file is named `case-log.jsonl`, a full-file mismatch is
+accepted only if `0 ≤ size < current size` **and** the digest of the first `size` bytes equals the recorded one.
+
+Real values (sample case, first verification):
 
 ```text
-30 43                                   TimeStampReq SEQUENCE, 67 bytes
-   02 01 01                             version v1
-   30 31                                messageImprint
-      30 0D 06 09 60 86 48 01 65 03 04 02 01 05 00     hashAlgorithm sha256 (2.16.840.1.101.3.4.2.1), NULL
-      04 20 55 8B 0E A2 … 37 62 23      hashedMessage = entry_hash (32 bytes)
-   02 08 1F 3A 5C 7E 9B 2D 4F 60        nonce (8 bytes, high bit cleared: positive INTEGER)
-   01 01 FF                             certReq TRUE
+hashes.csv row 1:  case/case-log.jsonl, size 5735, sha256 9dd52b95…40b549bf
+sha256(whole file now, 8572 bytes)   = 4c497814…129a099fc5   (≠: the hub and a second run appended)
+sha256(first 5735 bytes)             = 9dd52b95…40b549bf     (= recorded: accepted)
+python3 tests/verify_chain.py case/runs/rv-hub/<RUN-ID>/logs  →  chain: intact | register: matches
 ```
 
-- Nonce: first 8 bytes of SHA-256(clock, process id), high bit cleared. It detects a replayed response; it is not
-  a secret.
-- The response is limited to 1 MiB and 15 s. `TSTInfo` is read by a minimal DER walk because many TSAs write
-  fractional seconds in `genTime`, which strict decoders reject; `gen_time` is stored to the second. Example: the
-  test TSA's token said `15:30:01.367038`, the log says `2026-10-21T15:30:01Z`.
-- Stored next to the log: `timestamp-<NNNNN>.tsr` (the DER **TimeStampResp**, not only the token) and
-  `timestamp-<NNNNN>.json` (tsa, gen_time, covers_seq, head, token_sha256, file).
-- Offline → `timestamp_pending` and the run completes; `rv-hub timestamp <log>` later re-verifies the chain and
-  appends `timestamp_obtained` for the then-current head (earlier entries are never rewritten).
-- `verify-log` and `verify-case` re-check: that entry `covers_seq` is still in the log (otherwise: `truncated`), the
-  `.tsr` SHA-256 against `token_sha256`, the TSA status, and that the imprint equals the `entry_hash` of
-  `covers_seq`. They do **not** verify the TSA's signature, certificate chain,
-  policy OID or accuracy. Do that with OpenSSL against the TSA's published chain
-  ([usage.md](usage.md#6-timestamps)) before relying on the time in court (gap G18). Real check of the test token:
-  `openssl ts -verify -digest 53b0de42…a91a61 -in timestamp-00018.tsr -CAfile ca.pem -untrusted tsa.pem` →
-  `Verification: OK`.
-- The default TSA URL is plain HTTP; integrity rests on the TSA's signature, which is why the OpenSSL check
-  matters. eIDAS qualified status depends on the TSA chosen ([admissibility.md](admissibility.md)).
-
-Standards: RFC 3161 (Time-Stamp Protocol), RFC 5816 (ESSCertIDv2 update), RFC 5652 (CMS).
-
-## B9 Signed PDF reports
-
-<!-- forge:domain -->
-Reports are written by a small built-in PDF writer ([report/pdf.rs](../src/core/src/report/pdf.rs)): PDF 1.4,
-A4, the standard Helvetica, Helvetica-Bold and Courier fonts with WinAnsiEncoding (English, Spanish and French
-characters; anything else becomes `?`), no embedded fonts, one cross-reference table, one `%%EOF`.
-<!-- /forge:domain -->
-
-With `--sign-cert`, the file is written **once** with a signature placeholder and then signed in place (no
-incremental update):
-
-```text
-technical.en.pdf of the sample (39 620 bytes), real values
-… 9 0 obj << /Type /Sig /Filter /Adobe.PPKLite /SubFilter /adbe.pkcs7.detached
-             /ByteRange [0 0000006359 0000039129 0000000491] /Contents <3082…000> /M (D:…) /Reason (…) >>
-  widget /FT /Sig /T (RakvorExaminerSignature), invisible, on page 1;  catalog /AcroForm /SigFlags 3
-0                  6359                                   39129              39620
-├──── signed ──────┤<── /Contents: 32 770 bytes ─────────>├──── signed ──────┤
-                     "<" + 32 768 hex digits + ">"  = room for 16 384 bytes of CMS (2 086 used here)
+```mermaid
+flowchart LR
+    subgraph NOW["case-log.jsonl today (8572 bytes)"]
+        P["bytes 0 … 5734<br/>(10 entries: as found)"] --- X["bytes 5735 …<br/>rv-hub run_started / run_finished,<br/>later runs"]
+    end
+    P --> H["SHA-256 = 9dd52b95…<br/>= hashes.csv row 1"]
 ```
 
-1. Write the whole PDF with `/ByteRange [0 0000000000 0000000000 0000000000]` and `/Contents <000…0>`, and keep
-   the offset at which the signature dictionary object was written (the xref offset of `9 0 obj` above).
-2. Locate both placeholders **inside that object only** — page text that happens to contain `/Contents <0000` or
-   the byte-range marker is never touched (unit test `placeholder_bytes_in_page_text_are_left_alone`) — and fill
-   the byte range with fixed-width (10-digit) numbers, so no offset moves.
-3. Sign `file[0 .. 6359] ‖ file[39129 .. 39620]` ([trust.rs](../src/core/src/trust.rs) `PdfSigner`): CMS
-   SignedData, detached, SHA-256, RSA PKCS #1 v1.5, signed attributes content-type, signing-time and
-   message-digest, certificates from the `.p12`/`.pfx`. RSA keys only.
-4. Write the DER as upper-case hex into the placeholder.
+What the prefix rule relies on: that nothing *before* byte `size` changed. That is exactly what the digest checks;
+an edit inside the prefix fails it. It does not show that the appended part is legitimate; the case-log chain check
+of the next verification does.
 
-Independent check of the file above with pyHanko: `INTACT:UNTRUSTED,UNTOUCHED`, coverage `ENTIRE_FILE`, digest
-SHA-256 (untrusted only because the test certificate has no trusted root). The trust test does the same on every
-signed PDF of a run ([tests/validate_pdf_signature.py](../tests/validate_pdf_signature.py), through
-`RV_TEST_PYTHON`): each must be intact and cryptographically valid; an untrusted chain is expected with the test CA.
+Paths in `hashes.csv` are written as the hub saw them: relative when `--case-dir` was relative. Run
+`verify_chain.py` from the same working folder, or verify with an absolute `--case-dir`.
 
-This is a plain ISO 32000-1 CMS signature. It is not a PAdES baseline signature (ETSI EN 319 142-1: SubFilter
-`ETSI.CAdES.detached` and a signing-certificate-v2 attribute), it carries no signature timestamp and no revocation
-data. Its legal weight depends on the certificate ([admissibility.md](admissibility.md), gap G3). The certificate
-subject and SHA-256 fingerprint are logged as `signing_certificate_loaded` and printed on every report (HTML, PDF,
-and `run.pdf_signer_certificate_sha256` in the JSON); the password is never logged, and the interactive prompt does
-not echo it.
+## B9 Timestamps: what the hub checks and what it does not
 
-## B10 Custody forms
+A run's RFC 3161 token (`timestamp-<SEQ>.tsr`) covers the `entry_hash` of entry `<SEQ>` (the chain head at the
+time). The tokens to check come **from the audit log**, not from the files next to it (`trust::verify_timestamps`,
+fail closed): every `timestamp_obtained` entry names a token, whose `.tsr` must have the SHA-256 recorded in that
+entry and whose `timestamp-<SEQ>.json` must be present and agree with it (file, digest, covered entry). Deleting the
+metadata file therefore no longer skips the token's checks: it is itself a problem, and the token is still checked.
+A `.json` that no entry records (the run could not append the entry) is checked from its own fields; a `.tsr` that
+neither an entry nor a metadata file names is a problem. For each token: the covered entry is still in the log
+(else "truncated"), the response status is granted, and the token's **message imprint equals that entry's hash**;
+it reads `genTime`.
 
-One form per item, `custody.json` plus HTML and PDF in the jurisdiction's language and in English
-([report/mod.rs](../src/core/src/report/mod.rs) `custody_*`, [templates/custody.html](../templates/custody.html),
-[schemas/item-custody.schema.json](../schemas/item-custody.schema.json)).
+The hub also **verifies the TSA's CMS signature on the token** (`trust::verify_token`, the same code as
+rv-pdfauth and rv-imgauth): the content type is `id-ct-TSTInfo`; there is exactly one SignerInfo and its certificate
+is in the token; the signed attributes carry content-type, a message-digest that equals the digest of the TSTInfo,
+and an ESS signing-certificate (v1 or v2) that matches that certificate; the RSA PKCS#1 v1.5 signature over the
+signed attributes verifies; and the certificate's extended key usage is **critical and contains only**
+`id-kp-timeStamping` (RFC 3161 §2.3; the same rule as rv-certcheck and OpenSSL's `timestampsign` purpose). Any
+failure (an altered token, "signature value does not verify") makes the log not verify (exit 3,
+`RUN_LOG_BROKEN`).
 
-| Field | Colombia (`co`, Spanish) | France (`fr`, French) | Filled from |
-| --- | --- | --- | --- |
-| Title and legal basis | Ley 906 de 2004 arts. 254–266, Fiscalía manual, Ley 527 de 1999 | CPP arts. 156 ff.; seal number refers to the judicial *scellé* | i18n catalogue |
-| Case | Case number (NUNC) | Case / procedure reference | `case_id` |
-| Item code | Evidence item (EMP/EF) code | Seal number | evidence id `E0001…` in a case folder, else `<RUN-ID>-<NNNNN>` |
-| Registered at intake | date and time (UTC) | same | registry `registered_utc` (case folder only) |
-| Description, location | file name · size · detected type; path of the examined copy | same | the run |
-| Integrity values | every digest of the run | same | `item_hashed` |
-| Operations | tool, version, run id, start and end (UTC), audit entries `#first–#last` | same | the run |
-| Transfers | 6 blank rows: date and time, delivered by, received by (name, ID, signature), purpose, condition of packaging / media | same | to sign by hand |
-| Signatures | examiner, receiver | same | to sign by hand |
+The **TSA certificate chain** is validated only when a CA bundle is given (`--tsa-ca` on `verify-log` and
+`verify`). The path is built from the TSA certificate, through the certificates in the token, to one of the
+bundle's certificates, trying **every candidate issuer and every candidate anchor** (cross-signed intermediates,
+an expired anchor followed by its renewal with the same name and key), depth-first, at most 8 certificates below
+the anchor, never the same certificate twice on one path. A candidate path is accepted only if (a subset of
+RFC 5280 §6.1, implemented in `trust::check_path`):
 
-`custody.json` lists `transfers: []`: the tool never invents a transfer; the physical chain is completed by
-people. The form is a working aid, not the official Fiscalía *Registro de Cadena de Custodia* or a French
-*scellé* record ([admissibility.md](admissibility.md#consolidated-gap-list), G9).
-
-## B11 Determinism and repeatability
-
-| Same input + same build gives the same … | Varies between runs |
+| Rule | Detail |
 | --- | --- |
-| evidence digests, `bytes_read`, detected types, findings and their parameters | `run_id`, `ts_utc`, every `entry_hash` (they include time) |
-| item order and numbering (sorted paths), duplicate groups | absolute paths of the outputs, host, OS user (in `environment.json`) |
-| `hashes.csv` rows | report digests (reports print run id, times, the audit head); PDF `/CreationDate` |
-| evidence ids for an unchanged path and content (case folder) | the RFC 3161 token and nonce |
+| Signatures, validity | every RSA PKCS#1 v1.5 signature verifies; every certificate, anchor included, is valid at `genTime` |
+| CA | every intermediate has basicConstraints `cA=TRUE`; an anchor too, or (no basicConstraints) is X.509 v1 or has keyCertSign |
+| keyUsage | an issuer with a keyUsage extension has `keyCertSign` |
+| pathLenConstraint | for every issuer, anchor included, the non-self-issued intermediates below it do not exceed it; self-issued key-rollover intermediates (same name, new key) are allowed and not counted |
+| nameConstraints | directoryName subtrees (permitted and excluded) are evaluated against the subject and directoryName subjectAltNames of every certificate below, except self-issued intermediates; names compared per §7.1 (string values case-folded, whitespace collapsed). Other name forms (dNSName, rfc822Name, iPAddress, URI, …) are **not evaluated**: if a certificate below carries a name of a constrained form, the path is rejected (fail closed) |
+| Critical extensions | only basicConstraints, keyUsage, extendedKeyUsage, nameConstraints, certificatePolicies, subjectAltName, subject/authority key identifier are accepted when critical, on any certificate of the path; any other critical extension rejects it. Certificate-policy processing is not implemented, so critical policyConstraints, policyMappings and inhibitAnyPolicy are rejected; a critical certificatePolicies is accepted (no policy is required, so §6.1.5(g) succeeds whatever it says). A critical extendedKeyUsage on a CA must allow timeStamping |
 
-Measured for this page: the Rust and Python builds of this tool, run on the sample with the same algorithms, gave
-identical digests, detected types and findings (compared on every `technical.json`). Item numbers are identical
-too: both profiles make each path absolute and lexically normalised and sort by that string **bytewise (UTF-8)**,
-so `a-b/x.txt` comes before `a/x.txt` ('-' 0x2D < '/' 0x2F) and `B.txt` before `a.txt`. The cross-profile test
-compares the numbering of such a folder ([input.rs](../src/core/src/input.rs) `items_are_sorted_by_normalised_path_bytes`;
-`cross_language_case_verification` with `RV_CROSS_PROJECT`), and CI verifies a case folder written by the Python
-profile ([tests/golden/](../tests/golden/regenerate.py)). File names that are not valid UTF-8 are outside this
-contract.
+The rules are tested against 34 certificate-path fixtures (`tests/fixtures/tsa-chains`, made by `make_chains.py`),
+each also run through `openssl verify -purpose timestampsign -attime <genTime>`; the tool agrees with OpenSSL except
+where it is deliberately stricter (dNSName constraints, policy extensions, the depth limit) or finds a path OpenSSL
+3.0 misses (a cross-signed intermediate listed first that leads to an untrusted root); `expected.json` records why.
 
-`environment.json` records the tool version, `rustc` version, target triple, every package and version listed in
-`Cargo.lock` (495 entries at this commit, for all platforms — not only those compiled into this binary), OS,
-host, OS user, working directory and command line (or the GUI settings), so a second examiner can rebuild the same
-version and repeat the run (ISO/IEC 27037 repeatability and reproducibility, [admissibility.md](admissibility.md#61-isoiec-270372012--identification-collection-acquisition-and-preservation-of-digital-evidence)).
+Without `--tsa-ca` the output says "chain not checked": the token is then shown to be signed by the certificate it
+carries, not that this certificate belongs to a TSA you trust. **Revocation (CRL/OCSP) is never checked**, with or
+without `--tsa-ca`: a TSA certificate revoked before `genTime` still validates. It must be established separately,
+from CRL/OCSP evidence that covers `genTime` ([forensic-audit.md](forensic-audit.md#timestamps)). Only RSA signers are
+supported (an ECDSA token is reported as "signature not checked", which fails the log).
 
-<!-- forge:domain -->
-## B12 What each finding does not prove
+The hub's own verification run requests a timestamp by default (`--tsa-url`, default
+`http://timestamp.digicert.com`): that HTTP request is the only network access of `verify`. `--no-timestamp` or
+`RV_NO_TIMESTAMP=1` turns it off; the run then records `timestamp_pending` only when a TSA was asked and could not be
+reached.
 
-| Finding (severity) | Rule (code) | Shows | Does not prove |
-| --- | --- | --- | --- |
-| `EMPTY_FILE` (info) | bytes read = 0 | The file has 0 bytes | Whether it was emptied on purpose or created empty |
-| `EXTENSION_MISMATCH` (medium) | signature found; extension not in its list; extension known or textual ([B4](#b4-type-detection-by-magic-bytes-and-extension-mismatch)) | Name and content signature disagree | An attempt to hide content; renaming is common and often innocent |
-| `EXECUTABLE_CONTENT` (high) | PE or ELF signature; extension not an executable one | A program stored under a non-program name | That the program is malicious; a 2-byte `MZ` match can be a false positive |
-| `DUPLICATE` (info) | same primary digest, size > 0 ([B5](#b5-duplicate-detection-by-digest)) | Identical content in several files | Who copied the file, when, or which copy is the original |
-| `UNREADABLE` (high) | open or read error | The OS error text | That the file is damaged; permissions and locks cause this |
-| `REGISTRY_PATH_CONTENT_CHANGED` (medium) | intake: registered path, other content | The path now holds other content (new evidence id) | Which version is the original, or why it changed |
-<!-- /forge:domain -->
+## B10 The dashboard and the suggestion rules
 
-Case-folder findings (shared by every tool in the analysis role):
+`case_view::read_case` never fails and never writes. It reads `case.json`, `case-log.jsonl` (runs in log order;
+`run_finished` gives the status and recorded timestamp status), each run's `logs/audit.jsonl` (to refine the
+timestamp status: a later `timestamp_obtained` wins) and `reports/statistics.json` (findings by severity, items,
+evidence ids examined), and `evidence/registry.json`. It runs one quick chain check of the case log; every other
+problem is a line in `problems`. **The numbers come from the tools' own reports as they are**: an edited report
+shows edited numbers. Only `verify` proves integrity.
 
-| Finding (severity) | Rule (code) | Shows | Does not prove |
-| --- | --- | --- | --- |
-| `EVIDENCE_HASH_MISMATCH_WITH_CASE` (high) | matched entry, a common algorithm differs ([B7](#matching-an-item-against-the-registry-analysis-role)) | The file examined is not bit-identical to the registered item | Who changed it, when, or whether deliberately |
-| `EVIDENCE_NOT_IN_CASE_REGISTRY` (medium) | no entry by id, path or content | Continuity from intake cannot be shown for this file | That the file is altered or irrelevant |
+"Examined by" (per evidence item): the tools whose runs list the item's evidence id (from `statistics.json`, else
+the case log's `run_started.evidence_ids`, else what the run registered), plus the tool that registered it. Only
+**completed** runs count: a run whose `run_finished` status is not `completed`, or records a non-zero `exit_code`, is
+*failed* (or *cancelled*), and a run without `run_finished` or never announced in the case log did not examine
+anything either.
 
-The exact wording printed in reports is in [i18n/en.json](../i18n/en.json) (`findings`; also es, fr); a test
-enforces the same keys in all three languages.
+`suggest::suggest_with(view, catalog, evidence_dirs)` (`suggest::suggest` without folders) returns, in this order:
 
-## B13 References
+| Situation | Suggestion | Reason key (`i18n/*.json` → `suggest`) |
+| --- | --- | --- |
+| `case.json` missing or without `case_id` | the intake tool | `no_case` |
+| a case with no registered evidence | the intake tool | `no_evidence` |
+| for each non-intake tool that does not accept "any file", in the order rv-pdfauth, rv-imgauth, rv-rsmf, rv-certcheck, then others: registered items that are not superseded, not yet examined by that tool, and that it accepts | that tool, with the evidence ids | `pdf_not_analysed`, `images_not_analysed`, `chats_not_converted`, `certs_not_analysed`, `not_examined` |
+| runs whose timestamp status is pending | `<tool> timestamp`, with the run folders | `timestamp_pending` |
 
-Standards and specifications
+"Accepts" (`suggest::accepts`) uses the catalogue: each discovered tool's `describe`, completed by the built-in table
+for tools not found. An item is accepted when its **first bytes** match one of the tool's signatures (up to 4 KiB
+are read, read-only, at the file's **registered** path or, when it is not there, at `<dir>/<file name>` for each
+`rv-hub case --evidence-dir` in order), or else its **extension** matches. A `.txt` file is a chat export only by
+its **content**: one of its first 20 lines must be a WhatsApp line (`suggest::is_whatsapp_line`), Android
+`12/03/26, 09:14 - Name: text` or iOS `[12/03/26 09:14:05] Name: text` (date parts separated by `/`, `.` or `-`,
+2- or 4-digit year, optional seconds and AM/PM marker, and a sender followed by `: `). A `.txt` file that cannot be
+read is **not** suggested.
 
-- NIST FIPS 180-4 (Secure Hash Standard, 2015); NIST FIPS 202 (SHA-3, 2015); RFC 1321 (MD5, 1992).
-- J. O'Connor, J.-P. Aumasson, S. Neves, Z. Wilcox-O'Hearn, *BLAKE3: one function, fast everywhere* (2020).
-- RFC 3161 (Time-Stamp Protocol, 2001); RFC 5816 (ESSCertIDv2 update for RFC 3161, 2010); RFC 5652
-  (Cryptographic Message Syntax, 2009); RFC 8017 (PKCS #1 v2.2, 2016); RFC 5280 (X.509 PKI profile, 2008).
-- ISO 32000-1:2008, *PDF 1.7* (§12.8 digital signatures); ETSI EN 319 142-1 (PAdES baseline signatures).
-- ISO/IEC 27037:2012 (identification, collection, acquisition and preservation of digital evidence) — see
-  [admissibility.md](admissibility.md) for what was verified of it.
+Consequence seen in the sample: the registry records the paths the evidence had at intake (a temporary folder that no
+longer exists), so without `--evidence-dir` the hub cannot read the files and suggests nothing for the `.txt` items;
+with `--evidence-dir examples/sample/evidence`, `whatsapp-chat.txt` is recognised and `notas.txt` (plain notes) is
+not. Suggestions are prompts for the examiner, not findings. The GUI's Case tab reads registered paths only.
 
-Academic and practitioner literature
+## B11 Exit codes and determinism
 
-- X. Wang, H. Yu, "How to Break MD5 and Other Hash Functions", EUROCRYPT 2005.
-- M. Stevens, E. Bursztein, P. Karpman, A. Albertini, Y. Markov, "The first collision for full SHA-1",
-  CRYPTO 2017.
+`verify` exits 3 when any finding is high, else 0; 1 runtime error; 2 usage error; 130 cancelled. The inventory
+findings (`TOOL_*`) are not part of `verify`'s reports; `tools` exits 3 on `TOOL_SIGNED_OTHER_ROOT` or
+`TOOL_SIGNATURE_INVALID`, and `launch` exits 3 when it refuses.
 
-<!-- forge:domain -->
-- G. Kessler, *File Signatures Table* (garykessler.net) and the `file(1)` / libmagic database — practitioner
-  references for magic numbers (to be verified against the entries of [B4](#b4-type-detection-by-magic-bytes-and-extension-mismatch)).
-- Format specifications for the signatures used: ISO 32000-1 (PDF header), ISO/IEC 15948 (PNG), ITU-T T.81
-  (JPEG SOI marker), PKWARE APPNOTE (ZIP local file header), RFC 1952 (GZIP), ISO/IEC 14496-12 (`ftyp` box),
-  Microsoft PE/COFF specification (`MZ` DOS header).
-<!-- /forge:domain -->
-
-Independent oracles used to cross-check this tool: Python `hashlib`/`blake3` for
-[examples/sample/expected_hashes.csv](../examples/sample/expected_hashes.csv) and
-[tests/verify_chain.py](../tests/verify_chain.py) (both in CI); JSON Schemas via
-[tests/validate_reports.py](../tests/validate_reports.py) (in CI); pyHanko for signed PDFs
-([tests/validate_pdf_signature.py](../tests/validate_pdf_signature.py), in CI); OpenSSL for RFC 3161 tokens
-(manual, see above); the Python profile of this tool: a committed case folder it wrote
-([tests/golden/](../tests/golden/regenerate.py), in CI) and the live cross-profile test (case folders and item
-numbering, run when `RV_CROSS_PROJECT` is set).
+Given the same case folder, the same installed tools and the same options, two verifications give the same items,
+findings, verdicts and digests; they differ in run id, timestamps (`ts_utc`, `genTime`), elapsed time, and the
+hub's own earlier runs, which become items of the next verification (their cross-check is *skipped*: "the hub's
+verdict is the tool's").

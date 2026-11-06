@@ -1,0 +1,37 @@
+{
+  "assistants": [],
+  "case_id": "SAMPLE-1",
+  "evidence_id": "E0001",
+  "examiner": "Examiner Image",
+  "examiner_identity": {
+    "id_number": null,
+    "id_type": null,
+    "name": "Examiner Image",
+    "position": null
+  },
+  "hashes": {
+    "sha256": "666ed73f0863f60ec48123834935c56c7ec98487834fa366fc0d7be8a1fa03c5"
+  },
+  "intake_utc": "2026-10-29T11:00:57.109Z",
+  "item": {
+    "file_name": "captura.png",
+    "index": 1,
+    "path": "/tmp/tmp.sVTkOe7IbL/evidence/captura.png",
+    "size": 354
+  },
+  "jurisdiction": "co",
+  "operations": [
+    {
+      "audit_first_seq": 5,
+      "audit_last_seq": 12,
+      "end_utc": "2026-10-29T11:00:57.325Z",
+      "start_utc": "2026-10-29T11:00:57.273Z",
+      "tool": "rv-imgauth",
+      "version": "0.1.0"
+    }
+  ],
+  "run_id": "20261029T110057Z-95dba9",
+  "schema": "rakvor.item-custody/1",
+  "transfers": [],
+  "witnesses": []
+}

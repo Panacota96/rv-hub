@@ -1,0 +1,156 @@
+{
+  "audit": {
+    "first_seq": 5,
+    "last_seq": 8
+  },
+  "case": {
+    "case_dir": "/tmp/tmp.sVTkOe7IbL/case",
+    "case_id": "SAMPLE-1",
+    "intake_utc": "2026-10-29T11:00:57.109Z",
+    "role": "analysis",
+    "status": "verified"
+  },
+  "conversion": {
+    "conversations": [
+      [
+        "c-38b058f83511",
+        "whatsapp-chat"
+      ]
+    ],
+    "error": null,
+    "events": 5,
+    "export": "whatsapp-chat.txt",
+    "facts": {
+      "chat_file": "whatsapp-chat.txt",
+      "date_order": "dmy",
+      "date_order_basis": "line 5: first component 13 > 12",
+      "date_order_option": "dmy",
+      "date_order_option_used": "no",
+      "lines_read": "5",
+      "timezone": "Europe/Paris",
+      "variant": "android"
+    },
+    "files": [
+      {
+        "attachments": 0,
+        "conversation": "whatsapp-chat",
+        "day": "2026-03-12",
+        "events": 4,
+        "file": "001-whatsapp-chat-txt-000001/whatsapp-chat-f83511/2026-03-12.rsmf",
+        "missing_attachments": 0,
+        "part": 0,
+        "sha256": "2ea561276f2d9d25e1c51c310643e61ecf62c5cb8326c779fba36293c292a941",
+        "valid": true
+      },
+      {
+        "attachments": 0,
+        "conversation": "whatsapp-chat",
+        "day": "2026-03-13",
+        "events": 1,
+        "file": "001-whatsapp-chat-txt-000001/whatsapp-chat-f83511/2026-03-13.rsmf",
+        "missing_attachments": 0,
+        "part": 0,
+        "sha256": "fdbb4796981a45aeb185fb0d9830ef3e846329f28088483bc66a9c9d4c30f2e3",
+        "valid": true
+      }
+    ],
+    "participants": 2,
+    "primary": true,
+    "source": "whatsapp"
+  },
+  "findings": [
+    {
+      "code": "DATE_ORDER_INFERRED",
+      "params": {
+        "example": "13/03/2026, 08:45",
+        "line": "5",
+        "order": "dmy"
+      },
+      "severity": "info",
+      "text": {
+        "en": {
+          "does_not_prove": "It does not show that every line was written with the same phone settings; an export that mixes day-first and month-first dates stops with an error instead of being converted.",
+          "shows": "Numeric dates were read as dmy: line 5 (\"13/03/2026, 08:45\") can only be read that way.",
+          "title": "Date order inferred from the export"
+        }
+      }
+    },
+    {
+      "code": "TIMEZONE_APPLIED",
+      "params": {
+        "timezone": "Europe/Paris"
+      },
+      "severity": "info",
+      "text": {
+        "en": {
+          "does_not_prove": "It does not show that the phone was set to Europe/Paris; a wrong zone shifts every time by the same amount.",
+          "shows": "The export's times carry no UTC offset; they were read as Europe/Paris and stored in UTC. The original text of each time is kept in the event's custom field source_time.",
+          "title": "Local times converted with the examiner's time zone"
+        }
+      }
+    },
+    {
+      "code": "DELETED_MESSAGES_NOT_IN_EXPORT",
+      "params": {
+        "source": "WhatsApp"
+      },
+      "severity": "info",
+      "text": {
+        "en": {
+          "does_not_prove": "It does not show whether any messages were deleted.",
+          "shows": "WhatsApp exports leave out messages deleted before the export; the RSMF can only contain what the export contains.",
+          "title": "Deleted messages are not exported"
+        }
+      }
+    }
+  ],
+  "hashes": {
+    "sha256": "610bdf98c4ccec8d49afb7586306b475062d899d878e9bcf0e53921759f8ef14"
+  },
+  "item": {
+    "detected_type": null,
+    "error": null,
+    "evidence_id": "E0005",
+    "extension": "txt",
+    "file_name": "whatsapp-chat.txt",
+    "index": 1,
+    "modified_utc": "2026-10-29T11:00:57Z",
+    "path": "/tmp/tmp.sVTkOe7IbL/evidence/whatsapp-chat.txt",
+    "size": 340,
+    "status": "ok"
+  },
+  "limitations": [
+    "CONVERSION_REPRESENTS_THE_EXPORT_NOT_THE_DEVICE",
+    "EXPORT_CONTENT_NOT_AUTHENTICATED",
+    "RELATIVITY_RENDERING_NOT_VERIFIED",
+    "SHORTCODE_TABLE_VERSION",
+    "SIGNATURE_TABLE_LIMITED",
+    "TIMESTAMPS_FROM_FILESYSTEM",
+    "CLEAN_RESULT_IS_NOT_AUTHENTICITY",
+    "TIMESTAMP_PROVES_EXISTENCE_ONLY"
+  ],
+  "run": {
+    "actor": "Examiner Chat",
+    "algorithms": [
+      "sha256"
+    ],
+    "cancelled": false,
+    "case_id": "SAMPLE-1",
+    "elapsed_ms": 42,
+    "finished_utc": "2026-10-29T11:00:57.440Z",
+    "frontend": "cli",
+    "jurisdiction": "co",
+    "langs": [
+      "en"
+    ],
+    "pdf_signed_by": null,
+    "pdf_signer_certificate_sha256": null,
+    "run_id": "20261029T110057Z-c0bff8",
+    "started_utc": "2026-10-29T11:00:57.397Z"
+  },
+  "schema": "rakvor.item-technical/1",
+  "tool": {
+    "name": "rv-rsmf",
+    "version": "0.1.0"
+  }
+}

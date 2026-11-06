@@ -1,63 +1,102 @@
 # Using the desktop app (Windows 10/11)
 
-Start **RV Hub** from the Start menu (installer) or double-click `rv-hub-gui.exe` (portable zip).
-No installation of other software is required; the app also runs on virtual machines without a graphics
-driver (software rendering).
+Start **RV Hub** from the Start menu ("Rakvor") or double-click `rv-hub-gui.exe` (portable zip). The app also runs
+on virtual machines without a graphics driver (software rendering). `rv-hub-gui.exe --case-dir E:\CASE-014`, or a
+case folder dropped on the icon, opens that case at start.
 
-![Main window](images/gui-main.png)
-
-## Workflow
+One window, three tabs: **Tools** (which Rakvor tools are installed and trustworthy), **Case** (what has been done
+and what is next) and **Verify** (whole-case verification). The interface language (English, Español, Français) is
+chosen top right and changes every label at once; it is independent of the report language.
 
 ```mermaid
-flowchart TD
-    A["1 · Evidence<br/>Add files… / Add folder… / drag & drop / type a path"] --> B
-    B["2 · Hash algorithms<br/>tick 1 or 2 (a third box is disabled)"] --> C
-    C["3 · Reports<br/>language · output folder · examiner · case ID"] --> D
-    D["Start review"] --> E{"Running"}
-    E -->|progress bar, elapsed, remaining| E
-    E -->|Cancel| F["Partial reports + run_cancelled in the log"]
-    E -->|done| G["Open report · Open log folder"]
+flowchart LR
+    T["Tools<br/>cards · signature badges · Launch"] -->|Launch on the open case| X[["tool GUI --case-dir CASE"]]
+    C["Case<br/>open / create · evidence · runs · suggestions"] -->|one-click suggestion| X
+    C -->|Create case| H[["rv-hashinv GUI --case-dir EMPTY"]]
+    V["Verify<br/>options · progress · results"] -->|writes only runs/rv-hub/RUN-ID| K[("case folder")]
+    X --> K
+    H --> K
+    K -->|Refresh, or window regains focus| C
 ```
 
-## The window
+## Tools
 
-| Area | What it does |
-| --- | --- |
-| **1. Evidence** | *Add files…* and *Add folder…* open the Windows pickers. You can also drag files or folders onto the window (or onto the `rv-hub-gui.exe` icon before it starts), or paste a path and press Enter. *Include subfolders* is on by default. Remove an entry with **x**. |
-| **2. Hash algorithms** | Tick one or two. When two are ticked, the others are disabled; you cannot untick the last one. |
-| **3. Reports** | Language (English, Español, Français, or all three), output folder, examiner name (defaults to your Windows user), optional case ID. |
-| **4. Trust** | *Trusted timestamp* (on by default; TSA address editable), *Certificate…* to pick your `.p12`/`.pfx` and its password (kept in memory only, never logged) so every PDF is signed, and *Jurisdiction* (Colombia / France) for the custody form. |
-| **Interface language** | Top-right selector: English, Español, Français. Changes every label immediately; independent of the report language. |
-| **Start review / Cancel** | Start is enabled once evidence is added. During a run the settings are locked and the button becomes *Cancel*. |
-| **Progress** | Bar by bytes processed, `files done / total`, elapsed time (always moving) and estimated time remaining. The file being read is shown below. |
-| **Result** | Counts by severity, **Open report** (statistics page in your language) and **Open log folder**. |
+![Tools tab](images/hub-tools.png)
 
-## Case folder
+One card per tool found in the installed programs, `%LOCALAPPDATA%\Programs\Rakvor`, the `PATH` and the folders you
+add. A known tool that is not found is shown dimmed as *not installed*. Each card shows the version, where it was
+found, the install path and the signature badge of the GUI executable:
 
-Fill **Case folder** in section 1 to work inside a shared case folder (see [case-folder.md](case-folder.md)).
-For a new folder, also fill **Case ID** (and the custody form's jurisdiction): they are written once to
-`case.json`. While a case folder is set, the **Output folder** shows `<case>/runs/rv-hub/<RUN-ID>` and cannot
-be edited, and you may start without adding evidence (every registered item is examined). After the run, the
-result panel lists the **evidence id** of every item (E0001…) and its status (registered, verified, mismatch, not in
-registry). The change is audited as `ui_case_dir_changed`.
+| Badge | Meaning | Launch |
+| --- | --- | --- |
+| green **Rakvor-signed** | valid Authenticode signature chaining to the Rakvor root | starts at once |
+| amber **Unsigned** | no signature (e.g. a developer build) | asks first, stating the risk |
+| red **Signed by another root** | signed, but not published by Rakvor | asks first, stating the risk |
+| red **Invalid signature** | modified after signing, or broken | asks first, stating the risk |
+| grey **Signature not checked** | not Windows, or the file could not be checked | asks first, stating the risk |
 
-## What the GUI records
+**Launch** opens the tool on the open case (`--case-dir`). With no case open, it opens the tool without one, after
+asking. The executable is hashed and its signature checked again at launch; if it changed since the list was made,
+you are asked again or the launch is refused (refresh the list).
 
-Your choices are part of the evidence record. Before the run starts, the GUI writes them to the audit log:
+**Add a portable folder** (a text field, plus *Browse…* on Windows) adds e.g. an unzipped release on a USB stick;
+**Refresh** looks again. Added folders are remembered.
+
+## Case
+
+![Case tab](images/hub-case.png)
+
+- **Open** a case folder (the folder with `case.json`): type or paste it, use *Browse…*, pick one of the **Recent**
+  cases, or drop the folder on the window.
+- **Create case** starts rv-hashinv on an empty (or new) folder: the intake tool creates `case.json`. RV Hub never
+  writes `case.json` itself.
+- The header shows the case id, the jurisdiction (custody form) and a quick check of the case-log chain.
+- **Evidence**: id, file, size and the tools whose runs examined each item.
+- **Runs**: tool, run id, time (UTC), findings High / Medium / Low / Info, timestamp (obtained, pending, off) and
+  status.
+- **Findings by severity** over all runs, and any **problems** reading the folder.
+- **Suggested next steps**, each with its reason and a one-click button that opens the suggested tool on the case.
+
+The view is read-only: nothing in the case folder is changed. It is read again with **Refresh** and whenever the
+window regains the focus (for example after closing a tool that added a run).
+
+## Verify
+
+The options of `rv-hub verify`: the case folder (follows the open case), *re-hash the registered evidence* (with an
+optional folder where the copies are now), the cross-check (ask each run's own installed, Rakvor-signed tool to
+verify its logs too), 1 or 2 hash algorithms, the report language, the examiner and case id, and the trust section
+(trusted timestamp, PDF signing certificate and password — kept in memory only — and the custody form).
+
+**Start verification** shows progress, the elapsed time (always moving), the estimated time remaining and **Cancel**.
+The results table has one row per item — the case log, each run, each re-hashed evidence file — with its verdict
+(ok, attention, problem) and its finding codes. **Open report** opens the statistics page in your language; **Open
+run folder** opens `<case>/runs/rv-hub/<RUN-ID>`.
+
+## What the app records
+
+Every action is written, with its time (`at_utc`), to the hub's session log
+(`%LOCALAPPDATA%\Rakvor\RV Hub\logs\<SESSION-ID>\audit.jsonl`, a hash chain). Verify options also go into the
+verification run's own audit log, as in every Rakvor tool.
 
 | Action | Logged as |
 | --- | --- |
-| Add / remove evidence | `ui_input_added`, `ui_input_removed` |
-| Change hash selection | `ui_hash_selection_changed` |
-| Change language / subfolders | `ui_language_changed`, `ui_recursive_changed` |
-| Press Start | `ui_start_clicked` (final settings) |
-| Press Cancel | `item_cancelled`, `run_cancelled` |
+| Switch tab / interface language | `ui_tab_selected`, `ui_interface_language_changed` |
+| Refresh tools, add / remove a folder | `ui_tools_refreshed`, `ui_tools_listed`, `ui_folder_added`, `ui_folder_removed` |
+| Launch | `ui_launch_clicked`, then the core's `tool_launched` (tool, version, exe SHA-256, signature, case, pid) |
+| Confirm an untrusted tool | `ui_launch_untrusted_confirmed`, then the core's `tool_untrusted_confirmed` |
+| Confirm a launch without a case / cancel the dialog | `ui_launch_without_case_confirmed`, `ui_launch_cancelled` |
+| Open / refresh / close a case, create a case | `ui_case_opened`, `ui_case_refreshed`, `ui_case_closed`, `ui_create_case_clicked` |
+| Change a Verify option | `ui_rehash_changed`, `ui_crosscheck_changed`, `ui_hash_selection_changed`, … |
+| Start / cancel a verification | `ui_verify_started` (+ `ui_start_clicked` in the run), `ui_cancel_clicked` |
+| Open the report / the run folder | `ui_report_opened`, `ui_run_folder_opened` |
 
-Errors during the run appear under **Warnings** and in the log as `item_error`.
-Validation messages shown *before* a run (e.g. "Add at least one file or folder") are not logged, because no run — and
-therefore no log — exists yet.
+## Settings
+
+Added folders, recent cases and the interface language are saved in `settings.json` in the hub data folder
+(`%LOCALAPPDATA%\Rakvor\RV Hub`; override with `RV_HUB_DATA_DIR`). When that folder cannot be written, a folder in
+the temp directory is used instead and the window says so; when neither can be written, settings last for the
+session only. When no session log can be created, launching is disabled (it must be audited).
 
 ## Same results as the command line
 
-The GUI calls the same engine as `rv-hub scan`. A GUI run with the same evidence, algorithms and language gives
-identical hashes and findings; `environment.json` records `"frontend": "gui"` and the settings used.
+The Verify tab calls the same engine as `rv-hub verify`; `environment.json` records `"frontend": "gui"`.

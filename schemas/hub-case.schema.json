@@ -1,0 +1,334 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rakvor.example/schemas/hub-case.schema.json",
+  "title": "RV Hub case summary (`rv-hub case --case-dir DIR --json`)",
+  "description": "Read-only dashboard summary of a Rakvor case folder: case identity, evidence, runs with findings by severity and timestamp status, problems found while reading, and suggested next steps. A summary, not a verification (see rv-hub verify).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "hub",
+    "generated_utc",
+    "lang",
+    "case_dir",
+    "case_id",
+    "jurisdiction",
+    "created_utc",
+    "case_log_intact",
+    "evidence_count",
+    "evidence",
+    "runs",
+    "severity",
+    "timestamps",
+    "problems",
+    "suggestions"
+  ],
+  "$defs": {
+    "severity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "high",
+        "medium",
+        "low",
+        "info"
+      ],
+      "properties": {
+        "high": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "medium": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "low": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "info": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "nstr": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "properties": {
+    "schema": {
+      "const": "rakvor.hub-case/1"
+    },
+    "hub": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tool",
+        "version"
+      ],
+      "properties": {
+        "tool": {
+          "const": "rv-hub"
+        },
+        "version": {
+          "type": "string"
+        }
+      }
+    },
+    "generated_utc": {
+      "type": "string",
+      "pattern": "Z$"
+    },
+    "lang": {
+      "description": "Language of the suggestions' reason text.",
+      "enum": [
+        "en",
+        "es",
+        "fr"
+      ]
+    },
+    "case_dir": {
+      "type": "string"
+    },
+    "case_id": {
+      "$ref": "#/$defs/nstr"
+    },
+    "jurisdiction": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "created_utc": {
+      "$ref": "#/$defs/nstr"
+    },
+    "case_log_intact": {
+      "description": "Quick chain check of case-log.jsonl; null when there is none.",
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
+    "evidence_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "evidence_id",
+          "file_name",
+          "path",
+          "size",
+          "hashes",
+          "registered_utc",
+          "registered_by_tool",
+          "examined_by",
+          "superseded_by"
+        ],
+        "properties": {
+          "evidence_id": {
+            "type": "string"
+          },
+          "file_name": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "size": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "hashes": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "registered_utc": {
+            "type": "string"
+          },
+          "registered_by_tool": {
+            "type": "string"
+          },
+          "examined_by": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "superseded_by": {
+            "$ref": "#/$defs/nstr"
+          }
+        }
+      }
+    },
+    "runs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "tool",
+          "run_id",
+          "run_dir",
+          "version",
+          "status",
+          "started_utc",
+          "finished_utc",
+          "folder_present",
+          "evidence_ids",
+          "items",
+          "severity",
+          "timestamp"
+        ],
+        "properties": {
+          "tool": {
+            "type": "string"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "run_dir": {
+            "type": "string"
+          },
+          "version": {
+            "$ref": "#/$defs/nstr"
+          },
+          "status": {
+            "enum": [
+              "completed",
+              "cancelled",
+              "failed",
+              "running",
+              "not_in_case_log"
+            ]
+          },
+          "started_utc": {
+            "$ref": "#/$defs/nstr"
+          },
+          "finished_utc": {
+            "$ref": "#/$defs/nstr"
+          },
+          "folder_present": {
+            "type": "boolean"
+          },
+          "evidence_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "items": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "severity": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/severity"
+              }
+            ]
+          },
+          "timestamp": {
+            "enum": [
+              "obtained",
+              "pending",
+              "off",
+              "unknown"
+            ]
+          }
+        }
+      }
+    },
+    "severity": {
+      "$ref": "#/$defs/severity"
+    },
+    "timestamps": {
+      "description": "Runs per timestamp status.",
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "problems": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "suggestions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "tool",
+          "action",
+          "reason_key",
+          "reason",
+          "evidence_ids",
+          "run_dirs"
+        ],
+        "properties": {
+          "tool": {
+            "type": "string"
+          },
+          "action": {
+            "enum": [
+              "launch",
+              "timestamp"
+            ]
+          },
+          "reason_key": {
+            "enum": [
+              "no_case",
+              "no_evidence",
+              "pdf_not_analysed",
+              "images_not_analysed",
+              "chats_not_converted",
+              "certs_not_analysed",
+              "not_examined",
+              "timestamp_pending"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          },
+          "evidence_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "run_dirs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}

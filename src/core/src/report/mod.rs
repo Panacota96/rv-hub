@@ -1,16 +1,18 @@
-//! Reports: one statistics report per run, and two reports per item (technical + customer summary),
-//! each in JSON (language-neutral, schema-versioned), HTML and PDF (one file per selected language).
+//! Reports: one statistics report per verification run, and per verified item (the case log, each run folder,
+//! each re-hashed evidence file) a technical report, a customer summary and a custody form, each in JSON
+//! (language-neutral, schema-versioned), HTML and PDF (one file per selected language).
 //!
 //! HTML and PDF are rendered from the same view model (`*_context`), so they never disagree.
 
 pub mod pdf;
 
-use crate::analyzer::{Finding, Severity};
+use crate::findings::{Finding, LIMITATIONS, Severity};
 use crate::hash::{HashAlgo, hash_bytes};
 use crate::i18n::{Catalog, catalog};
 use crate::time::human_duration;
 use minijinja::Environment;
 use pdf::Block;
+use serde::Serialize;
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -19,14 +21,6 @@ use std::sync::OnceLock;
 pub const SCHEMA_STATISTICS: &str = "rakvor.statistics/1";
 pub const SCHEMA_TECHNICAL: &str = "rakvor.item-technical/1";
 pub const SCHEMA_SUMMARY: &str = "rakvor.item-summary/1";
-
-/// Run-level limitations, always printed (what this tool cannot tell you).
-pub const LIMITATIONS: [&str; 4] = [
-    "SIGNATURE_TABLE_LIMITED",
-    "TIMESTAMPS_FROM_FILESYSTEM",
-    "CLEAN_RESULT_IS_NOT_AUTHENTICITY",
-    "TIMESTAMP_PROVES_EXISTENCE_ONLY",
-];
 pub const SCHEMA_CUSTODY: &str = "rakvor.item-custody/1";
 const BLANK_TRANSFER_ROWS: usize = 6;
 
@@ -55,66 +49,176 @@ pub struct RunInfo {
     pub signer: Option<std::sync::Arc<crate::trust::PdfSigner>>,
     /// {"status": "ok"|"pending"|"off", ...}
     pub timestamp: Value,
-    /// Set when the run works in a shared case folder (`--case-dir`).
+    /// The verified case folder.
     pub case: Option<CaseInfo>,
 }
 
-/// Counts of how the run's items relate to the case registry.
-#[derive(Clone, Debug, Default, PartialEq)]
-pub struct CaseTally {
-    /// Items that carry an evidence id from intake (new or already registered).
+/// What a whole-case verification counted.
+#[derive(Clone, Debug, Default, PartialEq, Serialize)]
+pub struct Tally {
+    /// Items in the registry.
     pub registered: u64,
-    /// Of those, newly added to the registry by this run.
-    pub added: u64,
-    pub verified: u64,
-    pub mismatched: u64,
-    pub unregistered: u64,
+    pub runs: u64,
+    pub runs_intact: u64,
+    pub runs_broken: u64,
+    pub runs_not_in_case_log: u64,
+    pub reviews_broken: u64,
+    pub evidence_checked: u64,
+    pub evidence_matched: u64,
+    pub evidence_mismatched: u64,
+    pub evidence_missing: u64,
+    pub crosscheck_agreed: u64,
+    pub crosscheck_disagreed: u64,
+    pub crosscheck_unavailable: u64,
+}
+
+impl Tally {
+    /// (i18n label key, value) rows for the reports.
+    pub fn rows(&self) -> Vec<(&'static str, u64)> {
+        vec![
+            ("registered", self.registered),
+            ("runs", self.runs),
+            ("runs_intact", self.runs_intact),
+            ("runs_broken", self.runs_broken),
+            ("runs_not_in_case_log", self.runs_not_in_case_log),
+            ("reviews_broken", self.reviews_broken),
+            ("evidence_checked", self.evidence_checked),
+            ("evidence_matched", self.evidence_matched),
+            ("evidence_mismatched", self.evidence_mismatched),
+            ("evidence_missing", self.evidence_missing),
+            ("crosscheck_agreed", self.crosscheck_agreed),
+            ("crosscheck_disagreed", self.crosscheck_disagreed),
+            ("crosscheck_unavailable", self.crosscheck_unavailable),
+        ]
+    }
 }
 
 #[derive(Clone, Debug)]
 pub struct CaseInfo {
     pub case_id: String,
-    /// "intake" | "analysis"
+    /// The case role of this tool ("analysis").
     pub role: String,
     pub dir: String,
-    pub tally: CaseTally,
+    /// True when this run is linked in the case log (false: the case log is broken and was not extended).
+    pub linked: bool,
+    pub tally: Tally,
 }
 
 impl CaseInfo {
     pub fn to_json(&self) -> Value {
         let t = &self.tally;
-        json!({"case_id": self.case_id, "role": self.role, "case_dir": self.dir,
-               "counts": {"registered": t.registered, "added": t.added, "verified": t.verified,
-                          "mismatched": t.mismatched, "unregistered": t.unregistered}})
+        json!({"case_id": self.case_id, "role": self.role, "case_dir": self.dir, "linked": self.linked,
+               "counts": {"registered": t.registered, "added": 0, "verified": t.evidence_matched,
+                          "mismatched": t.evidence_mismatched, "unregistered": 0},
+               "verification": t})
     }
 }
 
-#[derive(Clone, Debug)]
-pub struct ItemResult {
-    pub index: u64,
-    pub path: PathBuf,
-    pub size: u64,
-    pub modified_utc: Option<String>,
-    pub hashes: Vec<(HashAlgo, String)>,
-    pub detected_type: Option<String>,
-    pub extension: Option<String>,
-    pub findings: Vec<Finding>,
-    pub error: Option<String>,
-    pub audit_first_seq: u64,
-    pub audit_last_seq: u64,
-    /// Case folder only: evidence id (E0001…), relation to the registry and intake date.
-    pub evidence_id: Option<String>,
-    /// registered | already_registered | verified | mismatch | not_in_registry
-    pub case_status: Option<String>,
-    pub intake_utc: Option<String>,
+/// What a verified item is.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ItemKind {
+    /// case-log.jsonl (with case.json and the registry digest).
+    CaseLog,
+    /// One run folder runs/<tool>/<RUN-ID>.
+    Run,
+    /// One registered evidence file, re-hashed (--rehash).
+    Evidence,
 }
 
-impl ItemResult {
+impl ItemKind {
+    pub fn key(&self) -> &'static str {
+        match self {
+            ItemKind::CaseLog => "case_log",
+            ItemKind::Run => "run",
+            ItemKind::Evidence => "evidence",
+        }
+    }
+}
+
+/// The hub's verdict on a run's logs, with the same rules as `<tool> verify-log` (compared in the cross-check).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Verdict {
+    Intact,
+    Broken,
+    /// Nothing to verify (the log folder is missing).
+    NotVerifiable,
+}
+
+/// Result of asking the run's own tool (`<cli> verify-log <run>/logs`).
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub struct CrossCheck {
+    pub tool: String,
+    pub exe: Option<String>,
+    pub exe_sha256: Option<String>,
+    /// "agrees" | "disagrees" | "unavailable" | "skipped"
+    pub outcome: String,
+    pub exit_code: Option<i32>,
+    pub reason: Option<String>,
+}
+
+/// One verified item (the items model of `rv-hub verify`).
+#[derive(Clone, Debug)]
+pub struct Item {
+    pub index: u64,
+    pub kind: ItemKind,
+    /// "case-log.jsonl" | "runs/<tool>/<RUN-ID>" | "E0002 contrato.pdf"
+    pub label: String,
+    /// The file that was read and hashed (case-log.jsonl, the run's logs/audit.jsonl, the evidence file).
+    pub path: PathBuf,
+    pub size: u64,
+    pub hashes: Vec<(HashAlgo, String)>,
+    pub tool: Option<String>,
+    pub run_id: Option<String>,
+    pub evidence_id: Option<String>,
+    pub intake_utc: Option<String>,
+    /// (i18n label key, value): what the checks established, shown in the technical report.
+    pub facts: Vec<(String, String)>,
+    pub findings: Vec<Finding>,
+    pub error: Option<String>,
+    /// The full verify-log verdict (chain, timestamps, review log, truncation against the timestamp and the case
+    /// log), as `verify::verify_log` gives it.
+    pub verdict: Option<Verdict>,
+    /// The chain-level verdict (chain, timestamp tokens, review log; no truncation check): what the older
+    /// verify-log of rv-pdfauth / rv-imgauth checks.
+    pub chain_verdict: Option<Verdict>,
+    pub crosscheck: Option<CrossCheck>,
+    pub audit_first_seq: u64,
+    pub audit_last_seq: u64,
+}
+
+impl Item {
+    pub fn new(index: u64, kind: ItemKind, label: impl Into<String>, path: PathBuf) -> Item {
+        Item {
+            index,
+            kind,
+            label: label.into(),
+            path,
+            size: 0,
+            hashes: vec![],
+            tool: None,
+            run_id: None,
+            evidence_id: None,
+            intake_utc: None,
+            facts: vec![],
+            findings: vec![],
+            error: None,
+            verdict: None,
+            chain_verdict: None,
+            crosscheck: None,
+            audit_first_seq: 0,
+            audit_last_seq: 0,
+        }
+    }
+
+    pub fn fact(&mut self, key: &str, value: impl Into<String>) {
+        self.facts.push((key.to_string(), value.into()));
+    }
+
+    /// The label shown as the item's name.
     pub fn file_name(&self) -> String {
-        self.path
-            .file_name()
-            .map(|n| n.to_string_lossy().into_owned())
-            .unwrap_or_else(|| self.path.display().to_string())
+        self.label.clone()
     }
 
     /// ok = nothing above informational; attention = medium/low; problem = high.
@@ -126,10 +230,22 @@ impl ItemResult {
         }
     }
 
-    /// Folder name for this item's reports: "00007-invoice.pdf" (sanitised, max 60 chars).
+    pub fn has_high(&self) -> bool {
+        self.findings.iter().any(|f| f.severity == Severity::High)
+    }
+
+    /// Folder name for this item's reports: "00002-run-rv-pdfauth-<RUN-ID>" (sanitised, max 60 chars).
     pub fn folder(&self) -> String {
-        let clean: String = self
-            .file_name()
+        let name = match self.kind {
+            ItemKind::CaseLog => "case-log".to_string(),
+            ItemKind::Run => format!(
+                "run-{}-{}",
+                self.tool.as_deref().unwrap_or("x"),
+                self.run_id.as_deref().unwrap_or("x")
+            ),
+            ItemKind::Evidence => self.label.replace(' ', "-"),
+        };
+        let clean: String = name
             .chars()
             .map(|c| {
                 if c.is_alphanumeric() || matches!(c, '.' | '-' | '_') {
@@ -261,8 +377,7 @@ fn throughput(bytes: u64, ms: u64) -> String {
     }
 }
 
-/// Keeps reports readable at scale (50,000 files): the first `max` names, then "… (+N)".
-/// The complete lists stay in hashes.csv, statistics.json and the audit log.
+/// Keeps reports readable at scale: the first `max` names, then "… (+N)".
 pub fn capped_list(names: &[String], max: usize) -> String {
     if names.len() <= max {
         names.join(", ")
@@ -275,33 +390,30 @@ pub fn capped_list(names: &[String], max: usize) -> String {
     }
 }
 
-fn capped_paths(items: &[ItemResult], idx: &[usize]) -> Vec<String> {
-    let mut p: Vec<String> = idx
-        .iter()
-        .take(20)
-        .map(|&i| items[i].path.display().to_string())
-        .collect();
-    if idx.len() > 20 {
-        p.push(format!("\u{2026} (+{})", idx.len() - 20));
-    }
-    p
+fn kind_label(c: &Catalog, k: ItemKind) -> String {
+    c.label(&format!("kind_{}", k.key()))
 }
 
-/// Groups of identical content by primary hash (only items that were hashed and are not empty).
-pub fn duplicate_groups(items: &[ItemResult]) -> Vec<(String, Vec<usize>)> {
-    let mut by: BTreeMap<String, Vec<usize>> = BTreeMap::new();
-    for (i, it) in items.iter().enumerate() {
-        if let (Some((_, h)), true) = (it.hashes.first(), it.size > 0) {
-            by.entry(h.clone()).or_default().push(i);
-        }
-    }
-    by.into_iter().filter(|(_, v)| v.len() > 1).collect()
+fn case_view(c: &Catalog, run: &RunInfo) -> Value {
+    run.case
+        .as_ref()
+        .map(|ci| {
+            let rows: Vec<Value> = ci
+                .tally
+                .rows()
+                .into_iter()
+                .map(|(k, n)| json!({"label": c.label(k), "value": n}))
+                .collect();
+            json!({"case_id": ci.case_id, "role": ci.role, "dir": ci.dir, "linked": ci.linked,
+                   "linked_text": c.label(if ci.linked { "case_linked_yes" } else { "case_linked_no" }), "rows": rows})
+        })
+        .unwrap_or(Value::Null)
 }
 
 pub fn statistics_context(
     lang: &str,
     run: &RunInfo,
-    items: &[ItemResult],
+    items: &[Item],
     totals: &RunTotals,
     audit: &AuditRef,
 ) -> Value {
@@ -309,38 +421,28 @@ pub fn statistics_context(
     let mut m = base(c, run);
     let mut sev: BTreeMap<Severity, u64> = BTreeMap::new();
     let mut codes: BTreeMap<String, u64> = BTreeMap::new();
-    let mut types: BTreeMap<String, u64> = BTreeMap::new();
+    let mut kinds: BTreeMap<ItemKind, u64> = BTreeMap::new();
     for it in items {
         for f in &it.findings {
             *sev.entry(f.severity).or_default() += 1;
             *codes.entry(f.code.clone()).or_default() += 1;
         }
-        *types
-            .entry(
-                it.detected_type
-                    .clone()
-                    .unwrap_or_else(|| c.label("unknown")),
-            )
-            .or_default() += 1;
+        *kinds.entry(it.kind).or_default() += 1;
     }
     let severity_rows: Vec<Value> = [Severity::High, Severity::Medium, Severity::Low, Severity::Info]
         .iter()
         .map(|s| json!({"key": s.key(), "label": c.severity(s.key()), "count": sev.get(s).copied().unwrap_or(0)}))
         .collect();
     let code_rows: Vec<Value> = codes.iter().map(|(code, n)| json!({"code": code, "title": c.finding(code, &BTreeMap::new()).0, "count": n})).collect();
-    let type_rows: Vec<Value> = types
+    let type_rows: Vec<Value> = kinds
         .iter()
-        .map(|(name, n)| json!({"name": name, "count": n}))
-        .collect();
-    let duplicate_rows: Vec<Value> = duplicate_groups(items)
-        .into_iter()
-        .map(|(h, idx)| json!({"hash": h, "paths": capped_paths(items, &idx)}))
+        .map(|(k, n)| json!({"name": kind_label(c, *k), "count": n}))
         .collect();
     let item_rows: Vec<Value> = items
         .iter()
         .map(|it| {
-            json!({"index": it.index, "file_name": it.file_name(), "size": it.size, "finding_count": it.findings.len(),
-                   "evidence_id": it.evidence_id,
+            json!({"index": it.index, "file_name": it.file_name(), "kind": kind_label(c, it.kind), "size": it.size,
+                   "finding_count": it.findings.len(), "evidence_id": it.evidence_id,
                    "status": it.status(), "status_label": c.label(&format!("status_{}", it.status())),
                    "link": format!("items/{}/technical.{}.html", it.folder(), lang)})
         })
@@ -349,9 +451,8 @@ pub fn statistics_context(
     m.insert("severity_rows".into(), json!(severity_rows));
     m.insert("code_rows".into(), json!(code_rows));
     m.insert("type_rows".into(), json!(type_rows));
-    m.insert("duplicate_rows".into(), json!(duplicate_rows));
     m.insert("item_rows".into(), json!(item_rows));
-    m.insert("case".into(), case_view(run));
+    m.insert("case".into(), case_view(c, run));
     m.insert(
         "audit".into(),
         json!({"head": audit.head, "entries": audit.entries, "log_dir": audit.log_dir}),
@@ -359,40 +460,34 @@ pub fn statistics_context(
     Value::Object(m)
 }
 
-fn case_view(run: &RunInfo) -> Value {
-    run.case.as_ref().map(|c| {
-        let t = &c.tally;
-        json!({"case_id": c.case_id, "role": c.role, "dir": c.dir, "registered": t.registered, "added": t.added,
-               "verified": t.verified, "mismatched": t.mismatched, "unregistered": t.unregistered})
-    }).unwrap_or(Value::Null)
-}
-
-fn item_view(c: &Catalog, it: &ItemResult) -> Value {
+fn item_view(c: &Catalog, it: &Item) -> Value {
     let status = it.status();
     let (alg, hash) = it
         .hashes
         .first()
         .map(|(a, h)| (a.name().to_string(), h.clone()))
         .unwrap_or_else(|| ("-".into(), c.label("none")));
+    let facts: Vec<Value> = it
+        .facts
+        .iter()
+        .map(|(k, v)| json!({"label": c.label(k), "value": v}))
+        .collect();
     json!({
         "index": it.index, "file_name": it.file_name(), "path": it.path.display().to_string(), "size": it.size,
-        "modified_utc": it.modified_utc.clone().unwrap_or_else(|| c.label("unknown")),
-        "extension_text": it.extension.clone().map(|e| format!(".{}", e)).unwrap_or_else(|| c.label("none")),
-        "detected_text": it.detected_type.clone().unwrap_or_else(|| c.label("unknown")),
+        "kind": it.kind.key(), "detected_text": kind_label(c, it.kind), "facts": facts,
         "status": status, "status_label": c.label(&format!("status_{}", status)),
         "summary_text": c.label(&format!("summary_{}", status)), "next_text": c.label(&format!("next_{}", status)),
         "primary_algorithm": alg, "primary_hash": hash,
         "audit_first_seq": it.audit_first_seq, "audit_last_seq": it.audit_last_seq,
-        "evidence_id": it.evidence_id, "intake_utc": it.intake_utc, "case_status": it.case_status,
-        "case_status_label": it.case_status.as_ref().map(|s| c.label(&format!("case_status_{}", s))),
+        "evidence_id": it.evidence_id, "intake_utc": it.intake_utc,
     })
 }
 
-pub fn item_context(lang: &str, run: &RunInfo, it: &ItemResult, audit: &AuditRef) -> Value {
+pub fn item_context(lang: &str, run: &RunInfo, it: &Item, audit: &AuditRef) -> Value {
     let c = catalog(lang);
     let mut m = base(c, run);
     m.insert("item".into(), item_view(c, it));
-    m.insert("case".into(), case_view(run));
+    m.insert("case".into(), case_view(c, run));
     m.insert(
         "hash_rows".into(),
         json!(
@@ -420,7 +515,7 @@ pub fn item_context(lang: &str, run: &RunInfo, it: &ItemResult, audit: &AuditRef
 
 // ---------- JSON (language-neutral; texts included for each selected language) ----------
 
-fn findings_json(it: &ItemResult, langs: &[String]) -> Value {
+fn findings_json(it: &Item, langs: &[String]) -> Value {
     json!(
         it.findings
             .iter()
@@ -449,9 +544,18 @@ fn run_json(run: &RunInfo) -> Value {
            "pdf_signer_certificate_sha256": run.signer.as_ref().map(|s| s.fingerprint_sha256.clone())})
 }
 
+fn facts_json(it: &Item) -> Value {
+    json!(
+        it.facts
+            .iter()
+            .map(|(k, v)| json!({"key": k, "value": v}))
+            .collect::<Vec<_>>()
+    )
+}
+
 pub fn statistics_json(
     run: &RunInfo,
-    items: &[ItemResult],
+    items: &[Item],
     totals: &RunTotals,
     audit: &AuditRef,
 ) -> Value {
@@ -461,26 +565,28 @@ pub fn statistics_json(
         .collect();
     let mut codes: BTreeMap<String, u64> = BTreeMap::new();
     let mut status: BTreeMap<&str, u64> = BTreeMap::new();
-    let mut types: BTreeMap<String, u64> = BTreeMap::new();
+    let mut kinds: BTreeMap<&str, u64> = BTreeMap::new();
     for it in items {
         for f in &it.findings {
             *sev.entry(f.severity.key()).or_default() += 1;
             *codes.entry(f.code.clone()).or_default() += 1;
         }
         *status.entry(it.status()).or_default() += 1;
-        *types
-            .entry(it.detected_type.clone().unwrap_or_else(|| "unknown".into()))
-            .or_default() += 1;
+        *kinds.entry(it.kind.key()).or_default() += 1;
     }
     json!({
         "schema": SCHEMA_STATISTICS,
         "tool": {"name": run.tool_name, "version": run.tool_version},
         "run": run_json(run),
         "totals": {"items": totals.items, "bytes": totals.bytes, "errors": totals.errors},
-        "findings_by_severity": sev, "findings_by_code": codes, "items_by_status": status, "items_by_type": types,
-        "duplicate_groups": duplicate_groups(items).into_iter().map(|(h, idx)| json!({"hash": h, "items": idx.iter().map(|&i| items[i].index).collect::<Vec<_>>()})).collect::<Vec<_>>(),
+        "findings_by_severity": sev, "findings_by_code": codes, "items_by_status": status,
+        // Same keys as the tools' statistics.json; for the hub the "type" of an item is its kind.
+        "items_by_type": kinds, "duplicate_groups": [],
         "case": run.case.as_ref().map(|c| c.to_json()),
-        "items": items.iter().map(|it| json!({"index": it.index, "evidence_id": it.evidence_id, "path": it.path.display().to_string(), "size": it.size, "status": it.status(),
+        "items": items.iter().map(|it| json!({"index": it.index, "kind": it.kind, "label": it.label,
+              "evidence_id": it.evidence_id, "tool": it.tool, "run_id": it.run_id,
+              "path": it.path.display().to_string(), "size": it.size, "status": it.status(), "verdict": it.verdict,
+              "crosscheck": it.crosscheck.as_ref().map(|x| x.outcome.clone()),
               "findings": it.findings.iter().map(|f| f.code.clone()).collect::<Vec<_>>(), "report_folder": format!("items/{}", it.folder())})).collect::<Vec<_>>(),
         "limitations": LIMITATIONS,
         "audit": {"head": audit.head, "entries": audit.entries, "log_dir": audit.log_dir},
@@ -488,16 +594,40 @@ pub fn statistics_json(
     })
 }
 
-pub fn technical_json(run: &RunInfo, it: &ItemResult) -> Value {
+/// How an item relates to the case registry, in the shared vocabulary (schemas/item-technical.schema.json):
+/// "verified" / "mismatch" for a re-hashed evidence file, null otherwise (logs, evidence not found).
+fn registry_status(it: &Item) -> Option<&'static str> {
+    if it.kind != ItemKind::Evidence
+        || it
+            .findings
+            .iter()
+            .any(|f| f.code == crate::findings::EVIDENCE_MISSING)
+    {
+        return None;
+    }
+    if it
+        .findings
+        .iter()
+        .any(|f| f.code == crate::findings::EVIDENCE_REHASH_MISMATCH)
+    {
+        Some("mismatch")
+    } else {
+        Some("verified")
+    }
+}
+
+pub fn technical_json(run: &RunInfo, it: &Item) -> Value {
     json!({
         "schema": SCHEMA_TECHNICAL,
         "tool": {"name": run.tool_name, "version": run.tool_version},
         "run": run_json(run),
-        "item": {"index": it.index, "evidence_id": it.evidence_id, "path": it.path.display().to_string(), "file_name": it.file_name(), "size": it.size,
-                 "modified_utc": it.modified_utc, "extension": it.extension, "detected_type": it.detected_type,
-                 "status": it.status(), "error": it.error},
+        "item": {"index": it.index, "kind": it.kind, "label": it.label, "evidence_id": it.evidence_id,
+                 "tool": it.tool, "run_id": it.run_id, "path": it.path.display().to_string(), "file_name": it.file_name(),
+                 "size": it.size, "status": it.status(), "verdict": it.verdict, "error": it.error},
+        "facts": facts_json(it),
+        "crosscheck": it.crosscheck,
         "case": run.case.as_ref().map(|c| json!({"case_id": c.case_id, "role": c.role, "case_dir": c.dir,
-                 "status": it.case_status, "intake_utc": it.intake_utc})),
+                 "status": registry_status(it), "intake_utc": it.intake_utc})),
         "hashes": it.hashes.iter().map(|(a, h)| (a.name().to_string(), json!(h))).collect::<serde_json::Map<_, _>>(),
         "findings": findings_json(it, &run.langs),
         "limitations": LIMITATIONS,
@@ -505,7 +635,7 @@ pub fn technical_json(run: &RunInfo, it: &ItemResult) -> Value {
     })
 }
 
-pub fn summary_json(run: &RunInfo, it: &ItemResult) -> Value {
+pub fn summary_json(run: &RunInfo, it: &Item) -> Value {
     let texts: BTreeMap<String, Value> = run
         .langs
         .iter()
@@ -517,7 +647,7 @@ pub fn summary_json(run: &RunInfo, it: &ItemResult) -> Value {
     json!({
         "schema": SCHEMA_SUMMARY,
         "run_id": run.run_id, "case_id": run.case_id,
-        "item": {"index": it.index, "evidence_id": it.evidence_id, "file_name": it.file_name()},
+        "item": {"index": it.index, "kind": it.kind, "evidence_id": it.evidence_id, "file_name": it.file_name()},
         "status": it.status(),
         "fingerprint": it.hashes.first().map(|(a, h)| json!({"algorithm": a.name(), "value": h})),
         "findings": findings_json(it, &run.langs),
@@ -658,31 +788,16 @@ pub fn statistics_pdf(ctx: &Value, run: &RunInfo) -> Result<Vec<u8>, String> {
             .map(|r| (s(r, "name"), s(r, "count")))
             .collect(),
     ));
-    b.push(Block::Heading(t("duplicates")));
-    let dups = arr(ctx, "duplicate_rows");
-    if dups.is_empty() {
-        b.push(Block::Para(t("none")));
-    }
-    for d in dups {
-        b.push(Block::Mono(s(d, "hash")));
-        for p in arr(d, "paths") {
-            b.push(Block::Bullet(p.as_str().unwrap_or_default().to_string()));
-        }
-        b.push(Block::Space(4.0));
-    }
     if ctx["case"].is_object() {
         b.push(Block::Heading(t("case_verification")));
-        let mut rows = vec![(t("case"), s(ctx, "case.case_id"))];
-        for k in [
-            "registered",
-            "added",
-            "verified",
-            "mismatched",
-            "unregistered",
-        ] {
-            rows.push((t(k), s(ctx, &format!("case.{}", k))));
+        let mut rows = vec![
+            (t("case"), s(ctx, "case.case_id")),
+            (t("case_dir"), s(ctx, "case.dir")),
+            (t("case_linked"), s(ctx, "case.linked_text")),
+        ];
+        for r in arr(&ctx["case"], "rows") {
+            rows.push((s(r, "label"), s(r, "value")));
         }
-        rows.push((t("case_dir"), s(ctx, "case.dir")));
         b.push(Block::Kv(rows));
     }
     b.push(Block::Heading(t("items")));
@@ -690,13 +805,13 @@ pub fn statistics_pdf(ctx: &Value, run: &RunInfo) -> Result<Vec<u8>, String> {
         arr(ctx, "item_rows")
             .iter()
             .map(|r| {
-                let eid = s(r, "evidence_id");
                 (
-                    if eid.is_empty() {
-                        format!("#{}  {}", s(r, "index"), s(r, "file_name"))
-                    } else {
-                        format!("#{}  {}  {}", s(r, "index"), eid, s(r, "file_name"))
-                    },
+                    format!(
+                        "#{}  {}  ({})",
+                        s(r, "index"),
+                        s(r, "file_name"),
+                        s(r, "kind")
+                    ),
                     format!(
                         "{} \u{00B7} {} {} \u{00B7} {} {}",
                         s(r, "status_label"),
@@ -751,11 +866,12 @@ pub fn technical_pdf(ctx: &Value, run: &RunInfo) -> Result<Vec<u8>, String> {
     let mut rows = vec![
         (t("path"), s(ctx, "item.path")),
         (t("size"), s(ctx, "item.size")),
-        (t("modified"), s(ctx, "item.modified_utc")),
-        (t("extension"), s(ctx, "item.extension_text")),
-        (t("detected_type"), s(ctx, "item.detected_text")),
+        (t("kind"), s(ctx, "item.detected_text")),
         (t("status"), s(ctx, "item.status_label")),
     ];
+    for f in arr(&ctx["item"], "facts") {
+        rows.push((s(f, "label"), s(f, "value")));
+    }
     if ctx["case"].is_object() {
         rows.push((t("case"), s(ctx, "case.case_id")));
         rows.push((
@@ -766,7 +882,6 @@ pub fn technical_pdf(ctx: &Value, run: &RunInfo) -> Result<Vec<u8>, String> {
                 s(ctx, "item.evidence_id")
             },
         ));
-        rows.push((t("case_registry"), s(ctx, "item.case_status_label")));
         if !s(ctx, "item.intake_utc").is_empty() {
             rows.push((t("intake_date"), s(ctx, "item.intake_utc")));
         }
@@ -860,7 +975,7 @@ pub fn summary_pdf(ctx: &Value, run: &RunInfo) -> Result<Vec<u8>, String> {
 
 // ---------- Chain-of-custody form (one per item; jurisdiction language + English) ----------
 
-pub fn custody_context(lang: &str, run: &RunInfo, it: &ItemResult, audit: &AuditRef) -> Value {
+pub fn custody_context(lang: &str, run: &RunInfo, it: &Item, audit: &AuditRef) -> Value {
     let mut ctx = item_context(lang, run, it, audit);
     let c = catalog(lang);
     let j = if run.jurisdiction == "fr" { "fr" } else { "co" };
@@ -892,13 +1007,13 @@ pub fn custody_context(lang: &str, run: &RunInfo, it: &ItemResult, audit: &Audit
 }
 
 /// The case registry id (E0001…) when the run is linked to a case, else "<RUN-ID>-<NNNNN>".
-fn custody_evidence_id(run: &RunInfo, it: &ItemResult) -> String {
+fn custody_evidence_id(run: &RunInfo, it: &Item) -> String {
     it.evidence_id
         .clone()
         .unwrap_or_else(|| format!("{}-{:05}", run.run_id, it.index))
 }
 
-pub fn custody_json(run: &RunInfo, it: &ItemResult) -> Value {
+pub fn custody_json(run: &RunInfo, it: &Item) -> Value {
     json!({
         "schema": SCHEMA_CUSTODY,
         "jurisdiction": run.jurisdiction,
@@ -1020,7 +1135,7 @@ pub fn pretty(v: &Value) -> Vec<u8> {
 pub fn write_item_reports(
     dir: &Path,
     run: &RunInfo,
-    it: &ItemResult,
+    it: &Item,
     audit: &AuditRef,
 ) -> Result<serde_json::Map<String, Value>, String> {
     std::fs::create_dir_all(dir).map_err(|e| format!("cannot create {}: {}", dir.display(), e))?;
@@ -1097,7 +1212,7 @@ pub fn write_item_reports(
 pub fn write_statistics(
     dir: &Path,
     run: &RunInfo,
-    items: &[ItemResult],
+    items: &[Item],
     totals: &RunTotals,
     audit: &AuditRef,
 ) -> Result<serde_json::Map<String, Value>, String> {

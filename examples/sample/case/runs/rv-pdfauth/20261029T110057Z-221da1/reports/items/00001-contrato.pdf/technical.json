@@ -1,0 +1,159 @@
+{
+  "audit": {
+    "first_seq": 5,
+    "last_seq": 10
+  },
+  "case": {
+    "case_dir": "/tmp/tmp.sVTkOe7IbL/case",
+    "case_id": "SAMPLE-1",
+    "intake_utc": "2026-10-29T11:00:57.109Z",
+    "role": "analysis",
+    "status": "verified"
+  },
+  "extracted_files": [
+    {
+      "bytes": 123,
+      "hashes": {
+        "sha256": "9dfdca46175986eda2dbcd6912894e5d123f4f0d267ee0e0b018d8d96fc149ae"
+      },
+      "kind": "parser_warnings",
+      "rel_path": "warnings.json"
+    }
+  ],
+  "findings": [
+    {
+      "code": "UNKNOWN_PRODUCER",
+      "params": {
+        "producer": "rv-hub sample generator",
+        "revision": "1"
+      },
+      "severity": "info",
+      "text": {
+        "en": {
+          "does_not_prove": "The database covers a limited set of programs; an unknown producer is not suspicious in itself.",
+          "shows": "The producer “rv-hub sample generator” (revision 1) is not in the fingerprint database used for this analysis.",
+          "title": "Producer not in the fingerprint database"
+        }
+      }
+    }
+  ],
+  "hashes": {
+    "sha256": "d231afe23c28b2e88e7b0420ad936fbac8c73dbfa091940c0f2a651c7068949a"
+  },
+  "item": {
+    "detected_type": "PDF document",
+    "error": null,
+    "evidence_id": "E0002",
+    "extension": "pdf",
+    "file_name": "contrato.pdf",
+    "index": 1,
+    "modified_utc": "2026-10-29T11:00:57Z",
+    "path": "/tmp/tmp.sVTkOe7IbL/evidence/contrato.pdf",
+    "size": 789,
+    "status": "ok"
+  },
+  "limitations": [
+    "SIGNATURE_TABLE_LIMITED",
+    "TIMESTAMPS_FROM_FILESYSTEM",
+    "CLEAN_RESULT_IS_NOT_AUTHENTICITY",
+    "TIMESTAMP_PROVES_EXISTENCE_ONLY",
+    "NO_FINDING_IS_NOT_AUTHENTICITY",
+    "FLATTENED_OR_REGENERATED_PDF_LOSES_HISTORY",
+    "FINGERPRINT_DB_COVERAGE",
+    "SIGNATURE_TRUST_NOT_VALIDATED",
+    "RENDERING_PAGE_CAP"
+  ],
+  "pdf": {
+    "encrypted": false,
+    "fingerprint_dbs": [
+      {
+        "entries": 37,
+        "name": "rakvor-starter",
+        "role": "starter",
+        "sha256": "0b8df17b3ba7f33932cfc072932f198cdfdba98ad1332b33ac84c5c2f9068795",
+        "status": "loaded",
+        "version": "2026.10.21"
+      },
+      {
+        "path": "/root/.local/share/rakvor/rv-pdfauth/fingerprints.local.json",
+        "role": "local",
+        "status": "absent"
+      }
+    ],
+    "fingerprint_matches": [],
+    "fonts": [
+      {
+        "embedded": false,
+        "first_revision": 1,
+        "name": "Helvetica",
+        "object": "5 0",
+        "subset_prefix": null
+      }
+    ],
+    "page_count": 1,
+    "revision_source": "parser",
+    "revisions": [
+      {
+        "bytes": 789,
+        "change_kind": [],
+        "creator": null,
+        "end_offset": 789,
+        "index": 1,
+        "objects_added": 6,
+        "objects_changed": 0,
+        "objects_deleted": 0,
+        "pages_changed": [],
+        "producer": "rv-hub sample generator",
+        "saved_at": "2026-01-01T12:00:00Z",
+        "saved_at_info": "2026-01-01T12:00:00Z",
+        "saved_at_xmp": null,
+        "signed_by": [],
+        "since_previous_s": null,
+        "start_offset": 0,
+        "xref_kind": "table"
+      }
+    ],
+    "signatures": [],
+    "version": "1.4",
+    "visual": {
+      "dpi": null,
+      "images": [],
+      "limitation": null,
+      "pages_changed": null,
+      "pairs": [],
+      "pairs_compared": null,
+      "reason": "single revision",
+      "status": "not_applicable"
+    },
+    "warnings": {
+      "count": 0,
+      "file": "warnings.json",
+      "parser_cap_reached": false,
+      "shown": [],
+      "truncated": false
+    }
+  },
+  "run": {
+    "actor": "Examiner PDF",
+    "algorithms": [
+      "sha256"
+    ],
+    "cancelled": false,
+    "case_id": "SAMPLE-1",
+    "elapsed_ms": 32,
+    "finished_utc": "2026-10-29T11:00:57.215Z",
+    "frontend": "cli",
+    "jurisdiction": "co",
+    "langs": [
+      "en"
+    ],
+    "pdf_signed_by": null,
+    "run_id": "20261029T110057Z-221da1",
+    "started_utc": "2026-10-29T11:00:57.183Z"
+  },
+  "schema": "rakvor.item-technical/1",
+  "tool": {
+    "name": "rv-pdfauth",
+    "version": "0.3.0"
+  }
+}

@@ -1,0 +1,14 @@
+2026-10-29T11:00:57.183Z  #00001  run_started          algorithms=sha256 case_dir=/tmp/tmp.sVTkOe7IbL/case case_id=SAMPLE-1 evidence_ids=E0002 frontend=cli input_list=null inputs=/tmp/tmp.sVTkOe7IbL/evidence/contrato.pdf jurisdiction=co langs=en out_dir=rakvor-out recursive=false sign_cert=null tool=rv-pdfauth tsa_url=null version=0.3.0
+2026-10-29T11:00:57.183Z  #00002  case_linked          case_created=false case_dir=/tmp/tmp.sVTkOe7IbL/case case_id=SAMPLE-1 case_log_head_at_start=79bc99967cbde1026aee68ee08fb7b640b622df7099848fa6b8168c7ae2e06d9 case_log_seq_at_start=5 jurisdiction=co registry_items=5 registry_sha256=369dac6fb11ad15c8a2c57659d365c755e9fbdb69c8985eab201054d77a91631 requested_jurisdiction=co role=analysis run_dir=runs/rv-pdfauth/20261029T110057Z-221da1
+2026-10-29T11:00:57.185Z  #00003  environment_recorded environment.json  sha256=a345cfe137ecbf7ef5966bad2edb6263077f1c70c32d7cafe7ff968e680b8eed
+2026-10-29T11:00:57.185Z  #00004  inputs_resolved      bytes=789 items=1
+2026-10-29T11:00:57.185Z  #00005  item_started         /tmp/tmp.sVTkOe7IbL/evidence/contrato.pdf  index=1 modified_utc=2026-10-29T11:00:57Z size=789
+2026-10-29T11:00:57.185Z  #00006  item_hashed          /tmp/tmp.sVTkOe7IbL/evidence/contrato.pdf  bytes_read=789 index=1 mtime_unchanged=true
+2026-10-29T11:00:57.185Z  #00007  evidence_verified_against_case /tmp/tmp.sVTkOe7IbL/evidence/contrato.pdf  algorithm=sha256 evidence_id=E0002 index=1 match=true matched_by=evidence_id
+2026-10-29T11:00:57.185Z  #00008  analysis_started     /tmp/tmp.sVTkOe7IbL/evidence/contrato.pdf  index=1 isolation=worker_process
+2026-10-29T11:00:57.213Z  #00009  output_written       /tmp/tmp.sVTkOe7IbL/evidence/contrato.pdf  bytes=123 file=items/00001-contrato.pdf/warnings.json index=1 kind=parser_warnings
+2026-10-29T11:00:57.215Z  #00010  item_analyzed        /tmp/tmp.sVTkOe7IbL/evidence/contrato.pdf  detected_type=PDF document extension=pdf findings={"code":"UNKNOWN_PRODUCER","params":{"producer":"rv-hub sample generator","revision":"1"},"severity":"info"} index=1 status=ok
+2026-10-29T11:00:57.215Z  #00011  hash_register_written hashes.csv  sha256=728394945f65cf6d8d58647c0022cbe794ebd66785e81810eae9f695e3747bfa
+2026-10-29T11:00:57.231Z  #00012  item_reports_written /tmp/tmp.sVTkOe7IbL/evidence/contrato.pdf  folder=items/00001-contrato.pdf
+2026-10-29T11:00:57.234Z  #00013  statistics_report_written 
+2026-10-29T11:00:57.234Z  #00014  run_finished         bytes=789 cancelled=false elapsed_ms=51 errors=0 high=0 info=1 items=1 low=0 medium=0

@@ -1,0 +1,203 @@
+%PDF-1.4
+%‚„œ”
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [7 0 R 9 0 R] /Count 2 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Courier /Encoding /WinAnsiEncoding >>
+endobj
+6 0 obj
+<< /Title (Run statistics report) /Producer (rv-pdfauth 0.3.0) /Creator (rv-pdfauth 0.3.0) /CreationDate (D:20261029110057Z) >>
+endobj
+7 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R >> >> /Contents 8 0 R >>
+endobj
+8 0 obj
+<< /Length 5134 >>
+stream
+0.051 0.067 0.090 rg 0 780.00 595 62 re f
+0.165 0.361 1.000 rg 0.00 777.80 198.33 2.2 re f
+0.420 0.000 1.000 rg 198.33 777.80 198.33 2.2 re f
+0.000 0.898 1.000 rg 396.67 777.80 198.33 2.2 re f
+0.102 0.122 0.149 rg 0.165 0.361 1.000 RG 1.6 w 50 790 42 42 re B
+0.902 0.902 0.902 rg BT /F2 17 Tf 58.50 805.00 Td (RV) Tj ET
+0.000 0.898 1.000 rg 60.00 798.00 22 2 re f
+0.902 0.902 0.902 rg BT /F2 13 Tf 4 Tc 106.00 812.00 Td (RAKVOR) Tj ET 0 Tc
+0.000 0.898 1.000 rg BT /F1 7.5 Tf 106.00 799.00 Td (FORENSICS | INCIDENT RESPONSE | SECURITY) Tj ET
+0.051 0.067 0.090 rg BT /F2 18 Tf 50.00 719.70 Td (Run statistics report) Tj ET
+0.278 0.329 0.404 rg BT /F1 10 Tf 50.00 706.20 Td (Run ID: 20261029T110057Z-221da1) Tj ET
+0.165 0.361 1.000 RG 2 w 50 698.20 m 545 698.20 l S
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 676.05 Td (Tool) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 676.05 Td (rv-pdfauth 0.3.0) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 660.90 Td (Case) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 660.90 Td (SAMPLE-1) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 645.75 Td (Examiner) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 645.75 Td (Examiner PDF) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 630.60 Td (Started \(UTC\)) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 630.60 Td (2026-10-29T11:00:57.183Z) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 615.45 Td (Finished \(UTC\)) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 615.45 Td (2026-10-29T11:00:57.215Z) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 600.30 Td (Duration) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 600.30 Td (0.0 s) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 585.15 Td (Interface) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 585.15 Td (cli) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 570.00 Td (Hash algorithms) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 570.00 Td (sha256) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 554.85 Td (Items) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 554.85 Td (1) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 539.70 Td (Bytes) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 539.70 Td (789) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 524.55 Td (Errors) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 524.55 Td (0) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 509.40 Td (Throughput) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 509.40 Td (24.1 KiB/s) Tj ET
+0.051 0.067 0.090 rg BT /F2 12 Tf 50.00 480.20 Td (Findings by severity) Tj ET
+0.894 0.906 0.925 RG 0.6 w 50 476.20 m 545 476.20 l S
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 460.05 Td (High) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 460.05 Td (0) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 444.90 Td (Medium) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 444.90 Td (0) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 429.75 Td (Low) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 429.75 Td (0) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 414.60 Td (Informational) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 414.60 Td (1) Tj ET
+0.051 0.067 0.090 rg BT /F2 12 Tf 50.00 385.40 Td (Findings by type) Tj ET
+0.894 0.906 0.925 RG 0.6 w 50 381.40 m 545 381.40 l S
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 365.25 Td (Producer not in the fingerprint) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 353.10 Td (database) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 365.25 Td (1) Tj ET
+0.051 0.067 0.090 rg BT /F2 12 Tf 50.00 323.90 Td (Items by detected type) Tj ET
+0.894 0.906 0.925 RG 0.6 w 50 319.90 m 545 319.90 l S
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 303.75 Td (PDF document) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 303.75 Td (1) Tj ET
+0.051 0.067 0.090 rg BT /F2 12 Tf 50.00 274.55 Td (Duplicate groups) Tj ET
+0.894 0.906 0.925 RG 0.6 w 50 270.55 m 545 270.55 l S
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 50.00 255.72 Td (None) Tj ET
+0.051 0.067 0.090 rg BT /F2 12 Tf 50.00 226.52 Td (PDF overview) Tj ET
+0.894 0.906 0.925 RG 0.6 w 50 222.52 m 545 222.52 l S
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 206.37 Td (PDFs analysed) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 206.37 Td (1) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 191.22 Td (PDFs with more than one revision) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 191.22 Td (0) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 176.07 Td (PDFs with digital signatures) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 176.07 Td (0) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 160.92 Td (PDFs with an online-editor fingerprint) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 160.92 Td (0) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 145.77 Td (Items without report files) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 133.62 Td (\(--item-reports flagged, no issues) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 121.47 Td (found\)) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 145.77 Td (0) Tj ET
+0.894 0.906 0.925 RG 0.6 w 50 44 m 545 44 l S
+0.278 0.329 0.404 rg BT /F1 7.5 Tf 50 32 Td (Generated by rv-pdfauth 0.3.0 \267 20261029T110057Z-221da1  \227  Page 1 of 2) Tj ET
+0.278 0.329 0.404 rg BT /F1 6.8 Tf 50 22 Td (We uncover the hidden. We reconstruct what happened. We protect what matters.) Tj ET
+endstream
+endobj
+9 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R >> >> /Contents 10 0 R >>
+endobj
+10 0 obj
+<< /Length 6403 >>
+stream
+0.051 0.067 0.090 rg 0 780.00 595 62 re f
+0.165 0.361 1.000 rg 0.00 777.80 198.33 2.2 re f
+0.420 0.000 1.000 rg 198.33 777.80 198.33 2.2 re f
+0.000 0.898 1.000 rg 396.67 777.80 198.33 2.2 re f
+0.102 0.122 0.149 rg 0.165 0.361 1.000 RG 1.6 w 50 790 42 42 re B
+0.902 0.902 0.902 rg BT /F2 17 Tf 58.50 805.00 Td (RV) Tj ET
+0.000 0.898 1.000 rg 60.00 798.00 22 2 re f
+0.902 0.902 0.902 rg BT /F2 13 Tf 4 Tc 106.00 812.00 Td (RAKVOR) Tj ET 0 Tc
+0.000 0.898 1.000 rg BT /F1 7.5 Tf 106.00 799.00 Td (FORENSICS | INCIDENT RESPONSE | SECURITY) Tj ET
+0.051 0.067 0.090 rg BT /F2 12 Tf 50.00 723.80 Td (Case folder) Tj ET
+0.894 0.906 0.925 RG 0.6 w 50 719.80 m 545 719.80 l S
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 703.65 Td (Case) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 703.65 Td (SAMPLE-1) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 688.50 Td (With an evidence ID from intake) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 688.50 Td (0) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 673.35 Td (Newly registered by this run) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 673.35 Td (0) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 658.20 Td (Verified against the registry) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 658.20 Td (1) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 643.05 Td (Different from the registry) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 643.05 Td (0) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 627.90 Td (Not in the registry) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 627.90 Td (0) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 612.75 Td (Case folder) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 612.75 Td (/tmp/tmp.sVTkOe7IbL/case) Tj ET
+0.051 0.067 0.090 rg BT /F2 12 Tf 50.00 583.55 Td (Items) Tj ET
+0.894 0.906 0.925 RG 0.6 w 50 579.55 m 545 579.55 l S
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 563.40 Td (#1  E0002  contrato.pdf) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 563.40 Td (No issues found \267 789 bytes \267 1 findings) Tj ET
+0.051 0.067 0.090 rg BT /F2 12 Tf 50.00 534.20 Td (Limitations) Tj ET
+0.894 0.906 0.925 RG 0.6 w 50 530.20 m 545 530.20 l S
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 52.00 515.37 Td (\225) Tj ET
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 64.00 515.37 Td (Type detection uses a limited table of common file signatures; unknown types are reported as unknown, not as) Tj ET
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 64.00 502.55 Td (suspicious.) Tj ET
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 52.00 489.72 Td (\225) Tj ET
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 64.00 489.72 Td (Modification times come from the file system of the examined copy and may differ from the original source.) Tj ET
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 52.00 476.90 Td (\225) Tj ET
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 64.00 476.90 Td (A result without findings does not prove that a file is authentic or unaltered before acquisition.) Tj ET
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 52.00 464.07 Td (\225) Tj ET
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 64.00 464.07 Td (A trusted timestamp proves the audit log existed in this exact form at the stated time; it does not prove that the) Tj ET
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 64.00 451.25 Td (examined copy matches the original source.) Tj ET
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 52.00 438.42 Td (\225) Tj ET
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 64.00 438.42 Td (The absence of findings does not prove that a PDF is authentic or unaltered: a document can be forged before it is) Tj ET
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 64.00 425.60 Td (saved, or re-created so that no trace remains.) Tj ET
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 52.00 412.77 Td (\225) Tj ET
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 64.00 412.77 Td (When a PDF is printed to PDF, flattened, optimised or regenerated, its earlier revisions and most editing traces) Tj ET
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 64.00 399.95 Td (are lost; only its last state can be examined.) Tj ET
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 52.00 387.12 Td (\225) Tj ET
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 64.00 387.12 Td (Producer fingerprints come from a limited database \(vendor documentation and files generated by Rakvor\);) Tj ET
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 64.00 374.30 Td (producer strings can be typed by hand, and unknown or spoofed values cannot be recognised.) Tj ET
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 52.00 361.47 Td (\225) Tj ET
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 64.00 361.47 Td (Digital signatures are checked for byte coverage and cryptographic integrity only; certificate chains, revocation) Tj ET
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 64.00 348.65 Td (and the signer's identity are not validated.) Tj ET
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 52.00 335.82 Td (\225) Tj ET
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 64.00 335.82 Td (The visual comparison between revisions renders only a limited number of pages per revision; pages beyond that) Tj ET
+0.051 0.067 0.090 rg BT /F1 9.5 Tf 64.00 323.00 Td (limit are compared structurally only.) Tj ET
+0.051 0.067 0.090 rg BT /F2 12 Tf 50.00 296.80 Td (Trusted timestamp \(RFC 3161\)) Tj ET
+0.894 0.906 0.925 RG 0.6 w 50 292.80 m 545 292.80 l S
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 276.65 Td (Status) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 276.65 Td (Not requested) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 261.50 Td (Digital signature) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 261.50 Td (This PDF is not digitally signed.) Tj ET
+0.051 0.067 0.090 rg BT /F2 12 Tf 50.00 232.30 Td (Audit trail) Tj ET
+0.894 0.906 0.925 RG 0.6 w 50 228.30 m 545 228.30 l S
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 212.15 Td (Audit chain head \(SHA-256\)) Tj ET
+0.051 0.067 0.090 rg BT /F3 8 Tf 215.00 212.15 Td (c272884dd33be13557e427f59bbebcf1edfc824fea6293d2dcb2dc6261181386) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 197.00 Td (Audit entries) Tj ET
+0.051 0.067 0.090 rg BT /F1 9 Tf 215.00 197.00 Td (12) Tj ET
+0.278 0.329 0.404 rg BT /F1 9 Tf 50.00 181.85 Td (Log folder) Tj ET
+0.051 0.067 0.090 rg BT /F3 8 Tf 215.00 181.85 Td (/tmp/tmp.sVTkOe7IbL/case/runs/rv-pdfauth/20261029T110057Z-221da1/log) Tj ET
+0.051 0.067 0.090 rg BT /F3 8 Tf 215.00 169.70 Td (s) Tj ET
+0.894 0.906 0.925 RG 0.6 w 50 44 m 545 44 l S
+0.278 0.329 0.404 rg BT /F1 7.5 Tf 50 32 Td (Generated by rv-pdfauth 0.3.0 \267 20261029T110057Z-221da1  \227  Page 2 of 2) Tj ET
+0.278 0.329 0.404 rg BT /F1 6.8 Tf 50 22 Td (We uncover the hidden. We reconstruct what happened. We protect what matters.) Tj ET
+endstream
+endobj
+xref
+0 11
+0000000000 65535 f 
+0000000015 00000 n 
+0000000064 00000 n 
+0000000127 00000 n 
+0000000224 00000 n 
+0000000326 00000 n 
+0000000421 00000 n 
+0000000564 00000 n 
+0000000710 00000 n 
+0000005895 00000 n 
+0000006042 00000 n 
+trailer
+<< /Size 11 /Root 1 0 R /Info 6 0 R >>
+startxref
+12497
+%%EOF

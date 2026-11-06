@@ -53,7 +53,7 @@ python tests/verify_chain.py <some run>/logs/<RUN-ID>             # optional cro
 ```mermaid
 sequenceDiagram
     participant Dev
-    participant analyzer as core/analyzer.rs
+    participant analyzer as core/checks.rs
     participant i18n as i18n/*.json
     participant tests
     Dev->>analyzer: emit Finding::new("CODE", severity).with(params)

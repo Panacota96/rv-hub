@@ -43,16 +43,22 @@ def verify_chain(path: str) -> list[str]:
     return problems
 
 
-def digest(path: str, algo: str) -> str:
+def digest(path: str, algo: str, limit: int | None = None) -> str:
+    """Digest of the file, or of its first `limit` bytes."""
     if algo == "blake3":
         import blake3  # pip install blake3
 
         h = blake3.blake3()
     else:
         h = hashlib.new({"sha3-256": "sha3_256"}.get(algo, algo))
+    left = limit
     with open(path, "rb") as fh:
-        for chunk in iter(lambda: fh.read(1 << 20), b""):
+        for chunk in iter(lambda: fh.read(1 << 20 if left is None else min(1 << 20, left)), b""):
             h.update(chunk)
+            if left is not None:
+                left -= len(chunk)
+                if left <= 0:
+                    break
     return h.hexdigest()
 
 
@@ -71,6 +77,12 @@ def verify_register(path: str) -> list[str]:
                     problems.append(f"{row['path']}: {e}")
                     break
                 if got != row[a]:
+                    # The case log is append-only and is read before the hub appends its own entries: the register's
+                    # size says how many bytes were read, and that prefix must still have the recorded digest.
+                    size = int(row.get("size") or -1)
+                    if os.path.basename(row["path"]) == "case-log.jsonl" and 0 <= size < os.path.getsize(row["path"]) \
+                            and digest(row["path"], a, size) == row[a]:
+                        continue
                     problems.append(f"{row['path']}: {a} {got} != recorded {row[a]}")
     return problems
 

@@ -1,0 +1,99 @@
+{
+  "audit": {
+    "entries": 12,
+    "head": "c272884dd33be13557e427f59bbebcf1edfc824fea6293d2dcb2dc6261181386",
+    "log_dir": "/tmp/tmp.sVTkOe7IbL/case/runs/rv-pdfauth/20261029T110057Z-221da1/logs"
+  },
+  "case": {
+    "case_dir": "/tmp/tmp.sVTkOe7IbL/case",
+    "case_id": "SAMPLE-1",
+    "counts": {
+      "added": 0,
+      "mismatched": 0,
+      "registered": 0,
+      "unregistered": 0,
+      "verified": 1
+    },
+    "role": "analysis"
+  },
+  "duplicate_groups": [],
+  "findings_by_code": {
+    "UNKNOWN_PRODUCER": 1
+  },
+  "findings_by_severity": {
+    "high": 0,
+    "info": 1,
+    "low": 0,
+    "medium": 0
+  },
+  "items": [
+    {
+      "evidence_id": "E0002",
+      "findings": [
+        "UNKNOWN_PRODUCER"
+      ],
+      "index": 1,
+      "path": "/tmp/tmp.sVTkOe7IbL/evidence/contrato.pdf",
+      "report_folder": "items/00001-contrato.pdf",
+      "reports_written": true,
+      "size": 789,
+      "status": "ok"
+    }
+  ],
+  "items_by_status": {
+    "ok": 1
+  },
+  "items_by_type": {
+    "PDF document": 1
+  },
+  "limitations": [
+    "SIGNATURE_TABLE_LIMITED",
+    "TIMESTAMPS_FROM_FILESYSTEM",
+    "CLEAN_RESULT_IS_NOT_AUTHENTICITY",
+    "TIMESTAMP_PROVES_EXISTENCE_ONLY",
+    "NO_FINDING_IS_NOT_AUTHENTICITY",
+    "FLATTENED_OR_REGENERATED_PDF_LOSES_HISTORY",
+    "FINGERPRINT_DB_COVERAGE",
+    "SIGNATURE_TRUST_NOT_VALIDATED",
+    "RENDERING_PAGE_CAP"
+  ],
+  "pdf_overview": {
+    "item_reports": "all",
+    "item_reports_skipped": 0,
+    "multi_revision": 0,
+    "online_editor": 0,
+    "pdfs": 1,
+    "signed": 0
+  },
+  "run": {
+    "actor": "Examiner PDF",
+    "algorithms": [
+      "sha256"
+    ],
+    "cancelled": false,
+    "case_id": "SAMPLE-1",
+    "elapsed_ms": 32,
+    "finished_utc": "2026-10-29T11:00:57.215Z",
+    "frontend": "cli",
+    "jurisdiction": "co",
+    "langs": [
+      "en"
+    ],
+    "pdf_signed_by": null,
+    "run_id": "20261029T110057Z-221da1",
+    "started_utc": "2026-10-29T11:00:57.183Z"
+  },
+  "schema": "rakvor.statistics/1",
+  "timestamp": {
+    "status": "off"
+  },
+  "tool": {
+    "name": "rv-pdfauth",
+    "version": "0.3.0"
+  },
+  "totals": {
+    "bytes": 789,
+    "errors": 0,
+    "items": 1
+  }
+}
