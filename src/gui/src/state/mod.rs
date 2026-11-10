@@ -202,13 +202,13 @@ impl HubState {
         if let Some(o) = details.as_object_mut() {
             o.insert("at_utc".into(), json!(rv_hub_core::time::utc_now()));
         }
-        if let Some(s) = self.session.as_mut() {
-            if let Err(e) = s.record(action, details.clone()) {
-                self.notice = Some(Notice {
-                    tone: Tone::Red,
-                    text: e,
-                });
-            }
+        if let Some(s) = self.session.as_mut()
+            && let Err(e) = s.record(action, details.clone())
+        {
+            self.notice = Some(Notice {
+                tone: Tone::Red,
+                text: e,
+            });
         }
         self.audit_trail.push((action.to_string(), details));
     }
@@ -494,10 +494,10 @@ impl HubState {
                     Tone::Green,
                     self.trf("launched", &[("tool", &tool.title), ("pid", &pid)]),
                 );
-                if p.origin == "create_case" {
-                    if let LaunchTarget::Case(d) = &p.target {
-                        self.load_case(d);
-                    }
+                if p.origin == "create_case"
+                    && let LaunchTarget::Case(d) = &p.target
+                {
+                    self.load_case(d);
                 }
                 LaunchStep::Started(l)
             }

@@ -251,29 +251,27 @@ pub fn check_run(
                 .findings
                 .push(broken("audit.jsonl has no case_linked entry".into())),
         }
-        if let Some(fin) = &run.finished {
-            if recorded_entries > 0 {
-                let at = entries
-                    .iter()
-                    .find(|e| e["seq"].as_u64() == Some(recorded_entries));
-                if at.and_then(|e| e["entry_hash"].as_str())
-                    != fin["details"]["audit_head"].as_str()
-                {
-                    item.findings.push(broken(format!(
+        if let Some(fin) = &run.finished
+            && recorded_entries > 0
+        {
+            let at = entries
+                .iter()
+                .find(|e| e["seq"].as_u64() == Some(recorded_entries));
+            if at.and_then(|e| e["entry_hash"].as_str()) != fin["details"]["audit_head"].as_str() {
+                item.findings.push(broken(format!(
                         "the audit head recorded in the case log is not entry #{recorded_entries} of the run's audit.jsonl"
                     )));
-                }
-                for later in entries
-                    .iter()
-                    .filter(|e| e["seq"].as_u64().unwrap_or(0) > recorded_entries)
-                {
-                    if later["action"] != "timestamp_obtained" {
-                        item.findings.push(broken(format!(
-                            "audit entry #{} ({}) was appended after run_finished",
-                            later["seq"],
-                            later["action"].as_str().unwrap_or("?")
-                        )));
-                    }
+            }
+            for later in entries
+                .iter()
+                .filter(|e| e["seq"].as_u64().unwrap_or(0) > recorded_entries)
+            {
+                if later["action"] != "timestamp_obtained" {
+                    item.findings.push(broken(format!(
+                        "audit entry #{} ({}) was appended after run_finished",
+                        later["seq"],
+                        later["action"].as_str().unwrap_or("?")
+                    )));
                 }
             }
         }

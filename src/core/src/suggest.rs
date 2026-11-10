@@ -186,10 +186,10 @@ fn reason_for(tool: &str) -> &'static str {
 
 /// True when `d` accepts the registered file (extension or content, see the module documentation).
 pub fn accepts(d: &Describe, e: &EvidenceRow, head_bytes: Option<&[u8]>) -> bool {
-    if let Some(h) = head_bytes {
-        if d.accepts.matches_content(h) {
-            return true;
-        }
+    if let Some(h) = head_bytes
+        && d.accepts.matches_content(h)
+    {
+        return true;
     }
     if !d.accepts.matches_extension(&e.file_name) {
         return false;
