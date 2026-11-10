@@ -1,0 +1,48 @@
+{
+  "case_id": "SAMPLE-1",
+  "findings": [
+    {
+      "code": "UNKNOWN_PRODUCER",
+      "params": {
+        "producer": "rv-hub sample generator",
+        "revision": "1"
+      },
+      "severity": "info",
+      "text": {
+        "en": {
+          "does_not_prove": "The database covers a limited set of programs; an unknown producer is not suspicious in itself.",
+          "shows": "The producer “rv-hub sample generator” (revision 1) is not in the fingerprint database used for this analysis.",
+          "title": "Producer not in the fingerprint database"
+        }
+      }
+    }
+  ],
+  "fingerprint": {
+    "algorithm": "sha256",
+    "value": "d231afe23c28b2e88e7b0420ad936fbac8c73dbfa091940c0f2a651c7068949a"
+  },
+  "history": {
+    "last_change_after_s": null,
+    "saves": 1,
+    "text": {
+      "en": "The document was saved once; the file keeps no record of later changes. This information comes from the document itself and is not proof on its own."
+    },
+    "tool_category": null,
+    "tool_label": null
+  },
+  "item": {
+    "evidence_id": "E0002",
+    "file_name": "contrato.pdf",
+    "index": 1
+  },
+  "run_id": "20261029T110057Z-221da1",
+  "schema": "rakvor.item-summary/1",
+  "status": "ok",
+  "text": {
+    "en": {
+      "next_step": "No action needed for this file.",
+      "status": "No issues found",
+      "summary": "The file was hashed and checked. The checks applied found no issues."
+    }
+  }
+}

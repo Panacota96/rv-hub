@@ -1,0 +1,68 @@
+{
+  "case_id": "SAMPLE-1",
+  "findings": [
+    {
+      "code": "DATE_ORDER_INFERRED",
+      "params": {
+        "example": "13/03/2026, 08:45",
+        "line": "5",
+        "order": "dmy"
+      },
+      "severity": "info",
+      "text": {
+        "en": {
+          "does_not_prove": "It does not show that every line was written with the same phone settings; an export that mixes day-first and month-first dates stops with an error instead of being converted.",
+          "shows": "Numeric dates were read as dmy: line 5 (\"13/03/2026, 08:45\") can only be read that way.",
+          "title": "Date order inferred from the export"
+        }
+      }
+    },
+    {
+      "code": "TIMEZONE_APPLIED",
+      "params": {
+        "timezone": "Europe/Paris"
+      },
+      "severity": "info",
+      "text": {
+        "en": {
+          "does_not_prove": "It does not show that the phone was set to Europe/Paris; a wrong zone shifts every time by the same amount.",
+          "shows": "The export's times carry no UTC offset; they were read as Europe/Paris and stored in UTC. The original text of each time is kept in the event's custom field source_time.",
+          "title": "Local times converted with the examiner's time zone"
+        }
+      }
+    },
+    {
+      "code": "DELETED_MESSAGES_NOT_IN_EXPORT",
+      "params": {
+        "source": "WhatsApp"
+      },
+      "severity": "info",
+      "text": {
+        "en": {
+          "does_not_prove": "It does not show whether any messages were deleted.",
+          "shows": "WhatsApp exports leave out messages deleted before the export; the RSMF can only contain what the export contains.",
+          "title": "Deleted messages are not exported"
+        }
+      }
+    }
+  ],
+  "fingerprint": {
+    "algorithm": "sha256",
+    "value": "610bdf98c4ccec8d49afb7586306b475062d899d878e9bcf0e53921759f8ef14"
+  },
+  "item": {
+    "evidence_id": "E0005",
+    "file_name": "whatsapp-chat.txt",
+    "index": 1
+  },
+  "run_id": "20261029T110057Z-c0bff8",
+  "schema": "rakvor.item-summary/1",
+  "status": "ok",
+  "text": {
+    "en": {
+      "next_step": "No action needed for this file.",
+      "status": "No issues found",
+      "summary": "The file was hashed and checked. The checks applied found no issues."
+    }
+  }
+}

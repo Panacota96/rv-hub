@@ -33,7 +33,17 @@ der.workspace = true
 spki.workspace = true
 const-oid.workspace = true
 rsa.workspace = true
-sha2-legacy.workspace = true
+# `oid`: RSA PKCS#1 v1.5 verification of TSA tokens needs the digest OIDs.
+sha2-legacy = { workspace = true, features = ["oid"] }
+
+# Windows: signature check (signature/windows.rs) and tool discovery in the uninstall registry (tools.rs).
+[target.'cfg(windows)'.dependencies]
+windows.workspace = true
+winreg.workspace = true
+
+# Unix: the process group of a timed-out child is killed (proc.rs).
+[target.'cfg(unix)'.dependencies]
+nix.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

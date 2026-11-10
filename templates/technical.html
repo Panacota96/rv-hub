@@ -16,13 +16,12 @@
 <div class="kv">
   <div>{{ t.path }}</div><div class="mono">{{ item.path }}</div>
   <div>{{ t.size }}</div><div>{{ item.size }}</div>
-  <div>{{ t.modified }}</div><div>{{ item.modified_utc }}</div>
-  <div>{{ t.extension }}</div><div>{{ item.extension_text }}</div>
-  <div>{{ t.detected_type }}</div><div>{{ item.detected_text }}</div>
+  <div>{{ t.kind }}</div><div>{{ item.detected_text }}</div>
   <div>{{ t.status }}</div><div>{{ item.status_label }}</div>
+  {% for f in item.facts %}<div>{{ f.label }}</div><div class="mono">{{ f.value }}</div>
+  {% endfor %}
   {% if case %}<div>{{ t.case }}</div><div>{{ case.case_id }}</div>
   <div>{{ t.evidence_id }}</div><div class="mono">{{ item.evidence_id or t.none }}</div>
-  <div>{{ t.case_registry }}</div><div>{{ item.case_status_label }}</div>
   {% if item.intake_utc %}<div>{{ t.intake_date }}</div><div>{{ item.intake_utc }}</div>{% endif %}{% endif %}
 </div>
 

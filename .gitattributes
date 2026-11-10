@@ -7,3 +7,5 @@
 *.pdf binary
 examples/sample/evidence/** binary
 tests/golden/*.zip binary
+# The sample case is hashed and hash-chained byte for byte: never convert its line endings.
+examples/sample/case/** binary

@@ -1,0 +1,72 @@
+[
+  {
+    "attachments": 0,
+    "conversation": "c-38b058f83511",
+    "event_id": "e-000001",
+    "export": "whatsapp-chat.txt",
+    "kind": "disclaimer",
+    "line": 1,
+    "line_end": 1,
+    "native_id": null,
+    "rsmf_file": "001-whatsapp-chat-txt-000001/whatsapp-chat-f83511/2026-03-12.rsmf",
+    "source_file": "whatsapp-chat.txt",
+    "source_time": "12/03/2026, 09:14",
+    "utc": "2026-03-12T08:14:00Z"
+  },
+  {
+    "attachments": 0,
+    "conversation": "c-38b058f83511",
+    "event_id": "e-000002",
+    "export": "whatsapp-chat.txt",
+    "kind": "message",
+    "line": 2,
+    "line_end": 2,
+    "native_id": null,
+    "rsmf_file": "001-whatsapp-chat-txt-000001/whatsapp-chat-f83511/2026-03-12.rsmf",
+    "source_file": "whatsapp-chat.txt",
+    "source_time": "12/03/2026, 09:15",
+    "utc": "2026-03-12T08:15:00Z"
+  },
+  {
+    "attachments": 0,
+    "conversation": "c-38b058f83511",
+    "event_id": "e-000003",
+    "export": "whatsapp-chat.txt",
+    "kind": "message",
+    "line": 3,
+    "line_end": 3,
+    "native_id": null,
+    "rsmf_file": "001-whatsapp-chat-txt-000001/whatsapp-chat-f83511/2026-03-12.rsmf",
+    "source_file": "whatsapp-chat.txt",
+    "source_time": "12/03/2026, 09:17",
+    "utc": "2026-03-12T08:17:00Z"
+  },
+  {
+    "attachments": 0,
+    "conversation": "c-38b058f83511",
+    "event_id": "e-000004",
+    "export": "whatsapp-chat.txt",
+    "kind": "message",
+    "line": 4,
+    "line_end": 4,
+    "native_id": null,
+    "rsmf_file": "001-whatsapp-chat-txt-000001/whatsapp-chat-f83511/2026-03-12.rsmf",
+    "source_file": "whatsapp-chat.txt",
+    "source_time": "12/03/2026, 18:02",
+    "utc": "2026-03-12T17:02:00Z"
+  },
+  {
+    "attachments": 0,
+    "conversation": "c-38b058f83511",
+    "event_id": "e-000005",
+    "export": "whatsapp-chat.txt",
+    "kind": "message",
+    "line": 5,
+    "line_end": 5,
+    "native_id": null,
+    "rsmf_file": "001-whatsapp-chat-txt-000001/whatsapp-chat-f83511/2026-03-13.rsmf",
+    "source_file": "whatsapp-chat.txt",
+    "source_time": "13/03/2026, 08:45",
+    "utc": "2026-03-13T07:45:00Z"
+  }
+]

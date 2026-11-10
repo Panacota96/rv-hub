@@ -1,0 +1,30 @@
+{
+  "case_id": "SAMPLE-1",
+  "evidence_id": "E0004",
+  "examiner": "Examiner Intake",
+  "hashes": {
+    "md5": "92313eceef74c9a6d291d793d02ccbd9",
+    "sha256": "a8886a29cdac18bf1a954ff29785e7b2937756ff58839d2ccd645923306f2b80"
+  },
+  "intake_utc": "2026-10-29T11:00:57.109Z",
+  "item": {
+    "file_name": "notas.txt",
+    "index": 4,
+    "path": "/tmp/tmp.sVTkOe7IbL/evidence/notas.txt",
+    "size": 101
+  },
+  "jurisdiction": "co",
+  "operations": [
+    {
+      "audit_first_seq": 14,
+      "audit_last_seq": 16,
+      "end_utc": "2026-10-29T11:00:57.111Z",
+      "start_utc": "2026-10-29T11:00:57.105Z",
+      "tool": "rv-hashinv",
+      "version": "0.3.1"
+    }
+  ],
+  "run_id": "20261029T110057Z-48a8f9",
+  "schema": "rakvor.item-custody/1",
+  "transfers": []
+}

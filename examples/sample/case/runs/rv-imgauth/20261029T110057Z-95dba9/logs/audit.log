@@ -1,0 +1,25 @@
+2026-10-29T11:00:57.274Z  #00001  run_started          algorithms=sha256 case_dir=/tmp/tmp.sVTkOe7IbL/case case_id=SAMPLE-1 evidence_ids=E0001+E0003 frontend=cli input_list=null inputs=/tmp/tmp.sVTkOe7IbL/evidence/captura.png+/tmp/tmp.sVTkOe7IbL/evidence/foto-1.jpg jurisdiction=co langs=en out_dir=rakvor-out recursive=false sign_cert=null tool=rv-imgauth tsa_url=null version=0.1.0
+2026-10-29T11:00:57.274Z  #00002  case_linked          case_created=false case_dir=/tmp/tmp.sVTkOe7IbL/case case_id=SAMPLE-1 case_log_head_at_start=2a614ae8c2cfcc63dc5710d4111a809aca8afa437aadd90a18a848f1203f1ba8 case_log_seq_at_start=7 jurisdiction=co registry_items=5 registry_sha256=369dac6fb11ad15c8a2c57659d365c755e9fbdb69c8985eab201054d77a91631 requested_jurisdiction=co role=analysis run_dir=runs/rv-imgauth/20261029T110057Z-95dba9
+2026-10-29T11:00:57.275Z  #00003  environment_recorded environment.json  sha256=89eddf3579ed4013efce478e8b26d7049f4ed2ae8261edc8ef4b21cd8146b744
+2026-10-29T11:00:57.275Z  #00004  inputs_resolved      bytes=1837 items=2
+2026-10-29T11:00:57.275Z  #00005  item_started         /tmp/tmp.sVTkOe7IbL/evidence/captura.png  index=1 modified_utc=2026-10-29T11:00:57Z size=354
+2026-10-29T11:00:57.275Z  #00006  item_hashed          /tmp/tmp.sVTkOe7IbL/evidence/captura.png  bytes_read=354 index=1 mtime_unchanged=true
+2026-10-29T11:00:57.275Z  #00007  evidence_verified_against_case /tmp/tmp.sVTkOe7IbL/evidence/captura.png  algorithm=sha256 evidence_id=E0001 index=1 match=true matched_by=evidence_id
+2026-10-29T11:00:57.276Z  #00008  analysis_started     /tmp/tmp.sVTkOe7IbL/evidence/captura.png  index=1 isolation=worker_process
+2026-10-29T11:00:57.298Z  #00009  output_written       /tmp/tmp.sVTkOe7IbL/evidence/captura.png  bytes=898 file=items/00001-captura.png/structure.json index=1 kind=structure
+2026-10-29T11:00:57.299Z  #00010  output_written       /tmp/tmp.sVTkOe7IbL/evidence/captura.png  bytes=123 file=items/00001-captura.png/metadata.json index=1 kind=metadata
+2026-10-29T11:00:57.299Z  #00011  output_written       /tmp/tmp.sVTkOe7IbL/evidence/captura.png  bytes=908 file=items/00001-captura.png/maps/original.png index=1 kind=original_preview
+2026-10-29T11:00:57.299Z  #00012  item_analyzed        /tmp/tmp.sVTkOe7IbL/evidence/captura.png  detected_type=PNG image extension=png findings= index=1 status=ok
+2026-10-29T11:00:57.300Z  #00013  item_started         /tmp/tmp.sVTkOe7IbL/evidence/foto-1.jpg  index=2 modified_utc=2026-10-29T11:00:57Z size=1483
+2026-10-29T11:00:57.300Z  #00014  item_hashed          /tmp/tmp.sVTkOe7IbL/evidence/foto-1.jpg  bytes_read=1483 index=2 mtime_unchanged=true
+2026-10-29T11:00:57.300Z  #00015  evidence_verified_against_case /tmp/tmp.sVTkOe7IbL/evidence/foto-1.jpg  algorithm=sha256 evidence_id=E0003 index=2 match=true matched_by=evidence_id
+2026-10-29T11:00:57.300Z  #00016  analysis_started     /tmp/tmp.sVTkOe7IbL/evidence/foto-1.jpg  index=2 isolation=worker_process
+2026-10-29T11:00:57.323Z  #00017  output_written       /tmp/tmp.sVTkOe7IbL/evidence/foto-1.jpg  bytes=10889 file=items/00002-foto-1.jpg/structure.json index=2 kind=structure
+2026-10-29T11:00:57.324Z  #00018  output_written       /tmp/tmp.sVTkOe7IbL/evidence/foto-1.jpg  bytes=123 file=items/00002-foto-1.jpg/metadata.json index=2 kind=metadata
+2026-10-29T11:00:57.324Z  #00019  output_written       /tmp/tmp.sVTkOe7IbL/evidence/foto-1.jpg  bytes=4603 file=items/00002-foto-1.jpg/maps/original.png index=2 kind=original_preview
+2026-10-29T11:00:57.324Z  #00020  item_analyzed        /tmp/tmp.sVTkOe7IbL/evidence/foto-1.jpg  detected_type=JPEG image extension=jpg findings={"code":"METADATA_STRIPPED","params":{"format":"JPEG"},"severity":"low"}+{"code":"QT_STANDARD_IJG","params":{"quality":"85"},"severity":"info"}+{"code":"QT_UNKNOWN","params":{"hash":"43920728cfe021cebc3e0bf197ec4338c16eec09bf89e4b7a5cac6f67651ebfa"},"severity":"info"} index=2 status=attention
+2026-10-29T11:00:57.325Z  #00021  hash_register_written hashes.csv  sha256=5a6972a1c098688d820683fa903938652da7db2b62fd842457f015cd4b1e52c5
+2026-10-29T11:00:57.340Z  #00022  item_reports_written /tmp/tmp.sVTkOe7IbL/evidence/captura.png  folder=items/00001-captura.png
+2026-10-29T11:00:57.354Z  #00023  item_reports_written /tmp/tmp.sVTkOe7IbL/evidence/foto-1.jpg  folder=items/00002-foto-1.jpg
+2026-10-29T11:00:57.357Z  #00024  statistics_report_written 
+2026-10-29T11:00:57.357Z  #00025  run_finished         bytes=1837 cancelled=false elapsed_ms=83 errors=0 high=0 info=2 items=2 low=1 medium=0

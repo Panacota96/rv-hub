@@ -114,6 +114,19 @@ impl Catalog {
         (get("title"), get("shows"), get("does_not_prove"))
     }
 
+    /// True when the catalogue words `code` (title, shows, does_not_prove).
+    pub fn has_finding(&self, code: &str) -> bool {
+        let f = &self.data["findings"][code];
+        ["title", "shows", "does_not_prove"]
+            .iter()
+            .all(|k| f[k].as_str().is_some_and(|s| !s.is_empty()))
+    }
+
+    /// Wording of a key in another section (e.g. `suggest`), or the key itself.
+    pub fn text(&self, section: &str, key: &str) -> String {
+        self.data[section][key].as_str().unwrap_or(key).to_string()
+    }
+
     pub fn limitation(&self, code: &str) -> String {
         self.data["limitations"][code]
             .as_str()
@@ -152,11 +165,11 @@ mod tests {
         assert_eq!(parse_langs("es,fr,es").unwrap(), vec!["es", "fr"]);
         assert!(parse_langs("de").is_err());
         let mut p = BTreeMap::new();
-        p.insert("extension".to_string(), "jpg".to_string());
-        p.insert("detected".to_string(), "PDF document".to_string());
-        let (_, shows, _) = catalog("es").finding("EXTENSION_MISMATCH", &p);
+        p.insert("evidence_id".to_string(), "E0002".to_string());
+        p.insert("algorithm".to_string(), "sha256".to_string());
+        let (_, shows, _) = catalog("es").finding("EVIDENCE_REHASH_MISMATCH", &p);
         assert!(
-            shows.contains(".jpg") && shows.contains("PDF document"),
+            shows.contains("E0002") && shows.contains("sha256"),
             "{}",
             shows
         );

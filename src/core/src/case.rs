@@ -75,7 +75,7 @@ pub struct CaseError {
 }
 
 impl CaseError {
-    fn new(kind: CaseErrorKind, message: impl Into<String>) -> CaseError {
+    pub fn new(kind: CaseErrorKind, message: impl Into<String>) -> CaseError {
         CaseError {
             kind,
             message: message.into(),
@@ -264,6 +264,12 @@ fn sha256_file(p: &Path) -> Option<String> {
 /// SHA-256 of evidence/registry.json (None when the case has no registry yet).
 pub fn registry_digest(dir: &Path) -> Option<String> {
     sha256_file(&dir.join(REGISTRY_JSON))
+}
+
+/// SHA-256 of `evidence/registry.csv` (None when it is missing). The CSV is a convenience copy of the registry:
+/// the case log records no digest for it, so readers and writers record this one in their own audit log.
+pub fn registry_csv_digest(dir: &Path) -> Option<String> {
+    sha256_file(&dir.join(REGISTRY_CSV))
 }
 
 fn read_json(p: &Path) -> Result<Value, String> {
@@ -764,7 +770,8 @@ impl Case {
             "evidence_registered",
             json!({"tool": w.tool, "version": w.version,
                    "evidence_ids": out.iter().map(|o| o.evidence_id.clone()).collect::<Vec<_>>(),
-                   "added": added, "registry_items": items.len(), "registry_sha256": digest}),
+                   "added": added, "registry_items": items.len(), "registry_sha256": digest,
+                   "registry_csv_sha256": registry_csv_digest(&self.dir)}),
         )?;
         self.items = items;
         Ok((out, seq))
@@ -923,7 +930,7 @@ pub fn verify_case(dir: &Path) -> CaseVerification {
                 .problems
                 .push(format!("run {}: audit.jsonl has no case_linked entry", rid)),
         }
-        for p in crate::trust::verify_timestamps(&log_dir, &audit::heads(&audit_path)) {
+        for p in crate::trust::verify_timestamps(&audit_path) {
             v.problems.push(format!("run {}: {}", rid, p));
         }
         let Some(fin) = fin else {
