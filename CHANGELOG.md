@@ -5,6 +5,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Entries are generated from
 [Conventional Commits](https://www.conventionalcommits.org/) by release-please and reviewed by a human.
 
+## [0.2.1](https://github.com/Panacota96/rv-hub/compare/v0.2.0...v0.2.1) (2026-11-10)
+
+
+### Bug Fixes
+
+* **security:** patch dependency advisories, blind RSA signing, check advisories in CI ([03d5126](https://github.com/Panacota96/rv-hub/commit/03d5126d9486747a7bff6a387fc43851e33a9895))
+* **security:** patch dependency advisories, blind RSA signing, check advisories in CI ([82c836e](https://github.com/Panacota96/rv-hub/commit/82c836edddcc08ca0505266b2a810fb386ccad62))
+
 ## [0.2.0](https://github.com/Panacota96/rv-hub/compare/v0.1.0...v0.2.0) (2026-11-10)
 
 
