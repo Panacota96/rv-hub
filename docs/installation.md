@@ -281,7 +281,7 @@ Neither `suite/` nor the `suite` job exists in this version.
 
 | Item | Version |
 | --- | --- |
-| Rust | pinned by [rust-toolchain.toml](../rust-toolchain.toml): **1.97.0** (rustup selects it inside the source tree); minimum `rust-version = "1.85"` |
+| Rust | pinned by [rust-toolchain.toml](../rust-toolchain.toml): **1.97.0** (rustup selects it inside the source tree); minimum `rust-version = "1.88"` |
 | Windows linker | Visual Studio 2022 Build Tools (MSVC + Windows SDK); static CRT set in `.cargo/config.toml` |
 | Optional | Python 3 (standard library) for `tests/verify_chain.py`; `pyhanko` for the PDF-signature tests |
 

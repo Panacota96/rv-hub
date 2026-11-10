@@ -265,13 +265,13 @@ fn launch_impl(
     let actual = lock
         .sha256()
         .ok_or_else(|| LaunchError::MissingExe(format!("cannot read {}", exe.display())))?;
-    if let Some(expected) = &tool.gui_sha256 {
-        if !expected.eq_ignore_ascii_case(&actual) {
-            return Err(LaunchError::Changed {
-                expected: expected.clone(),
-                actual,
-            });
-        }
+    if let Some(expected) = &tool.gui_sha256
+        && !expected.eq_ignore_ascii_case(&actual)
+    {
+        return Err(LaunchError::Changed {
+            expected: expected.clone(),
+            actual,
+        });
     }
     let signature = verifier.verify(&exe);
     let locked = lock.locked;

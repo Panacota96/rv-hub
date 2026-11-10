@@ -227,13 +227,13 @@ impl HubApp {
         while let Ok(m) = rx.try_recv() {
             match m {
                 Msg::Event(e) => {
-                    if let Event::Timestamp { status, reason, .. } = &e {
-                        if status != "ok" {
-                            self.state
-                                .verify
-                                .warnings
-                                .push(format!("timestamp: {}", reason.as_deref().unwrap_or("-")));
-                        }
+                    if let Event::Timestamp { status, reason, .. } = &e
+                        && status != "ok"
+                    {
+                        self.state
+                            .verify
+                            .warnings
+                            .push(format!("timestamp: {}", reason.as_deref().unwrap_or("-")));
                     }
                     self.state.verify.apply(&e)
                 }
@@ -517,10 +517,8 @@ impl HubApp {
                 });
             });
         });
-        if launch {
-            if let Some(i) = c.tool_index {
-                self.launch_tool(i, "tools");
-            }
+        if launch && let Some(i) = c.tool_index {
+            self.launch_tool(i, "tools");
         }
     }
 
@@ -1079,10 +1077,10 @@ impl HubApp {
                     } else {
                         r.on_disabled_hover_text(tip)
                     };
-                    if r.changed() {
-                        if let Err(e) = v.toggle_algo(a) {
-                            err = Some(e);
-                        }
+                    if r.changed()
+                        && let Err(e) = v.toggle_algo(a)
+                    {
+                        err = Some(e);
                     }
                 }
             });
@@ -1328,15 +1326,11 @@ impl HubApp {
                     }
                 });
         }
-        if open_report {
-            if let Some(p) = self.state.report_to_open() {
-                open_path(&p);
-            }
+        if open_report && let Some(p) = self.state.report_to_open() {
+            open_path(&p);
         }
-        if open_run {
-            if let Some(p) = self.state.run_folder_to_open() {
-                open_path(&p);
-            }
+        if open_run && let Some(p) = self.state.run_folder_to_open() {
+            open_path(&p);
         }
     }
 

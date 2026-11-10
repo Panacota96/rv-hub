@@ -180,7 +180,7 @@ impl SignatureSpec {
 }
 
 fn decode_hex(s: &str) -> Option<Vec<u8>> {
-    if s.len() % 2 != 0 {
+    if !s.len().is_multiple_of(2) {
         return None;
     }
     (0..s.len())
@@ -666,18 +666,18 @@ pub fn discover(opts: &DiscoverOptions, verifier: &dyn SignatureVerifier) -> Vec
             let key = (crate::case::normalize(&r.install_location), tool.clone());
             if let Some(f) = found.get_mut(&key) {
                 f.registry_version = r.display_version.clone();
-                if let Some(w) = known.and_then(|k| k.warning) {
-                    if !f.warnings.iter().any(|x| x == w) {
-                        f.warnings.push(w.to_string());
-                    }
+                if let Some(w) = known.and_then(|k| k.warning)
+                    && !f.warnings.iter().any(|x| x == w)
+                {
+                    f.warnings.push(w.to_string());
                 }
-                if let Some(expected) = known.and_then(|k| k.tool) {
-                    if expected != tool {
-                        f.warnings.push(format!(
-                            "found under the uninstall key of {expected} ({})",
-                            r.app_id
-                        ));
-                    }
+                if let Some(expected) = known.and_then(|k| k.tool)
+                    && expected != tool
+                {
+                    f.warnings.push(format!(
+                        "found under the uninstall key of {expected} ({})",
+                        r.app_id
+                    ));
                 }
             }
         }

@@ -361,10 +361,10 @@ pub fn read_case(dir: &Path) -> CaseView {
                 r.evidence_ids = from_items;
             }
         }
-        if r.evidence_ids.is_empty() {
-            if let Some(reg) = registered.get(&r.run_id) {
-                r.evidence_ids = reg.clone();
-            }
+        if r.evidence_ids.is_empty()
+            && let Some(reg) = registered.get(&r.run_id)
+        {
+            r.evidence_ids = reg.clone();
         }
         let mut seen = BTreeSet::new();
         r.evidence_ids.retain(|i| seen.insert(i.clone()));

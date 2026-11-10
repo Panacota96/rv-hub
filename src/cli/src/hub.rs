@@ -367,14 +367,14 @@ pub fn tools_cmd(
                 &[("tool", tool.tool.clone()), ("warning", warning.clone())],
             ));
         }
-        if let (DescribeSource::Builtin, Some(p)) = (tool.describe_source, &tool.describe_problem) {
-            if !a.json {
-                w.eline(&tr(
-                    lang,
-                    "describe_builtin",
-                    &[("tool", tool.tool.clone()), ("problem", p.to_string())],
-                ));
-            }
+        if let (DescribeSource::Builtin, Some(p)) = (tool.describe_source, &tool.describe_problem)
+            && !a.json
+        {
+            w.eline(&tr(
+                lang,
+                "describe_builtin",
+                &[("tool", tool.tool.clone()), ("problem", p.to_string())],
+            ));
         }
     }
     code

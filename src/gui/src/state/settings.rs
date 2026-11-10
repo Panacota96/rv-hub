@@ -109,10 +109,10 @@ impl Settings {
 
     fn normalise(&mut self) {
         self.schema = schema();
-        if let Some(l) = &self.ui_lang {
-            if !rv_hub_core::i18n::LANGS.contains(&l.as_str()) {
-                self.ui_lang = None;
-            }
+        if let Some(l) = &self.ui_lang
+            && !rv_hub_core::i18n::LANGS.contains(&l.as_str())
+        {
+            self.ui_lang = None;
         }
         let mut seen = vec![];
         self.recent_cases.retain(|c| {

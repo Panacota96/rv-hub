@@ -102,7 +102,7 @@ unknown.
 
 Check the download first (SHA256SUMS, build provenance, Authenticode against the Rakvor root), and expect a
 SmartScreen warning for the internally signed build: see [docs/installation.md](docs/installation.md). From source
-(Rust 1.85+): `cargo build --release --locked`.
+(Rust 1.88+): `cargo build --release --locked`.
 
 ## Quick start: desktop app
 

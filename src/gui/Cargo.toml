@@ -4,6 +4,7 @@ description = "RV Hub desktop interface (Windows 10/11, also builds on Linux)"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+publish.workspace = true
 rust-version.workspace = true
 authors.workspace = true
 

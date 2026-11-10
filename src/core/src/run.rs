@@ -236,16 +236,15 @@ pub fn preflight(cfg: &RunConfig) -> Result<(String, String), CaseError> {
         .as_deref()
         .map(str::trim)
         .filter(|s| !s.is_empty())
+        && want != case_id
     {
-        if want != case_id {
-            return Err(CaseError::new(
-                CaseErrorKind::Usage,
-                format!(
-                    "the case folder {} belongs to case {case_id}, not {want}",
-                    dir.display()
-                ),
-            ));
-        }
+        return Err(CaseError::new(
+            CaseErrorKind::Usage,
+            format!(
+                "the case folder {} belongs to case {case_id}, not {want}",
+                dir.display()
+            ),
+        ));
     }
     let ids = case::parse_evidence_ids(&cfg.evidence_ids)?;
     if !ids.is_empty() {
