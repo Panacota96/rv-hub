@@ -5,6 +5,34 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Entries are generated from
 [Conventional Commits](https://www.conventionalcommits.org/) by release-please and reviewed by a human.
 
+## [0.2.0](https://github.com/Panacota96/rv-hub/compare/v0.1.0...v0.2.0) (2026-11-10)
+
+
+### Features
+
+* **case:** record the SHA-256 of evidence/registry.csv in the audit log ([509ddba](https://github.com/Panacota96/rv-hub/commit/509ddbac344e47dee99c11733861d1a7963234bf))
+* **cli:** tools, case, launch and describe commands; verify help for the hub ([359cb43](https://github.com/Panacota96/rv-hub/commit/359cb43c1cc7ef832cbb530af85ee32e4c96c77f))
+* **core:** add RV CertCheck to the built-in tools, AppIds and suggestions ([b2680a4](https://github.com/Panacota96/rv-hub/commit/b2680a42c34071b0daf075559d6d15598208e21e))
+* **core:** hub core API, whole-case verify with tool cross-check, real sample case ([d5e876f](https://github.com/Panacota96/rv-hub/commit/d5e876fdf6db807e0c90979c1617c86d9e59f600))
+* **core:** launch_without_case (open a tool's GUI with no case, same rules and audit) ([5f8c1ba](https://github.com/Panacota96/rv-hub/commit/5f8c1ba3f5b2fbad38b0f25636d5263309482883))
+* **gui:** Tools, Case and Verify tabs ([f7d28ff](https://github.com/Panacota96/rv-hub/commit/f7d28ff7d6e174bfccb35a70c21761d784f5163c))
+* **verify:** --add-folder for the cross-check discovery ([a88320f](https://github.com/Panacota96/rv-hub/commit/a88320f25122387a2219d63357f9d685b2bc71e8))
+
+
+### Bug Fixes
+
+* CI sample steps verify a copy of the sample case; re-hash fills the selected register columns ([9088a89](https://github.com/Panacota96/rv-hub/commit/9088a897e53106152b21924f8d7a6f0d0150bcbf))
+* **launch:** lock the executable on Windows and re-hash it just before the start ([4b3dbf7](https://github.com/Panacota96/rv-hub/commit/4b3dbf7d87c09fb8f8b40a640f6186c3f2aec8b1))
+* **proc:** bound the reading of a child's pipes by the same deadline ([18e8041](https://github.com/Panacota96/rv-hub/commit/18e804122fdcf0b9bda23d28010048cd669473c7))
+* **suggest:** --evidence-dir, WhatsApp detection by content, completed runs only ([26f7432](https://github.com/Panacota96/rv-hub/commit/26f74329928fc48431fe6c90177891aa61793e0f))
+* **tools:** run unknown rv-* programs only from added folders or when Rakvor-signed ([4c996f9](https://github.com/Panacota96/rv-hub/commit/4c996f9c22f835f67c1a9514d3e50923e1968f2b))
+* **trust:** drive timestamp checks from the audit log; RFC 3161/5280 TSA path rules ([8260db0](https://github.com/Panacota96/rv-hub/commit/8260db0ea89f36818e64493548b604398cb7acfa))
+* **trust:** verify the TSA CMS signature and, with --tsa-ca, its chain ([d124717](https://github.com/Panacota96/rv-hub/commit/d124717ec98400d257cf08a5e4e229fabf5e2850))
+* **verify:** chain-level cross-check fallback only for rv-pdfauth and rv-imgauth ([5744c42](https://github.com/Panacota96/rv-hub/commit/5744c4229acb3050ca22569415629e7e444897fb))
+* **verify:** every verify-log problem is a RUN_LOG_BROKEN finding ([2a3e25e](https://github.com/Panacota96/rv-hub/commit/2a3e25efb4785bee34dd35cd04eb7bc4aae88420))
+* **verify:** re-check a discovered tool before its cross-check run ([e77306b](https://github.com/Panacota96/rv-hub/commit/e77306b928df9ac4f80686e6ac0119e37164179c))
+* **verify:** withdraw RUN_LOG_INTACT when the run's tool disagrees ([e997952](https://github.com/Panacota96/rv-hub/commit/e9979524799f42dbf8ed3d929a5258f2992720cc))
+
 ## [Unreleased]
 
 ### Added
