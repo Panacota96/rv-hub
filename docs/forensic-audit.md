@@ -133,6 +133,8 @@ or analyse the `.tsr` with rv-certcheck (CMS signature, ESS signing-certificate,
 from a non-qualified TSA proves the log existed at that time; it carries no eIDAS presumption and no Colombian
 statutory status ([admissibility.md](admissibility.md#53-eidas-regulation-eu-9102014-as-amended-by-eu-20241183)).
 
+> **CRL dates and `-attime`.** OpenSSL applies `-attime` to the CRL as well, so `openssl verify -crl_check -attime <genTime-epoch>` only works with a CRL whose `thisUpdate`–`nextUpdate` interval contains genTime; a CRL issued after genTime fails with "CRL is not yet valid". To use a later CRL as evidence, check its signature (`openssl crl -in tsa-ca.crl -CAfile <TSA root.pem> -noout -verify`), then look up the TSA certificate's serial in it (`openssl crl -in tsa-ca.crl -noout -text`): absent, or listed with a revocation date after genTime, means not revoked at genTime. A CA may drop expired certificates from its CRLs, so for a TSA certificate that has since expired an absent serial is not conclusive: use a CRL from before its expiry, or an OCSP response archived at stamping time.
+
 ## Signed PDF reports
 
 With `--sign-cert examiner.p12` (password from `--sign-pass-env`, default `RV_SIGN_PASSWORD`, or asked for), every
