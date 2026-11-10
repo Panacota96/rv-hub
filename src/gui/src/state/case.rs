@@ -2,9 +2,9 @@
 //! into the case folder (a test checks it).
 
 use rv_hub_core::case_view::{CaseView, RunStatus, SeverityTotals, TimestampStatus, read_case};
-use rv_hub_core::suggest::{Action, suggest};
+use rv_hub_core::suggest::{Action, suggest_with};
 use rv_hub_core::tools::{Describe, ToolInfo};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct EvidenceLine {
@@ -98,11 +98,13 @@ fn status_key(s: RunStatus) -> &'static str {
 }
 
 impl CaseModel {
-    /// Reads the case folder (never fails: problems are listed in `view.problems`).
-    pub fn load(dir: &Path, tools: &[ToolInfo]) -> CaseModel {
+    /// Reads the case folder (never fails: problems are listed in `view.problems`). `evidence_dirs`: where the
+    /// evidence copies are now, for suggestions that read a file's content (same lookup as `rv-hub case
+    /// --evidence-dir`); a registered file is otherwise read at its registered path only.
+    pub fn load(dir: &Path, tools: &[ToolInfo], evidence_dirs: &[PathBuf]) -> CaseModel {
         let view = read_case(dir);
         let catalog: Vec<Describe> = rv_hub_core::tools::catalog(tools);
-        let suggestions = suggest(&view, &catalog)
+        let suggestions = suggest_with(&view, &catalog, evidence_dirs)
             .into_iter()
             .map(|s| SuggestionLine {
                 tool_index: launchable_index(tools, &s.tool),

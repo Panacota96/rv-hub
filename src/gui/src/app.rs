@@ -62,6 +62,7 @@ pub struct HubApp {
     create_entry: String,
     folder_entry: String,
     verify_case_entry: String,
+    case_evidence_entry: String,
 }
 
 /// Applies the Rakvor dark theme.
@@ -106,6 +107,7 @@ impl HubApp {
             .map(|c| c.view.dir.display().to_string())
             .unwrap_or_default();
         let verify_case_entry = state.verify.case_dir.clone();
+        let case_evidence_entry = state.verify.evidence_dir.clone();
         let mut app = HubApp {
             state,
             verifier,
@@ -120,6 +122,7 @@ impl HubApp {
             create_entry: String::new(),
             folder_entry: String::new(),
             verify_case_entry,
+            case_evidence_entry,
         };
         if !app.state.discovered {
             app.state.discovering = true;
@@ -162,6 +165,7 @@ impl HubApp {
             self.case_entry = c.view.dir.display().to_string();
         }
         self.verify_case_entry = self.state.verify.case_dir.clone();
+        self.case_evidence_entry = self.state.verify.evidence_dir.clone();
     }
 
     // ---- workers ------------------------------------------------------------------------------------------
@@ -866,7 +870,37 @@ impl HubApp {
                 ui.colored_label(AMBER, format!("• {p}"));
             }
         }
+        self.evidence_dir_row(ui);
         self.suggestions(ui, &c);
+    }
+
+    /// Where the evidence copies are now: the suggestions read a file's content there when it is not at its
+    /// registered path (`rv-hub case --evidence-dir`); the same value is the Verify tab's re-hash folder.
+    fn evidence_dir_row(&mut self, ui: &mut egui::Ui) {
+        ui.horizontal(|ui| {
+            ui.label(self.state.tr("evidence_dir"));
+            let hint = self.state.tr("case_evidence_dir_hint");
+            let r = ui.add(
+                egui::TextEdit::singleline(&mut self.case_evidence_entry)
+                    .hint_text(hint)
+                    .desired_width(300.0),
+            );
+            if !r.has_focus() && !r.lost_focus() {
+                self.case_evidence_entry = self.state.verify.evidence_dir.clone();
+            }
+            if r.lost_focus() {
+                let entry = self.case_evidence_entry.clone();
+                self.state.set_evidence_dir(&entry);
+            }
+            #[cfg(windows)]
+            if ui.button(self.state.tr("browse")).clicked() {
+                if let Some(p) = rfd::FileDialog::new().pick_folder() {
+                    self.case_evidence_entry = p.display().to_string();
+                    let entry = self.case_evidence_entry.clone();
+                    self.state.set_evidence_dir(&entry);
+                }
+            }
+        });
     }
 
     fn case_header(&self, ui: &mut egui::Ui, c: &CaseModel) {
@@ -1053,6 +1087,30 @@ impl HubApp {
             if ui.checkbox(&mut x, self.state.tr("crosscheck")).changed() {
                 self.state.verify.set_crosscheck(x);
             }
+            ui.horizontal(|ui| {
+                ui.label(self.state.tr("tsa_ca"));
+                let mut c = self.state.verify.tsa_ca.clone();
+                let hint = self.state.tr("tsa_ca_hint");
+                let r = ui.add(
+                    egui::TextEdit::singleline(&mut c)
+                        .hint_text(hint)
+                        .desired_width(300.0),
+                );
+                if r.lost_focus() {
+                    self.state.verify.set_tsa_ca(&c);
+                } else {
+                    self.state.verify.tsa_ca = c;
+                }
+                #[cfg(windows)]
+                if ui.button(self.state.tr("browse")).clicked() {
+                    if let Some(p) = rfd::FileDialog::new()
+                        .add_filter("CA bundle", &["pem", "crt", "cer", "der"])
+                        .pick_file()
+                    {
+                        self.state.verify.set_tsa_ca(&p.display().to_string());
+                    }
+                }
+            });
         });
     }
 

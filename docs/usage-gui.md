@@ -55,6 +55,10 @@ you are asked again or the launch is refused (refresh the list).
 - **Runs**: tool, run id, time (UTC), findings High / Medium / Low / Info, timestamp (obtained, pending, off) and
   status.
 - **Findings by severity** over all runs, and any **problems** reading the folder.
+- **Evidence copies in** (optional): the folder where the evidence is now, when it is no longer at its registered
+  path. Suggestions that depend on a file's content (a `.txt` that is a WhatsApp export, a file whose content is
+  a PDF or an image) look for it there by file name, as `rv-hub case --evidence-dir` does. It is the same value as
+  the Verify tab's re-hash folder; a folder that does not exist is refused.
 - **Suggested next steps**, each with its reason and a one-click button that opens the suggested tool on the case.
 
 The view is read-only: nothing in the case folder is changed. It is read again with **Refresh** and whenever the
@@ -63,8 +67,11 @@ window regains the focus (for example after closing a tool that added a run).
 ## Verify
 
 The options of `rv-hub verify`: the case folder (follows the open case), *re-hash the registered evidence* (with an
-optional folder where the copies are now), the cross-check (ask each run's own installed, Rakvor-signed tool to
-verify its logs too), 1 or 2 hash algorithms, the report language, the examiner and case id, and the trust section
+optional folder where the copies are now, shared with the Case tab), the cross-check (ask each run's own
+installed, Rakvor-signed tool to verify its logs too), the **TSA CA bundle** (`--tsa-ca`: PEM or DER roots; with
+it, every run's timestamp token is also checked for a TSA certificate chain to those roots at the token's genTime;
+without it the TSA signature is checked and the chain is reported as not checked; an unreadable bundle is refused
+before the run starts), 1 or 2 hash algorithms, the report language, the examiner and case id, and the trust section
 (trusted timestamp, PDF signing certificate and password — kept in memory only — and the custody form).
 
 **Start verification** shows progress, the elapsed time (always moving), the estimated time remaining and **Cancel**.
@@ -86,7 +93,8 @@ verification run's own audit log, as in every Rakvor tool.
 | Confirm an untrusted tool | `ui_launch_untrusted_confirmed`, then the core's `tool_untrusted_confirmed` |
 | Confirm a launch without a case / cancel the dialog | `ui_launch_without_case_confirmed`, `ui_launch_cancelled` |
 | Open / refresh / close a case, create a case | `ui_case_opened`, `ui_case_refreshed`, `ui_case_closed`, `ui_create_case_clicked` |
-| Change a Verify option | `ui_rehash_changed`, `ui_crosscheck_changed`, `ui_hash_selection_changed`, … |
+| Set the evidence folder in the Case tab | `ui_case_evidence_dir_changed` (and `ui_evidence_dir_changed` in the next verification run) |
+| Change a Verify option | `ui_rehash_changed`, `ui_crosscheck_changed`, `ui_tsa_ca_changed`, `ui_hash_selection_changed`, … |
 | Start / cancel a verification | `ui_verify_started` (+ `ui_start_clicked` in the run), `ui_cancel_clicked` |
 | Open the report / the run folder | `ui_report_opened`, `ui_run_folder_opened` |
 
