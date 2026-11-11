@@ -5,6 +5,19 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Entries are generated from
 [Conventional Commits](https://www.conventionalcommits.org/) by release-please and reviewed by a human.
 
+## [0.3.0](https://github.com/Panacota96/rv-hub/compare/v0.2.1...v0.3.0) (2026-11-11)
+
+
+### Features
+
+* **gui:** TSA CA bundle in the Verify tab, evidence folder in the Case tab ([4698fc6](https://github.com/Panacota96/rv-hub/commit/4698fc699294f675f5b4f966a98f7ed6fbcd614f))
+* **gui:** TSA CA bundle in the Verify tab, evidence folder in the Case tab ([d1e2ae2](https://github.com/Panacota96/rv-hub/commit/d1e2ae22eb8964bb5c85e9f7d484b31a19728057))
+
+
+### Bug Fixes
+
+* **gui:** apply and audit option edits on focus loss, tab switch and start ([092b0e0](https://github.com/Panacota96/rv-hub/commit/092b0e0b1d3a38fbf7f0bad39c9ff8d617cad4e3))
+
 ## [0.2.1](https://github.com/Panacota96/rv-hub/compare/v0.2.0...v0.2.1) (2026-11-10)
 
 
