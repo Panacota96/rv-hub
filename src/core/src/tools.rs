@@ -794,6 +794,7 @@ pub fn catalog(tools: &[ToolInfo]) -> Vec<Describe> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(unix)] // only the unix tests below use it
     use crate::signature::StaticVerifier;
 
     const PDF_DESCRIBE: &str = r#"{"schema":"rakvor.describe/1","tool":"rv-pdfauth","title":"RV PDFAuth","version":"0.4.0",

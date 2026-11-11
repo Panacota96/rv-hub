@@ -587,10 +587,10 @@ impl HubApp {
             );
             let enter = r.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
             #[cfg(windows)]
-            if ui.button(self.state.tr("browse")).clicked() {
-                if let Some(d) = rfd::FileDialog::new().pick_folder() {
-                    self.folder_entry = d.display().to_string();
-                }
+            if ui.button(self.state.tr("browse")).clicked()
+                && let Some(d) = rfd::FileDialog::new().pick_folder()
+            {
+                self.folder_entry = d.display().to_string();
             }
             if ui.button(self.state.tr("add")).clicked() || enter {
                 let text = self.folder_entry.clone();
@@ -706,12 +706,12 @@ impl HubApp {
             );
             let enter = r.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
             #[cfg(windows)]
-            if ui.button(self.state.tr("browse")).clicked() {
-                if let Some(d) = rfd::FileDialog::new().pick_folder() {
-                    self.case_entry = d.display().to_string();
-                    let t = self.case_entry.clone();
-                    self.state.open_case(&t);
-                }
+            if ui.button(self.state.tr("browse")).clicked()
+                && let Some(d) = rfd::FileDialog::new().pick_folder()
+            {
+                self.case_entry = d.display().to_string();
+                let t = self.case_entry.clone();
+                self.state.open_case(&t);
             }
             if ui.button(self.state.tr("case_open")).clicked() || enter {
                 let t = self.case_entry.clone();
@@ -767,10 +767,10 @@ impl HubApp {
                     .desired_width(300.0),
             );
             #[cfg(windows)]
-            if ui.button(self.state.tr("browse")).clicked() {
-                if let Some(d) = rfd::FileDialog::new().pick_folder() {
-                    self.create_entry = d.display().to_string();
-                }
+            if ui.button(self.state.tr("browse")).clicked()
+                && let Some(d) = rfd::FileDialog::new().pick_folder()
+            {
+                self.create_entry = d.display().to_string();
             }
             if ui.button(self.state.tr("create_case")).clicked() {
                 let env = LaunchEnv {
@@ -932,11 +932,11 @@ impl HubApp {
                 self.sync_option_entries();
             }
             #[cfg(windows)]
-            if ui.button(self.state.tr("browse")).clicked() {
-                if let Some(p) = rfd::FileDialog::new().pick_folder() {
-                    self.state.set_evidence_dir(&p.display().to_string());
-                    self.sync_option_entries();
-                }
+            if ui.button(self.state.tr("browse")).clicked()
+                && let Some(p) = rfd::FileDialog::new().pick_folder()
+            {
+                self.state.set_evidence_dir(&p.display().to_string());
+                self.sync_option_entries();
             }
         });
     }
@@ -1086,12 +1086,12 @@ impl HubApp {
                     self.state.verify.set_case_dir(&entry);
                 }
                 #[cfg(windows)]
-                if ui.button(self.state.tr("browse")).clicked() {
-                    if let Some(d) = rfd::FileDialog::new().pick_folder() {
-                        self.verify_case_entry = d.display().to_string();
-                        let entry = self.verify_case_entry.clone();
-                        self.state.verify.set_case_dir(&entry);
-                    }
+                if ui.button(self.state.tr("browse")).clicked()
+                    && let Some(d) = rfd::FileDialog::new().pick_folder()
+                {
+                    self.verify_case_entry = d.display().to_string();
+                    let entry = self.verify_case_entry.clone();
+                    self.state.verify.set_case_dir(&entry);
                 }
             });
             let mut rehash = self.state.verify.rehash;
@@ -1116,11 +1116,11 @@ impl HubApp {
                         self.sync_option_entries();
                     }
                     #[cfg(windows)]
-                    if ui.button(self.state.tr("browse")).clicked() {
-                        if let Some(p) = rfd::FileDialog::new().pick_folder() {
-                            self.state.verify.set_evidence_dir(&p.display().to_string());
-                            self.sync_option_entries();
-                        }
+                    if ui.button(self.state.tr("browse")).clicked()
+                        && let Some(p) = rfd::FileDialog::new().pick_folder()
+                    {
+                        self.state.verify.set_evidence_dir(&p.display().to_string());
+                        self.sync_option_entries();
                     }
                 });
             });
@@ -1145,14 +1145,13 @@ impl HubApp {
                     self.sync_option_entries();
                 }
                 #[cfg(windows)]
-                if ui.button(self.state.tr("browse")).clicked() {
-                    if let Some(p) = rfd::FileDialog::new()
+                if ui.button(self.state.tr("browse")).clicked()
+                    && let Some(p) = rfd::FileDialog::new()
                         .add_filter("CA bundle", &["pem", "crt", "cer", "der"])
                         .pick_file()
-                    {
-                        self.state.verify.set_tsa_ca(&p.display().to_string());
-                        self.sync_option_entries();
-                    }
+                {
+                    self.state.verify.set_tsa_ca(&p.display().to_string());
+                    self.sync_option_entries();
                 }
             });
         });
@@ -1318,13 +1317,12 @@ impl HubApp {
                             v.set_sign_cert(&path);
                         }
                         #[cfg(windows)]
-                        if ui.button(&l_browse).clicked() {
-                            if let Some(f) = rfd::FileDialog::new()
+                        if ui.button(&l_browse).clicked()
+                            && let Some(f) = rfd::FileDialog::new()
                                 .add_filter("PKCS#12", &["p12", "pfx"])
                                 .pick_file()
-                            {
-                                v.set_sign_cert(&f.display().to_string());
-                            }
+                        {
+                            v.set_sign_cert(&f.display().to_string());
                         }
                         let _ = &l_browse;
                     });
