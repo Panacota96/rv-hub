@@ -337,7 +337,7 @@ impl HubState {
         self.audit("ui_tools_listed", json!({"tools": inventory}));
         if let Some(c) = &self.case {
             let dir = c.view.dir.clone();
-            self.case = Some(CaseModel::load(&dir, &self.tools));
+            self.case = Some(CaseModel::load(&dir, &self.tools, &self.evidence_dirs()));
         }
     }
 
@@ -538,7 +538,7 @@ impl HubState {
     }
 
     fn load_case(&mut self, dir: &Path) {
-        let model = CaseModel::load(dir, &self.tools);
+        let model = CaseModel::load(dir, &self.tools, &self.evidence_dirs());
         if model.is_case {
             self.settings.add_recent(dir);
             self.save_settings();
@@ -546,6 +546,38 @@ impl HubState {
         // The Verify tab follows the open case (its own field can still be changed).
         self.verify.case_dir = dir.display().to_string();
         self.case = Some(model);
+    }
+
+    /// Where the evidence copies are now (shared by the Case tab's suggestions and the Verify tab's re-hash).
+    pub fn evidence_dirs(&self) -> Vec<PathBuf> {
+        let d = self.verify.evidence_dir.trim();
+        if d.is_empty() {
+            vec![]
+        } else {
+            vec![PathBuf::from(d)]
+        }
+    }
+
+    /// The Case tab's "evidence copies in" field: also the Verify tab's (one value), and the open case's
+    /// suggestions are re-read with it. An empty text clears it; a folder that does not exist is refused.
+    pub fn set_evidence_dir(&mut self, text: &str) -> bool {
+        let text = text.trim().trim_matches('"');
+        if !text.is_empty() && !Path::new(text).is_dir() {
+            self.warn(self.trf("case_not_folder", &[("path", text)]));
+            return false;
+        }
+        if self.verify.evidence_dir == text {
+            return false;
+        }
+        self.audit(
+            "ui_case_evidence_dir_changed",
+            json!({"path": if text.is_empty() { Value::Null } else { json!(text) }}),
+        );
+        self.verify.set_evidence_dir(text);
+        if let Some(dir) = self.case_dir() {
+            self.case = Some(CaseModel::load(&dir, &self.tools, &self.evidence_dirs()));
+        }
+        true
     }
 
     /// Re-reads the open case. `by_user`: the Refresh button (audited); otherwise the window regained focus.
@@ -557,7 +589,7 @@ impl HubState {
                 json!({"case_dir": dir.display().to_string()}),
             );
         }
-        self.case = Some(CaseModel::load(&dir, &self.tools));
+        self.case = Some(CaseModel::load(&dir, &self.tools, &self.evidence_dirs()));
     }
 
     pub fn close_case(&mut self) {
@@ -716,6 +748,9 @@ pub const UI_KEYS: &[&str] = &[
     "folders_title",
     "add_folder",
     "add_folder_hint",
+    "tsa_ca",
+    "case_evidence_dir_hint",
+    "tsa_ca_hint",
     "add",
     "remove",
     "refresh",
@@ -1191,6 +1226,50 @@ mod tests {
             "a focus refresh is not a user action"
         );
         assert_eq!(snapshot(&case), before, "nothing written into the case");
+    }
+
+    #[test]
+    fn case_tab_evidence_dir_is_shared_with_verify_and_audited() {
+        let d = tempfile::tempdir().unwrap();
+        let case = sample_case(d.path());
+        let mut s = hub(d.path());
+        s.open_case(&case.display().to_string());
+        assert!(s.evidence_dirs().is_empty());
+        // A folder that does not exist is refused, not audited, and nothing changes.
+        assert!(!s.set_evidence_dir(&d.path().join("nowhere").display().to_string()));
+        assert!(s.verify.evidence_dir.is_empty());
+        let copies = d.path().join("copies");
+        std::fs::create_dir(&copies).unwrap();
+        let before = s.case.as_ref().map(|c| c.view.dir.clone());
+        assert!(s.set_evidence_dir(&format!("\"{}\"", copies.display())));
+        assert!(
+            !s.set_evidence_dir(&copies.display().to_string()),
+            "unchanged: no second entry"
+        );
+        assert_eq!(s.evidence_dirs(), vec![copies.clone()]);
+        // One value: the Verify tab's re-hash folder is the same, and its run records the change.
+        assert_eq!(s.verify.evidence_dir, copies.display().to_string());
+        assert!(
+            s.verify
+                .ui_actions
+                .iter()
+                .any(|(a, _)| a == "ui_evidence_dir_changed")
+        );
+        let audited: Vec<&Value> = s
+            .audit_trail
+            .iter()
+            .filter(|(a, _)| a == "ui_case_evidence_dir_changed")
+            .map(|(_, v)| v)
+            .collect();
+        assert_eq!(audited.len(), 1);
+        assert_eq!(audited[0]["path"], json!(copies.display().to_string()));
+        assert_eq!(
+            s.case.as_ref().map(|c| c.view.dir.clone()),
+            before,
+            "the open case was re-read, not closed"
+        );
+        assert!(s.set_evidence_dir(""));
+        assert!(s.evidence_dirs().is_empty());
     }
 
     #[test]

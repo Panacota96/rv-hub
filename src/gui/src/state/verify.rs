@@ -93,6 +93,9 @@ pub struct GuiState {
     pub evidence_dir: String,
     /// Ask each run's own tool to verify its logs (`--crosscheck auto`).
     pub crosscheck: bool,
+    /// CA bundle (`--tsa-ca`, PEM or DER) to validate the TSA certificate chain of every run's timestamp tokens.
+    /// Empty: the TSA signature is checked, the chain is not.
+    pub tsa_ca: String,
     pub selected: Vec<HashAlgo>,
     pub lang: String,
     pub out_dir: String,
@@ -127,6 +130,7 @@ impl Default for GuiState {
             rehash: false,
             evidence_dir: String::new(),
             crosscheck: true,
+            tsa_ca: String::new(),
             selected: vec![HashAlgo::Sha256],
             lang: "en".into(),
             out_dir: "rakvor-out".into(),
@@ -231,6 +235,17 @@ impl GuiState {
         }
     }
 
+    pub fn set_tsa_ca(&mut self, path: &str) {
+        let path = path.trim().trim_matches('"').to_string();
+        if self.tsa_ca != path {
+            self.tsa_ca = path.clone();
+            self.note(
+                "ui_tsa_ca_changed",
+                json!({"path": if path.is_empty() { Value::Null } else { json!(path) }}),
+            );
+        }
+    }
+
     /// GUI text in the interface language.
     pub fn tr(&self, key: &str) -> String {
         i18n::catalog(&self.ui_lang).ui(key)
@@ -314,10 +329,18 @@ impl GuiState {
         if !self.sign_cert.is_empty() && !std::path::Path::new(&self.sign_cert).is_file() {
             return Err(format!("Signing certificate not found: {}", self.sign_cert));
         }
+        if !self.tsa_ca.is_empty() {
+            if !std::path::Path::new(&self.tsa_ca).is_file() {
+                return Err(format!("TSA CA bundle not found: {}", self.tsa_ca));
+            }
+            // Read now, so an unreadable bundle is reported before the run starts (the CLI exits 1 for it).
+            rv_hub_core::trust::load_ca_bundle(std::path::Path::new(&self.tsa_ca))
+                .map_err(|e| format!("TSA CA bundle: {e}"))?;
+        }
         let case_id = Some(self.case_id.trim().to_string()).filter(|s| !s.is_empty());
         let mut preamble = self.ui_actions.clone();
         preamble.push(("ui_start_clicked".into(), json!({"algorithms": self.selected, "lang": self.lang, "rehash": self.rehash,
-            "crosscheck": self.crosscheck, "evidence_dir": self.evidence_dir, "jurisdiction": self.jurisdiction,
+            "crosscheck": self.crosscheck, "evidence_dir": self.evidence_dir, "tsa_ca": self.tsa_ca, "jurisdiction": self.jurisdiction,
             "timestamp": self.timestamp, "pdf_signing": !self.sign_cert.is_empty(), "case_dir": self.case_dir.trim(),
             "at_utc": rv_hub_core::time::utc_now()})));
         let settings = vec![
@@ -335,6 +358,14 @@ impl GuiState {
             format!(
                 "crosscheck={}",
                 if self.crosscheck { "auto" } else { "off" }
+            ),
+            format!(
+                "tsa_ca={}",
+                if self.tsa_ca.is_empty() {
+                    "none"
+                } else {
+                    self.tsa_ca.as_str()
+                }
             ),
             format!(
                 "hash={}",
@@ -396,6 +427,11 @@ impl GuiState {
                 Some(self.tsa_url.clone())
             } else {
                 None
+            },
+            tsa_ca: if self.tsa_ca.is_empty() {
+                None
+            } else {
+                Some(PathBuf::from(&self.tsa_ca))
             },
             sign_cert: if self.sign_cert.is_empty() {
                 None
@@ -628,6 +664,50 @@ mod tests {
             &tmp.join("case"),
         );
         tmp
+    }
+
+    #[test]
+    fn tsa_ca_reaches_the_run_and_a_missing_bundle_is_refused() {
+        let tmp = sample_copy("tsaca");
+        let mut s = GuiState::default();
+        s.set_case_dir(&tmp.join("case").display().to_string());
+        assert!(
+            s.to_config().unwrap().tsa_ca.is_none(),
+            "chain not checked by default"
+        );
+        s.set_tsa_ca(&format!("\"{}\"", tmp.join("missing.pem").display()));
+        assert!(
+            s.to_config()
+                .unwrap_err()
+                .contains("TSA CA bundle not found")
+        );
+        let bundle = tmp.join("tsa-roots.pem");
+        std::fs::write(&bundle, b"not a certificate").unwrap();
+        s.set_tsa_ca(&bundle.display().to_string());
+        assert!(s.to_config().unwrap_err().starts_with("TSA CA bundle: "));
+        std::fs::copy(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../tests/fixtures/tsa-chains/cases/ok_root_issues_tsa/anchors.pem"),
+            &bundle,
+        )
+        .unwrap();
+        let cfg = s.to_config().unwrap();
+        assert_eq!(cfg.tsa_ca, Some(bundle.clone()));
+        assert!(
+            cfg.command_line
+                .iter()
+                .any(|l| l == &format!("tsa_ca={}", bundle.display()))
+        );
+        let changes: Vec<_> = cfg
+            .preamble
+            .iter()
+            .filter(|(a, _)| a == "ui_tsa_ca_changed")
+            .collect();
+        assert_eq!(changes.len(), 2, "missing.pem, then tsa-roots.pem");
+        assert_eq!(changes[1].1["path"], json!(bundle.display().to_string()));
+        let start = &cfg.preamble.last().unwrap().1;
+        assert_eq!(start["tsa_ca"], json!(bundle.display().to_string()));
+        let _ = std::fs::remove_dir_all(&tmp);
     }
 
     #[test]
