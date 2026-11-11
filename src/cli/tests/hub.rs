@@ -2,6 +2,9 @@
 //! never writes, and launch refusal / success. The Windows-only signature outcomes are driven through the
 //! library (`rv_hub_cli::hub`) with the core's `StaticVerifier` and a recording `Spawner`.
 
+// Several helpers serve only the #[cfg(unix)] tests below; on Windows they are compiled but unused.
+#![cfg_attr(windows, allow(dead_code))]
+
 use assert_cmd::Command;
 use rv_hub_cli::hub::{self, Out};
 use rv_hub_core::launch::Spawner;
