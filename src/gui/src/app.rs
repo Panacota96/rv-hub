@@ -63,6 +63,8 @@ pub struct HubApp {
     folder_entry: String,
     verify_case_entry: String,
     case_evidence_entry: String,
+    verify_evidence_entry: String,
+    tsa_ca_entry: String,
 }
 
 /// Applies the Rakvor dark theme.
@@ -108,6 +110,8 @@ impl HubApp {
             .unwrap_or_default();
         let verify_case_entry = state.verify.case_dir.clone();
         let case_evidence_entry = state.verify.evidence_dir.clone();
+        let verify_evidence_entry = state.verify.evidence_dir.clone();
+        let tsa_ca_entry = state.verify.tsa_ca.clone();
         let mut app = HubApp {
             state,
             verifier,
@@ -123,6 +127,8 @@ impl HubApp {
             folder_entry: String::new(),
             verify_case_entry,
             case_evidence_entry,
+            verify_evidence_entry,
+            tsa_ca_entry,
         };
         if !app.state.discovered {
             app.state.discovering = true;
@@ -166,6 +172,36 @@ impl HubApp {
         }
         self.verify_case_entry = self.state.verify.case_dir.clone();
         self.case_evidence_entry = self.state.verify.evidence_dir.clone();
+        self.verify_evidence_entry = self.state.verify.evidence_dir.clone();
+        self.tsa_ca_entry = self.state.verify.tsa_ca.clone();
+    }
+
+    /// Applies (and so audits) text still being edited in the option fields. Called before the tab changes and
+    /// before a verification starts: a field that is no longer drawn never sees its focus loss.
+    fn commit_entries(&mut self) {
+        let norm = |t: &str| t.trim().trim_matches('"').to_string();
+        let v = &self.state.verify;
+        let (case_ev, verify_ev, tsa) = (
+            norm(&self.case_evidence_entry),
+            norm(&self.verify_evidence_entry),
+            norm(&self.tsa_ca_entry),
+        );
+        if case_ev != v.evidence_dir {
+            self.state.set_evidence_dir(&case_ev);
+        } else if verify_ev != v.evidence_dir {
+            self.state.verify.set_evidence_dir(&verify_ev);
+        }
+        if tsa != self.state.verify.tsa_ca {
+            self.state.verify.set_tsa_ca(&tsa);
+        }
+        self.sync_option_entries();
+    }
+
+    /// The option fields show the state again (after a commit, or a refused value).
+    fn sync_option_entries(&mut self) {
+        self.case_evidence_entry = self.state.verify.evidence_dir.clone();
+        self.verify_evidence_entry = self.state.verify.evidence_dir.clone();
+        self.tsa_ca_entry = self.state.verify.tsa_ca.clone();
     }
 
     // ---- workers ------------------------------------------------------------------------------------------
@@ -194,6 +230,7 @@ impl HubApp {
     }
 
     fn start_verify(&mut self, ctx: &egui::Context) {
+        self.commit_entries();
         let cfg: RunConfig = match self.state.verify_config() {
             Ok(c) => c,
             Err(e) => {
@@ -349,6 +386,7 @@ impl HubApp {
                     .stroke(egui::Stroke::new(1.0, if on { CYAN } else { EDGE }))
                     .min_size(egui::vec2(110.0, 28.0));
                 if ui.add(b).clicked() {
+                    self.commit_entries();
                     self.state.set_tab(t);
                 }
             }
@@ -891,13 +929,13 @@ impl HubApp {
             if r.lost_focus() {
                 let entry = self.case_evidence_entry.clone();
                 self.state.set_evidence_dir(&entry);
+                self.sync_option_entries();
             }
             #[cfg(windows)]
             if ui.button(self.state.tr("browse")).clicked() {
                 if let Some(p) = rfd::FileDialog::new().pick_folder() {
-                    self.case_evidence_entry = p.display().to_string();
-                    let entry = self.case_evidence_entry.clone();
-                    self.state.set_evidence_dir(&entry);
+                    self.state.set_evidence_dir(&p.display().to_string());
+                    self.sync_option_entries();
                 }
             }
         });
@@ -1063,22 +1101,25 @@ impl HubApp {
             ui.add_enabled_ui(self.state.verify.rehash, |ui| {
                 ui.horizontal(|ui| {
                     ui.label(self.state.tr("evidence_dir"));
-                    let mut d = self.state.verify.evidence_dir.clone();
                     let hint = self.state.tr("evidence_dir_hint");
                     let r = ui.add(
-                        egui::TextEdit::singleline(&mut d)
+                        egui::TextEdit::singleline(&mut self.verify_evidence_entry)
                             .hint_text(hint)
                             .desired_width(300.0),
                     );
+                    if !r.has_focus() && !r.lost_focus() {
+                        self.verify_evidence_entry = self.state.verify.evidence_dir.clone();
+                    }
                     if r.lost_focus() {
-                        self.state.verify.set_evidence_dir(&d);
-                    } else {
-                        self.state.verify.evidence_dir = d;
+                        let entry = self.verify_evidence_entry.clone();
+                        self.state.verify.set_evidence_dir(&entry);
+                        self.sync_option_entries();
                     }
                     #[cfg(windows)]
                     if ui.button(self.state.tr("browse")).clicked() {
                         if let Some(p) = rfd::FileDialog::new().pick_folder() {
                             self.state.verify.set_evidence_dir(&p.display().to_string());
+                            self.sync_option_entries();
                         }
                     }
                 });
@@ -1089,17 +1130,19 @@ impl HubApp {
             }
             ui.horizontal(|ui| {
                 ui.label(self.state.tr("tsa_ca"));
-                let mut c = self.state.verify.tsa_ca.clone();
                 let hint = self.state.tr("tsa_ca_hint");
                 let r = ui.add(
-                    egui::TextEdit::singleline(&mut c)
+                    egui::TextEdit::singleline(&mut self.tsa_ca_entry)
                         .hint_text(hint)
                         .desired_width(300.0),
                 );
+                if !r.has_focus() && !r.lost_focus() {
+                    self.tsa_ca_entry = self.state.verify.tsa_ca.clone();
+                }
                 if r.lost_focus() {
-                    self.state.verify.set_tsa_ca(&c);
-                } else {
-                    self.state.verify.tsa_ca = c;
+                    let entry = self.tsa_ca_entry.clone();
+                    self.state.verify.set_tsa_ca(&entry);
+                    self.sync_option_entries();
                 }
                 #[cfg(windows)]
                 if ui.button(self.state.tr("browse")).clicked() {
@@ -1108,6 +1151,7 @@ impl HubApp {
                         .pick_file()
                     {
                         self.state.verify.set_tsa_ca(&p.display().to_string());
+                        self.sync_option_entries();
                     }
                 }
             });
@@ -1483,5 +1527,102 @@ fn open_path(p: &Path) {
 impl eframe::App for HubApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         self.draw(ui);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rv_hub_core::signature::StaticVerifier;
+
+    fn app(root: &Path) -> HubApp {
+        let mut state = HubState::new(vec![root.join("hub-data")], "Examiner Test");
+        state.apply_discovery(vec![]);
+        HubApp::from_parts(
+            state,
+            Box::new(StaticVerifier::always(SignatureStatus::Unsigned)),
+            Box::new(DetachedSpawner),
+        )
+    }
+
+    fn verify_actions(a: &HubApp) -> Vec<String> {
+        a.state
+            .verify
+            .ui_actions
+            .iter()
+            .map(|(x, _)| x.clone())
+            .collect()
+    }
+
+    /// A field that is no longer drawn never sees its focus loss: switching tabs (or starting) applies it.
+    #[test]
+    fn edits_still_in_a_field_are_applied_and_audited_before_the_tab_changes() {
+        let d = tempfile::tempdir().unwrap();
+        let copies = d.path().join("copies");
+        std::fs::create_dir(&copies).unwrap();
+        let mut a = app(d.path());
+
+        a.tsa_ca_entry = "C:\\certs\\tsa-roots.pem".into();
+        a.commit_entries();
+        assert_eq!(a.state.verify.tsa_ca, "C:\\certs\\tsa-roots.pem");
+        a.tsa_ca_entry.clear();
+        a.commit_entries();
+        assert!(
+            a.state.verify.tsa_ca.is_empty(),
+            "clearing the field is applied too"
+        );
+        assert_eq!(
+            verify_actions(&a)
+                .iter()
+                .filter(|x| *x == "ui_tsa_ca_changed")
+                .count(),
+            2,
+            "every change of the trust roots is audited"
+        );
+
+        a.verify_evidence_entry = format!("\"{}\"", copies.display());
+        a.commit_entries();
+        assert_eq!(a.state.verify.evidence_dir, copies.display().to_string());
+        assert!(verify_actions(&a).contains(&"ui_evidence_dir_changed".to_string()));
+        assert_eq!(
+            a.case_evidence_entry,
+            copies.display().to_string(),
+            "the Case tab shows the new value"
+        );
+
+        // Nothing pending: committing again changes and records nothing.
+        let n = a.state.verify.ui_actions.len();
+        a.commit_entries();
+        assert_eq!(a.state.verify.ui_actions.len(), n);
+    }
+
+    #[test]
+    fn case_tab_evidence_edit_is_applied_and_a_stale_buffer_never_reverts_it() {
+        let d = tempfile::tempdir().unwrap();
+        let (one, two) = (d.path().join("one"), d.path().join("two"));
+        std::fs::create_dir(&one).unwrap();
+        std::fs::create_dir(&two).unwrap();
+        let mut a = app(d.path());
+        a.case_evidence_entry = one.display().to_string();
+        a.commit_entries();
+        assert_eq!(a.state.verify.evidence_dir, one.display().to_string());
+        assert!(
+            a.state
+                .audit_trail
+                .iter()
+                .any(|(x, _)| x == "ui_case_evidence_dir_changed")
+        );
+        // The Verify tab changes it (focus loss there resyncs every buffer) ...
+        a.verify_evidence_entry = two.display().to_string();
+        a.commit_entries();
+        // ... and a later commit does not bring back the Case tab's earlier text.
+        a.commit_entries();
+        assert_eq!(a.state.verify.evidence_dir, two.display().to_string());
+        assert_eq!(a.case_evidence_entry, two.display().to_string());
+        // A folder that does not exist is refused and the field shows the current value again.
+        a.case_evidence_entry = d.path().join("nowhere").display().to_string();
+        a.commit_entries();
+        assert_eq!(a.state.verify.evidence_dir, two.display().to_string());
+        assert_eq!(a.case_evidence_entry, two.display().to_string());
     }
 }
