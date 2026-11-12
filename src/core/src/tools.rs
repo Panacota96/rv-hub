@@ -5,17 +5,17 @@
 //! 1. the uninstall registry keys `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\{AppId}_is1` of the
 //!    known AppIds ([`APP_IDS`], Windows only): `InstallLocation`, `DisplayVersion`;
 //! 2. `%LOCALAPPDATA%\Programs\Rakvor\*\rv-*.exe` (the per-user install folder of every Rakvor installer);
-//! 3. `PATH` (the five known tools only: nothing else named `rv-*` is ever executed);
+//! 3. `PATH` (the six known tools only: nothing else named `rv-*` is ever executed);
 //! 4. folders the user added (portable zips, a USB stick): the folder and its direct subfolders.
 //!
-//! A program named `rv-*` that is not one of the five known tools is run (`describe`) only when it was found in a
+//! A program named `rv-*` that is not one of the six known tools is run (`describe`) only when it was found in a
 //! folder the user added, or is Rakvor-signed (Windows): from sources 1–3 on a system where signatures cannot be
 //! checked, it is neither run nor listed. RV Hub never runs itself.
 //!
 //! `describe --json` runs with a time limit, and only for executables that are Rakvor-signed (or where the
 //! signature cannot be checked, i.e. not Windows): an executable signed by someone else is never run by the hub.
 //! When `describe` is absent (tool versions before it), fails, or reports another schema, the built-in table of
-//! the five tools is used and the inventory says so (`describe_source: builtin`, version unknown).
+//! the six tools is used and the inventory says so (`describe_source: builtin`, version unknown).
 
 use crate::hash::{HashAlgo, hash_reader};
 use crate::signature::{SignatureStatus, SignatureVerifier};
@@ -29,13 +29,14 @@ pub const SCHEMA_DESCRIBE: &str = "rakvor.describe/1";
 /// Log chains a tool may declare in `log_formats`.
 pub const LOG_AUDIT: &str = "rakvor.audit/1";
 pub const LOG_REVIEW: &str = "rakvor.review/1";
-/// The five tools RV Hub coordinates (CLI names without extension).
-pub const KNOWN_TOOLS: [&str; 5] = [
+/// The six tools RV Hub coordinates (CLI names without extension). The order is the order of the suggestions.
+pub const KNOWN_TOOLS: [&str; 6] = [
     "rv-hashinv",
     "rv-pdfauth",
     "rv-imgauth",
     "rv-rsmf",
     "rv-certcheck",
+    "rv-mailauth",
 ];
 pub const DEFAULT_DESCRIBE_TIMEOUT: Duration = Duration::from_secs(10);
 
@@ -89,7 +90,7 @@ pub struct KnownAppId {
 /// key names whichever of the two was installed last: the tool is identified by the executables in its
 /// InstallLocation, and a warning is attached. `{04A0C3C3-…}` is rv-imgauth's corrected AppId (plan §0.3, from
 /// 0.2.1). Tools installed under any other key are still found in `%LOCALAPPDATA%\Programs\Rakvor`.
-pub const APP_IDS: [KnownAppId; 5] = [
+pub const APP_IDS: [KnownAppId; 6] = [
     KnownAppId {
         app_id: "{6D3F3B0E-5B7A-4B2C-9E61-2A1C7D4E9F10}",
         tool: Some("rv-hashinv"),
@@ -116,6 +117,11 @@ pub const APP_IDS: [KnownAppId; 5] = [
     KnownAppId {
         app_id: "{32343DE5-B0E4-4454-8A42-A5CF82EEC9BF}",
         tool: Some("rv-certcheck"),
+        warning: None,
+    },
+    KnownAppId {
+        app_id: "{0D5428B0-B438-4B0F-804F-C48582CC8A7B}",
+        tool: Some("rv-mailauth"),
         warning: None,
     },
 ];
@@ -380,6 +386,19 @@ pub fn builtin(tool: &str) -> Option<Describe> {
                 sig("pem", &[(0, "2d2d2d2d2d424547494e")]),
             ],
             &[LOG_AUDIT],
+        ),
+        // .eml has no fixed signature: the suggestions also recognise it by its header block
+        // (`suggest::looks_like_email`).
+        "rv-mailauth" => (
+            "RV MailAuth",
+            ToolRole::Analysis,
+            "analyze",
+            &["eml", "mbox", "msg"],
+            vec![
+                sig("msg", &[(0, "d0cf11e0a1b11ae1")]),
+                sig("mbox", &[(0, "46726f6d20")]),
+            ],
+            &[LOG_AUDIT, LOG_REVIEW],
         ),
         _ => return None,
     };
@@ -886,7 +905,8 @@ mod tests {
         assert!(builtin("rv-hashinv").unwrap().accepts.any());
         assert!(!builtin("rv-rsmf").unwrap().accepts.any());
         assert!(builtin("rv-other").is_none());
-        assert_eq!(catalog(&[]).len(), 5);
+        assert_eq!(catalog(&[]).len(), KNOWN_TOOLS.len());
+        assert_eq!(catalog(&[]).len(), 6);
         assert_eq!(img.version, None);
         let cert = builtin("rv-certcheck").unwrap();
         assert_eq!(
@@ -901,6 +921,83 @@ mod tests {
         assert!(cert.accepts.matches_content(b"\x30\x82\x03\x10"));
         assert!(cert.accepts.matches_content(b"-----BEGIN CERTIFICATE-----"));
         assert!(!cert.accepts.matches_content(b"%PDF-1.7"));
+        let mail = builtin("rv-mailauth").unwrap();
+        assert_eq!(
+            (mail.title.as_str(), mail.role, mail.main_verb.as_str()),
+            ("RV MailAuth", ToolRole::Analysis, "analyze")
+        );
+        assert_eq!(
+            (mail.cli_exe.as_str(), mail.gui_exe.as_str()),
+            ("rv-mailauth.exe", "rv-mailauth-gui.exe")
+        );
+        assert_eq!(mail.log_formats, [LOG_AUDIT, LOG_REVIEW]);
+        for name in ["a.eml", "b.MSG", "c.mbox"] {
+            assert!(mail.accepts.matches_extension(name), "{name}");
+        }
+        assert!(!mail.accepts.matches_extension("d.txt"));
+        assert!(
+            mail.accepts
+                .matches_content(b"\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1\0\0")
+        );
+        assert!(
+            mail.accepts
+                .matches_content(b"From alice@example.org Thu Oct 15 09:00:00 2026\n")
+        );
+        assert!(!mail.accepts.matches_content(b"Fro"));
+        // rv-mailauth's verify-log checks truncation: it is compared with the full verdict.
+        assert!(!verify_log_lacks_truncation_check("rv-mailauth", None));
+        assert!(APP_IDS.iter().any(|k| k.tool == Some("rv-mailauth")
+            && k.app_id == "{0D5428B0-B438-4B0F-804F-C48582CC8A7B}"));
+    }
+
+    /// A known tool on PATH is found on every platform. Here `rv-mailauth` is not a real program: `describe`
+    /// cannot run, so the built-in table describes it (version unknown), and its GUI is found next to it.
+    #[test]
+    fn mailauth_on_path_is_found_and_described_from_the_builtin_table() {
+        let d = tempfile::tempdir().unwrap();
+        let bin = d.path().join("bin");
+        std::fs::create_dir_all(&bin).unwrap();
+        let s = std::env::consts::EXE_SUFFIX;
+        for n in ["rv-mailauth", "rv-mailauth-gui", "rv-mailtool"] {
+            std::fs::write(bin.join(format!("{n}{s}")), b"not a program").unwrap();
+        }
+        let opts = DiscoverOptions {
+            registry: vec![],
+            local_programs: None,
+            path_dirs: vec![bin.clone()],
+            user_folders: vec![],
+            describe_timeout: Duration::from_millis(2000),
+            describe_untrusted: false,
+        };
+        let tools = discover(
+            &opts,
+            &crate::signature::StaticVerifier::always(SignatureStatus::NotChecked {
+                reason: "test".into(),
+            }),
+        );
+        // rv-mailtool is not a known name: never listed from PATH.
+        assert_eq!(tools.len(), 1, "{tools:#?}");
+        let t = &tools[0];
+        assert_eq!(
+            (t.tool.as_str(), t.title.as_str()),
+            ("rv-mailauth", "RV MailAuth")
+        );
+        assert_eq!(t.sources, vec![Source::Path]);
+        assert_eq!(t.describe_source, DescribeSource::Builtin);
+        assert!(matches!(
+            t.describe_problem,
+            Some(DescribeProblem::Failed(_))
+        ));
+        assert_eq!(t.version, None);
+        assert!(
+            t.gui_exe
+                .as_ref()
+                .unwrap()
+                .ends_with(format!("rv-mailauth-gui{s}"))
+        );
+        assert_eq!(t.cli_sha256.as_ref().unwrap().len(), 64);
+        assert!(t.describe.accepts.matches_extension("x.eml"));
+        assert!(catalog(&tools).iter().any(|c| c.tool == "rv-mailauth"));
     }
 
     #[test]

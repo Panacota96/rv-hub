@@ -1,5 +1,5 @@
-//! RV Hub core library: the main app of the five Rakvor DFIR tools (rv-hashinv, rv-pdfauth, rv-imgauth,
-//! rv-rsmf, rv-certcheck). The core does all the work and never prints: front-ends (CLI, GUI) call it and render what it
+//! RV Hub core library: the main app of the six Rakvor DFIR tools (rv-hashinv, rv-pdfauth, rv-imgauth,
+//! rv-rsmf, rv-certcheck, rv-mailauth). The core does all the work and never prints: front-ends (CLI, GUI) call it and render what it
 //! returns, or the [`events::Event`] stream of [`run::run`].
 //!
 //! Public API (frozen for the CLI and GUI; see docs/architecture.md):

@@ -513,6 +513,8 @@
     "images_not_analysed": "Hay imágenes registradas (JPEG, PNG, HEIC, WebP) que aún no se han analizado.",
     "chats_not_converted": "Hay exportaciones de chat registradas que aún no se han convertido a RSMF.",
     "certs_not_analysed": "Los certificados, CRL o sellos de tiempo registrados aún no han sido analizados.",
+    "mail_not_analysed": "Hay correos electrónicos registrados (.eml, .mbox, .msg de Outlook) que aún no se han analizado.",
+    "msg_ambiguous": "Hay archivos .msg de Outlook registrados cuya clase de mensaje no se pudo leer o no es ni un correo ni un mensaje de Teams: ábralos con RV MailAuth si son correos, con RV RSMF si son mensajes de Teams.",
     "not_examined": "Hay elementos registrados que esta herramienta acepta y que aún no ha examinado.",
     "timestamp_pending": "Algunas ejecuciones esperan aún su sello de tiempo: ejecute `timestamp` cuando haya conexión."
   }

@@ -513,6 +513,8 @@
     "images_not_analysed": "Registered images (JPEG, PNG, HEIC, WebP) have not been analysed yet.",
     "chats_not_converted": "Registered chat exports have not been converted to RSMF yet.",
     "certs_not_analysed": "Registered certificates, CRLs or timestamp tokens have not been analysed yet.",
+    "mail_not_analysed": "Registered emails (.eml, .mbox, Outlook .msg) have not been analysed yet.",
+    "msg_ambiguous": "Registered Outlook .msg files whose message class could not be read, or is neither an email nor a Teams message: open them with RV MailAuth if they are emails, with RV RSMF if they are Teams messages.",
     "not_examined": "Registered items this tool accepts have not been examined by it yet.",
     "timestamp_pending": "Some runs are still waiting for their trusted timestamp: run `timestamp` when online."
   }
