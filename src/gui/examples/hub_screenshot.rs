@@ -3,8 +3,8 @@
 //!     cargo run -p rv-hub-gui --example hub_screenshot -- docs/images/hub-tools.png tools [en|es|fr]
 //!     cargo run -p rv-hub-gui --example hub_screenshot -- docs/images/hub-case.png case [en|es|fr]
 //!
-//! The discovery is faked: the six Rakvor tools at their released versions (rv-hashinv 0.3.1, rv-pdfauth 0.3.0,
-//! rv-rsmf 0.2.0, rv-imgauth 0.2.0, rv-certcheck 0.2.0, rv-mailauth 0.1.0), all Rakvor-signed except one unsigned portable copy of
+//! The discovery is faked: the six Rakvor tools at their released versions (rv-hashinv 0.4.1, rv-pdfauth 0.4.1,
+//! rv-rsmf 0.3.1, rv-imgauth 0.3.1, rv-certcheck 0.2.2, rv-mailauth 0.2.0, its first release), all Rakvor-signed except one unsigned portable copy of
 //! rv-imgauth, to show the amber badge. The Case tab shows a copy of `examples/sample/case`. A few egui frames run, then egui's tessellated meshes are rasterised on the CPU
 //! (textured triangles, premultiplied alpha), so the picture is what the window draws, minus the GPU.
 #![forbid(unsafe_code)]
@@ -58,42 +58,42 @@ fn released_tools() -> Vec<ToolInfo> {
             &p("RV HashInv"),
             "rv-hashinv",
             signed.clone(),
-            "0.3.1",
+            "0.4.1",
             reg("rv-hashinv"),
         ),
         preview_tool(
             &p("RV PDFAuth"),
             "rv-pdfauth",
             signed.clone(),
-            "0.3.0",
+            "0.4.1",
             Source::LocalPrograms,
         ),
         preview_tool(
             &p("RV RSMF"),
             "rv-rsmf",
             signed.clone(),
-            "0.2.0",
+            "0.3.1",
             reg("rv-rsmf"),
         ),
         preview_tool(
-            std::path::Path::new(r"E:\rakvor-portable\rv-imgauth-0.2.0"),
+            std::path::Path::new(r"E:\rakvor-portable\rv-imgauth-0.3.1"),
             "rv-imgauth",
             SignatureStatus::Unsigned,
-            "0.2.0",
+            "0.3.1",
             Source::UserFolder,
         ),
         preview_tool(
             &p("RV CertCheck"),
             "rv-certcheck",
             signed.clone(),
-            "0.2.0",
+            "0.2.2",
             reg("rv-certcheck"),
         ),
         preview_tool(
             &p("RV MailAuth"),
             "rv-mailauth",
             signed,
-            "0.1.0",
+            "0.2.0",
             reg("rv-mailauth"),
         ),
     ];
