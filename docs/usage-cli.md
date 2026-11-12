@@ -30,7 +30,7 @@ flowchart LR
 
 ```text
 RV Hub, the main app of the Rakvor tools (rv-hashinv, rv-pdfauth, rv-imgauth, rv-rsmf,
-rv-certcheck). Everything the desktop app does can be done here, without a display:
+rv-certcheck, rv-mailauth). Everything the desktop app does can be done here, without a display:
   verify    verify a whole case folder and cross-check each run with its own tool (main verb)
   tools     list the installed tools with their version, source and signature
   case      read-only summary of a case folder, with suggested next steps
@@ -71,8 +71,8 @@ DESCRIPTION:
     1. the case log (case-log.jsonl): hash chain, case.json and the evidence-registry digest;
     2. every run folder runs/<TOOL>/<RUN-ID>:
        - its audit log (logs/audit.jsonl): hash chain, no edited, deleted or re-ordered entry;
-       - its review log (logs/review.jsonl, rv-imgauth), when present: chain and anchor to
-         the run's run_finished entry;
+       - its review log (logs/review.jsonl, rv-imgauth, rv-mailauth), when present: chain
+         and anchor to the run's run_finished entry;
        - its links with the case log: case_linked <-> run_started, and the audit head that the
          case log recorded at run_finished (a run folder the case log never announced is a
          finding);
@@ -297,7 +297,7 @@ DESCRIPTION:
   signature status and folder. Tools are found, in this order, in:
     - the Windows uninstall registry (the tools' installer AppIds; source "registry");
     - %LOCALAPPDATA%\Programs\Rakvor\<tool>\ (source "install folder");
-    - the folders of PATH (the five known tools only; source "PATH");
+    - the folders of PATH (the six known tools only; source "PATH");
     - the folders given with --add-folder, and their subfolders (source "folder").
   Another program named rv-* is run only from an --add-folder folder, or when it is
   Rakvor-signed (so never from the registry, install folder or PATH where signatures cannot be
@@ -393,7 +393,11 @@ DESCRIPTION:
       should still examine which registered items (by extension or first bytes, using each
       installed tool's `describe`, else the built-in table), and runs whose timestamp is
       pending. A .txt file is suggested to rv-rsmf only when its content is a WhatsApp export
-      (a line like "12/03/26, 09:14 - Name: ..." or "[12/03/26 09:14:05] Name: ..."). An
+      (a line like "12/03/26, 09:14 - Name: ..." or "[12/03/26 09:14:05] Name: ..."). Emails
+      (.eml or a From:/Date: header block, .mbox or a first line "From <sender> <date>") go to
+      rv-mailauth. An Outlook .msg goes by its message class (PR_MESSAGE_CLASS): IPM.Note* to
+      rv-mailauth, IPM.SkypeTeams.* (Teams, Purview) to rv-rsmf; when the class cannot be read
+      or is another one, both are suggested ("msg_ambiguous"). An
       item counts as examined by a tool only through a completed run (a failed, cancelled or
       unfinished run does not). Evidence files are read at their registered path, else by file
       name in the --evidence-dir folders.
@@ -478,8 +482,8 @@ Usage: rv-hub launch [OPTIONS] --case-dir <DIR> <TOOL>
 
 Arguments:
   <TOOL>
-          The tool to open: rv-hashinv, rv-pdfauth, rv-imgauth, rv-rsmf or rv-certcheck (or another
-          rv-* tool found in an added folder). Required.
+          The tool to open: rv-hashinv, rv-pdfauth, rv-imgauth, rv-rsmf, rv-certcheck or rv-mailauth
+          (or another rv-* tool found in an added folder). Required.
           
           Default: none. Example: rv-pdfauth
 
@@ -585,8 +589,9 @@ CHECKS:
     CA flag, keyCertSign, pathLenConstraint, directoryName name constraints, no unsupported
     critical extension); without it the output says "chain not checked". Revocation is
     never checked: establish it from CRL/OCSP evidence covering genTime;
-  - review.jsonl in the same folder (viewing after the run, written by rv-imgauth), when present,
-    is an intact chain anchored to the run's run_finished entry ("review entries: N");
+  - review.jsonl in the same folder (viewing after the run, written by rv-imgauth and
+    rv-mailauth), when present, is an intact chain anchored to the run's run_finished entry
+    ("review entries: N");
   - truncation: a chain alone cannot show that entries were removed from its end. The log must
     still contain the entry covered by its RFC 3161 timestamp (covers_seq) and, for a run inside
     a case folder (<CASE>/runs/<TOOL>/<RUN-ID>/logs), end with the audit head that the case log
