@@ -4,7 +4,7 @@ One engine, two front-ends. The engine (`src/core`, crate `rv_hub_core`) does al
 CLI and the GUI turn user input into calls of its public API and render what it returns (for the main verb, the
 `Event` stream). Both interfaces therefore produce identical logs and reports.
 
-RV Hub is the main app of the five Rakvor tools (rv-hashinv, rv-pdfauth, rv-imgauth, rv-rsmf, rv-certcheck). Each tool stays a
+RV Hub is the main app of the six Rakvor tools (rv-hashinv, rv-pdfauth, rv-imgauth, rv-rsmf, rv-certcheck, rv-mailauth). Each tool stays a
 separate signed program; the hub discovers them, checks their signatures, launches them on a case folder, shows a
 read-only case dashboard with next-step suggestions, and verifies the whole case.
 
@@ -54,7 +54,7 @@ The CLI and GUI stages code against these modules and types only.
 | `launch` | `launch(&mut Session, &ToolInfo, case_dir, confirm_untrusted) -> Result<Launched, LaunchError>`, `launch_with(…, verifier, spawner)`, `launch_without_case(&mut Session, &ToolInfo, confirm_untrusted)`, `launch_without_case_with(…, verifier, spawner)` (no arguments; `tool_launched` with `case_dir: null`) | `Launched`, `LaunchError`, `Spawner`, `DetachedSpawner` |
 | `session` | `Session::start(data_dir, actor, frontend, args)`, `Session::start_default(…)`, `Session::record(action, details)`, `data_dir()` | `Session` |
 | `case_view` | `read_case(dir) -> CaseView` | `CaseView`, `EvidenceRow`, `RunRow`, `RunStatus`, `TimestampStatus`, `SeverityTotals` |
-| `suggest` | `suggest(&CaseView, &[Describe]) -> Vec<Suggestion>`, `accepts(…)`, `looks_like_chat(…)` | `Suggestion`, `Action { Launch, Timestamp }` |
+| `suggest` | `suggest(&CaseView, &[Describe]) -> Vec<Suggestion>`, `suggest_with(…)`, `accepts(…)`, `looks_like_whatsapp(…)`, `looks_like_email(…)`, `looks_like_mbox(…)`, `read_message_class(…)`, `msg_kind(…)` | `Suggestion`, `Action { Launch, Timestamp }` |
 | `run` | `run(&RunConfig, &mut sink, &AtomicBool) -> Result<RunSummary, CaseError>`, `preflight(&RunConfig)` | `RunConfig`, `RunSummary`, `CrossCheckMode { Auto, Off }` |
 | `findings` | `Finding::of(code)`, `severity_of(code)` | `Finding`, `Severity`, consts `CODES`, `LIMITATIONS` |
 | `report` | (written by `run`) | `Item`, `ItemKind`, `Verdict`, `CrossCheck`, `Tally`, `CaseInfo` |
@@ -151,8 +151,8 @@ sequenceDiagram
 ```
 
 Run items carry two verdicts. **Full** is exactly `verify::verify_log` (chain, timestamp tokens, review log and
-truncation against the timestamp and the case log): what rv-hashinv, rv-rsmf and rv-certcheck's `verify-log`
-answer. **Chain** leaves out the truncation check against the case log: what rv-pdfauth and rv-imgauth's current
+truncation against the timestamp and the case log): what rv-hashinv, rv-rsmf, rv-certcheck and rv-mailauth's
+`verify-log` answer. **Chain** leaves out the truncation check against the case log: what rv-pdfauth and rv-imgauth's current
 `verify-log` answer ([rv-hub#21](https://github.com/Panacota96/rv-hub/issues/21)). The cross-check accepts the
 tool's verdict when it equals the full one, or, for rv-pdfauth and rv-imgauth only (no truncation check), the
 chain-only one; anything else is `TOOL_VERIFY_DISAGREES` (high). The hub's own findings never depend on the tool,
@@ -192,7 +192,10 @@ hash they cover (`trust::verify_timestamps`), not for the TSA's CMS signature.
 `case.json`, the registry, the case log (runs in order, then unannounced run folders), each run's audit log
 (timestamp status) and `reports/statistics.json` (findings by severity, examined evidence ids).
 `suggest::suggest` applies the table in `suggest.rs` using each tool's `accepts` (describe or built-in), reading
-at most the first few kilobytes of an evidence file, read-only, and only when it exists.
+at most the first few kilobytes of an evidence file, read-only, and only when it exists. For an Outlook `.msg` (or
+any compound file) it also reads the MAPI message class with the `cfb` crate, read-only, to choose between
+rv-mailauth (email) and rv-rsmf (Teams), or to suggest both when the class is unreadable
+([theory.md B10](theory.md#b10-the-dashboard-and-the-suggestion-rules)).
 
 ## GUI state
 

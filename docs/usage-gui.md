@@ -24,7 +24,8 @@ flowchart LR
 ![Tools tab](images/hub-tools.png)
 
 One card per tool found in the installed programs, `%LOCALAPPDATA%\Programs\Rakvor`, the `PATH` and the folders you
-add. A known tool that is not found is shown dimmed as *not installed*. Each card shows the version, where it was
+add. A known tool (rv-hashinv, rv-pdfauth, rv-imgauth, rv-rsmf, rv-certcheck, rv-mailauth) that is not found is
+shown dimmed as *not installed*. Each card shows the version, where it was
 found, the install path and the signature badge of the GUI executable:
 
 | Badge | Meaning | Launch |
@@ -57,7 +58,7 @@ you are asked again or the launch is refused (refresh the list).
 - **Findings by severity** over all runs, and any **problems** reading the folder.
 - **Evidence copies in** (optional): the folder where the evidence is now, when it is no longer at its registered
   path. Suggestions that depend on a file's content (a `.txt` that is a WhatsApp export, a file whose content is
-  a PDF or an image) look for it there by file name, as `rv-hub case --evidence-dir` does. It is the same value as
+  a PDF, an image or an email, an Outlook `.msg` whose message class says email or Teams) look for it there by file name, as `rv-hub case --evidence-dir` does. It is the same value as
   the Verify tab's re-hash folder; a folder that does not exist is refused.
 - **Suggested next steps**, each with its reason and a one-click button that opens the suggested tool on the case.
 
