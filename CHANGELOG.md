@@ -18,6 +18,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
   cannot be read or is another one (`msg_ambiguous`). A compound file that is not a message (`.doc`, `.xls`) is no
   longer suggested to rv-rsmf.
 
+## [0.4.0](https://github.com/Panacota96/rv-hub/compare/v0.3.0...v0.4.0) (2026-11-12)
+
+
+### Features
+
+* **cli:** list rv-mailauth in the help and document the .msg rule ([094cc6a](https://github.com/Panacota96/rv-hub/commit/094cc6a380caf31f6685e6771f06c1a8c0aad3b5))
+* **core:** add RV MailAuth as a known tool and route .msg by message class ([0c9aa7f](https://github.com/Panacota96/rv-hub/commit/0c9aa7fee6f86fe8404c90694e02c6b9e7c13cea))
+* RV MailAuth in RV Hub, and .msg routed by message class ([1d17d11](https://github.com/Panacota96/rv-hub/commit/1d17d1144351ba20c539d102844f7a3384e792a6))
+
 ## [0.3.0](https://github.com/Panacota96/rv-hub/compare/v0.2.1...v0.3.0) (2026-11-11)
 
 
