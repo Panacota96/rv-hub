@@ -43,7 +43,7 @@ The sample in [`examples/sample/case/`](../examples/README.md) is a real case fo
 
 | Command | Reads | Never |
 | --- | --- | --- |
-| `rv-hub case`, Case tab | `case.json`, `case-log.jsonl` (with a quick chain check), `evidence/registry.json`, each run's `logs/audit.jsonl` and `reports/statistics.json`; up to 4 KiB of each evidence file at its registered path (or by file name in `--evidence-dir`), to recognise its type for the suggestions | writes anything, anywhere (not even the session log) |
+| `rv-hub case`, Case tab | `case.json`, `case-log.jsonl` (with a quick chain check), `evidence/registry.json`, each run's `logs/audit.jsonl` and `reports/statistics.json`; up to 4 KiB of each evidence file at its registered path (or by file name in `--evidence-dir`), and the message class of an Outlook `.msg`, to recognise its type for the suggestions | writes anything, anywhere (not even the session log) |
 | `rv-hub verify`, Verify tab | all of the above, every `logs/` folder (`audit.jsonl`, `review.jsonl`, `timestamp-*`, any other `*.jsonl`), and with `--rehash` every registered evidence file in full | opens a case file for writing, except the case log (append) |
 | `rv-hub launch`, Launch buttons | whether `case.json` exists | reads or writes anything else in the case; the launched tool does its own work |
 
@@ -78,7 +78,7 @@ The rules:
 | Role | Tools | In the case |
 | --- | --- | --- |
 | intake | rv-hashinv | creates `case.json` and the case log; registers evidence; the only role that may open a folder without `case.json` |
-| analysis | rv-pdfauth, rv-imgauth, rv-certcheck, **and RV Hub** (`CASE_ROLE`) | re-hashes registered items and compares them with the registry; links its run |
+| analysis | rv-pdfauth, rv-imgauth, rv-certcheck, rv-mailauth, **and RV Hub** (`CASE_ROLE`) | re-hashes registered items and compares them with the registry; links its run |
 | conversion | rv-rsmf | like analysis, and writes derived files (RSMF) in its own run folder |
 
 The hub is recorded as an analysis tool because `rakvor.describe/1` and the case log have no "hub" role; its

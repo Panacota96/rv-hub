@@ -5,6 +5,19 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Entries are generated from
 [Conventional Commits](https://www.conventionalcommits.org/) by release-please and reviewed by a human.
 
+## Unreleased
+
+### Features
+
+* **core:** RV MailAuth (`rv-mailauth`, email authenticity signals for `.eml`, Outlook `.msg`, `.mbox`) is the sixth
+  known tool: discovery (installer AppId `{0D5428B0-B438-4B0F-804F-C48582CC8A7B}`, install folder, PATH), signature
+  check, launch, built-in description, review-log check.
+* **core:** suggestions: registered emails not yet analysed go to rv-mailauth (`mail_not_analysed`; `.eml` by
+  extension or header block, `.mbox` by extension or separator line). An Outlook `.msg` goes by its MAPI message
+  class (read-only, `cfb` crate): `IPM.Note*` to rv-mailauth, `IPM.SkypeTeams.*` to rv-rsmf, both when the class
+  cannot be read or is another one (`msg_ambiguous`). A compound file that is not a message (`.doc`, `.xls`) is no
+  longer suggested to rv-rsmf.
+
 ## [0.3.0](https://github.com/Panacota96/rv-hub/compare/v0.2.1...v0.3.0) (2026-11-11)
 
 

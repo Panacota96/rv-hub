@@ -116,7 +116,11 @@ Suggested next steps:
 
 The numbers come from the tools' own `statistics.json`, as they are: this is a summary, not a verification. A
 suggestion is a prompt, not a finding. Only completed runs count as having examined an item. A `.txt` file is
-suggested to rv-rsmf only when its content is a WhatsApp export; when the evidence is no longer at its registered
+suggested to rv-rsmf only when its content is a WhatsApp export. Emails (`.eml`, `.mbox`, or a file that starts
+with an email header block) are suggested to rv-mailauth. An Outlook `.msg` goes by its message class: an email
+(`IPM.Note…`) to rv-mailauth, a Teams message exported by Purview (`IPM.SkypeTeams.…`) to rv-rsmf; when the class
+cannot be read (a damaged or missing file) or is another one, both are suggested with the reason "the file type is
+ambiguous" (`msg_ambiguous`): open it with the tool that fits. When the evidence is no longer at its registered
 path, give its folder so the hub can look inside: `rv-hub case --case-dir D:\cases\CASE-2026-014 --evidence-dir
 F:\copies` ([theory.md B10](theory.md#b10-the-dashboard-and-the-suggestion-rules)). Decide yourself; ignoring a
 suggestion has no effect on the case.

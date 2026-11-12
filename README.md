@@ -10,11 +10,11 @@
 ![License](https://img.shields.io/badge/license-Rakvor%20source--auditable-6B00FF)
 ![Windows 10/11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6)
 
-RV Hub is the one window an examiner opens first. The five Rakvor tools stay separate, separately signed
+RV Hub is the one window an examiner opens first. The six Rakvor tools stay separate, separately signed
 programs; the hub sits beside them and does five things:
 
-1. **Finds** the installed tools (rv-hashinv, rv-pdfauth, rv-imgauth, rv-rsmf, rv-certcheck), with their version and
-   the SHA-256 of each executable.
+1. **Finds** the installed tools (rv-hashinv, rv-pdfauth, rv-imgauth, rv-rsmf, rv-certcheck, rv-mailauth), with their
+   version and the SHA-256 of each executable.
 2. **Checks** each tool's Authenticode signature, and that its certificate chain ends at the Rakvor root bundled in
    the hub (Windows).
 3. **Launches** a tool's desktop app on a case folder (`<tool>-gui.exe --case-dir CASE`), and records which
@@ -34,11 +34,12 @@ flowchart LR
         T3[["rv-imgauth"]]
         T4[["rv-rsmf"]]
         T5[["rv-certcheck"]]
+        T6[["rv-mailauth"]]
     end
     CASE[("Case folder<br/>case.json · case-log.jsonl<br/>evidence/ · runs/")]
-    HUB -- "discover + signature check" --> T1 & T2 & T3 & T4 & T5
+    HUB -- "discover + signature check" --> T1 & T2 & T3 & T4 & T5 & T6
     HUB -- "launch --case-dir" --> T2
-    T1 & T2 & T3 & T4 & T5 -- "each writes its own run" --> CASE
+    T1 & T2 & T3 & T4 & T5 & T6 -- "each writes its own run" --> CASE
     HUB -. "reads (dashboard)" .-> CASE
     HUB -- "verify: writes only runs/rv-hub/ + 2 case-log entries" --> CASE
     HUB -- "cross-check: verify-log" --> T2
@@ -47,7 +48,7 @@ flowchart LR
 ## Contents
 
 - [What it does, and what it does not do](#what-it-does-and-what-it-does-not-do)
-- [The five tools and how they are found](#the-five-tools-and-how-they-are-found)
+- [The six tools and how they are found](#the-six-tools-and-how-they-are-found)
 - [Install](#install)
 - [Quick start: desktop app](#quick-start-desktop-app)
 - [Quick start: command line](#quick-start-command-line)
@@ -69,15 +70,20 @@ flowchart LR
 | Ask each run's own tool for its `verify-log` verdict and report any disagreement (high severity) | Prove that a tool's findings are correct, or that the evidence is authentic: verification shows integrity, not content |
 | Write its verification as a run of its own (`runs/rv-hub/<RUN-ID>/`), linked in the case log | Write anything else in the case: two case-log entries (`run_started`, `run_finished`) are its only change outside its own run folder |
 
-## The five tools and how they are found
+## The six tools and how they are found
 
 | Tool | Role | Accepts (built-in table) | Repository |
 | --- | --- | --- | --- |
 | **rv-hashinv** | intake: registers evidence as `E0001`, `E0002`, …; creates the case | any file | [Panacota96/rv-hashinv](https://github.com/Panacota96/rv-hashinv) |
 | **rv-pdfauth** | analysis: PDF authenticity signals | `.pdf`, or content starting `%PDF-` | Panacota96/rv-pdfauth |
 | **rv-imgauth** | analysis: image authenticity (JPEG, PNG, HEIC, WebP) | image extensions, or JPEG / PNG / WebP / HEIC / HEIF magic bytes | [Panacota96/rv-imgauth](https://github.com/Panacota96/rv-imgauth) |
-| **rv-rsmf** | conversion: chat exports to RSMF 2.0 | `.txt` (only when it looks like a chat export), `.json`, `.html`, `.htm`, `.msg`, `.csv` | [Panacota96/rv-rsmf](https://github.com/Panacota96/rv-rsmf) |
+| **rv-rsmf** | conversion: chat exports to RSMF 2.0 | `.txt` (only when it looks like a chat export), `.json`, `.html`, `.htm`, `.msg` (Teams), `.csv` | [Panacota96/rv-rsmf](https://github.com/Panacota96/rv-rsmf) |
 | **rv-certcheck** | analysis: certificates, CRLs, timestamp tokens, keys, CSRs | `.crt .cer .der .pem .p7b .p7c .p12 .pfx .crl .tsr .tst .key .csr`, or DER / PEM content | [Panacota96/rv-certcheck](https://github.com/Panacota96/rv-certcheck) |
+| **rv-mailauth** | analysis: email authenticity signals (.eml, Outlook .msg, .mbox) | `.eml .mbox .msg`, or a compound file (`.msg`) / a first line `From ` (mbox) | [Panacota96/rv-mailauth](https://github.com/Panacota96/rv-mailauth) |
+
+An Outlook `.msg` is accepted by both rv-mailauth and rv-rsmf: the case view reads its message class and suggests
+rv-mailauth for an email (`IPM.Note…`), rv-rsmf for a Teams message (`IPM.SkypeTeams.…`), and both when the class
+cannot be read ([theory.md B10](docs/theory.md#b10-the-dashboard-and-the-suggestion-rules)).
 
 Discovery looks in four places, in this order, and lists an executable found by several sources once, with every
 source ([theory.md B1](docs/theory.md#b1-discovery)):
@@ -85,7 +91,7 @@ source ([theory.md B1](docs/theory.md#b1-discovery)):
 1. the Windows uninstall registry, `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\{AppId}_is1`, for the
    tools' known installer AppIds;
 2. `%LOCALAPPDATA%\Programs\Rakvor\*\` (where every Rakvor installer puts its tool);
-3. the folders of `PATH` (the five known tool names only);
+3. the folders of `PATH` (the six known tool names only);
 4. folders you add (for example portable zips on a USB stick), and their direct subfolders.
 
 Each Rakvor-signed tool is asked `describe --json` (schema `rakvor.describe/1`, 10 s limit) for its version and what

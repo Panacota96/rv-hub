@@ -79,6 +79,11 @@ variables or prompts and never logged; no GPL/AGPL/LGPL components; tools report
 
 ## 6. Open work
 
+- Known tools (`tools::KNOWN_TOOLS`): rv-hashinv, rv-pdfauth, rv-imgauth, rv-rsmf, rv-certcheck, rv-mailauth. A new
+  tool needs its entry in `KNOWN_TOOLS`, `APP_IDS` and `builtin` (`src/core/src/tools.rs`), a reason key in
+  `suggest.rs` and `i18n/*.json` (`suggest`), and the docs that list the tools.
+- `.msg` routing between rv-mailauth and rv-rsmf relies on PR_MESSAGE_CLASS (`suggest::MsgKind`); it was tested on
+  synthetic compound files only. Confirm the classes on real Purview Teams exports and real Outlook emails.
 - Suite installer (rv-hub#2): needs the `RAKVOR_SUITE_TOKEN` secret (a token that can read the other tools' releases).
 - The GUI has the TSA CA bundle and evidence-folder fields since 0.3.0; tool overrides (`--tool-exe`) and evidence ids (`--evidence`) remain CLI-only.
 - The licence (`LICENSE`) and the admissibility analysis (`docs/admissibility.md`) are drafts pending a lawyer's review (Colombia and France).

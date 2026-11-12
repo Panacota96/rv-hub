@@ -25,6 +25,7 @@ serde_json.workspace = true
 minijinja.workspace = true
 chrono.workspace = true
 walkdir.workspace = true
+cfb.workspace = true
 ureq.workspace = true
 p12-keystore.workspace = true
 cms.workspace = true

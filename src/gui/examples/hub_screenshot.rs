@@ -3,8 +3,8 @@
 //!     cargo run -p rv-hub-gui --example hub_screenshot -- docs/images/hub-tools.png tools [en|es|fr]
 //!     cargo run -p rv-hub-gui --example hub_screenshot -- docs/images/hub-case.png case [en|es|fr]
 //!
-//! The discovery is faked: the five Rakvor tools at their released versions (rv-hashinv 0.3.1, rv-pdfauth 0.3.0,
-//! rv-rsmf 0.2.0, rv-imgauth 0.2.0, rv-certcheck 0.2.0), all Rakvor-signed except one unsigned portable copy of
+//! The discovery is faked: the six Rakvor tools at their released versions (rv-hashinv 0.3.1, rv-pdfauth 0.3.0,
+//! rv-rsmf 0.2.0, rv-imgauth 0.2.0, rv-certcheck 0.2.0, rv-mailauth 0.1.0), all Rakvor-signed except one unsigned portable copy of
 //! rv-imgauth, to show the amber badge. The Case tab shows a copy of `examples/sample/case`. A few egui frames run, then egui's tessellated meshes are rasterised on the CPU
 //! (textured triangles, premultiplied alpha), so the picture is what the window draws, minus the GPU.
 #![forbid(unsafe_code)]
@@ -40,7 +40,7 @@ fn copy_dir(from: &Path, to: &Path) {
     }
 }
 
-/// The five tools as a workstation with the released versions would list them. AppIds: the real ones of
+/// The six tools as a workstation with the released versions would list them. AppIds: the real ones of
 /// `rv_hub_core::tools::APP_IDS`. One unsigned portable copy (rv-imgauth) shows the amber "unsigned" badge.
 fn released_tools() -> Vec<ToolInfo> {
     let programs = r"C:\Users\examiner\AppData\Local\Programs\Rakvor";
@@ -85,9 +85,16 @@ fn released_tools() -> Vec<ToolInfo> {
         preview_tool(
             &p("RV CertCheck"),
             "rv-certcheck",
-            signed,
+            signed.clone(),
             "0.2.0",
             reg("rv-certcheck"),
+        ),
+        preview_tool(
+            &p("RV MailAuth"),
+            "rv-mailauth",
+            signed,
+            "0.1.0",
+            reg("rv-mailauth"),
         ),
     ];
     v.sort_by(|a, b| a.tool.cmp(&b.tool));

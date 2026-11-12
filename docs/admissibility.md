@@ -83,7 +83,7 @@ annex of Implementing Regulation (EU) 2025/1929.
 ```mermaid
 flowchart LR
     A["Acquisition<br/>(imaging, write-blocker:<br/>outside the toolkit)"] --> B["Intake<br/>rv-hashinv registers E0001…"]
-    B --> C["Analysis / conversion<br/>rv-pdfauth · rv-imgauth<br/>rv-rsmf · rv-certcheck"]
+    B --> C["Analysis / conversion<br/>rv-pdfauth · rv-imgauth<br/>rv-rsmf · rv-certcheck · rv-mailauth"]
     C --> D["Verification<br/>RV Hub verify (H6–H9)"]
     D --> E["Report and testimony<br/>(examiner)"]
     T["Tool identity<br/>H1 · H2 · H3 · H4"] -.-> B
@@ -275,7 +275,7 @@ These are stated here so that nobody has to find them by cross-examination. Each
    matching evidence hash does not make the evidence authentic, nor show anything that happened before intake. A
    timestamp proves when a log existed, not that the examined copy matches the original source.
 4. **The tools' `verify-log` commands differ** ([rv-hub#21](https://github.com/Panacota96/rv-hub/issues/21)).
-   rv-hashinv, rv-rsmf and rv-certcheck check the run against the case log; rv-pdfauth and rv-imgauth do not. For
+   rv-hashinv, rv-rsmf, rv-certcheck and rv-mailauth check the run against the case log; rv-pdfauth and rv-imgauth do not. For
    these two only, the hub accepts an answer that equals either its full or its chain-only verdict; where the two
    verdicts differ (truncation against the case log, or a broken case log), the cross-check cannot detect that they
    miss that check. Every other tool is compared with the full verdict. The hub's own `RUN_LOG_BROKEN` / `CASE_LOG_BROKEN` findings are unaffected

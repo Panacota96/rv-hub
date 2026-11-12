@@ -861,9 +861,9 @@ pub mod testing {
         t
     }
 
-    /// The five Rakvor tools as discovered on a workstation (no files on disk): screenshots and tests.
+    /// The six Rakvor tools as discovered on a workstation (no files on disk): screenshots and tests.
     /// `root` is shown as is (e.g. a Windows path on any platform): the folders are `<root>\\<title>`.
-    pub fn five_tools(root: &str) -> Vec<ToolInfo> {
+    pub fn known_tools(root: &str) -> Vec<ToolInfo> {
         let p = |t: &str| std::path::PathBuf::from(format!("{root}\\{t}"));
         let reg = |id: &str| Source::Registry { app_id: id.into() };
         let mut v = vec![
@@ -904,6 +904,13 @@ pub mod testing {
                 SignatureStatus::SignedRakvor,
                 "0.2.0",
                 Source::LocalPrograms,
+            ),
+            preview_tool(
+                &p("RV MailAuth"),
+                "rv-mailauth",
+                SignatureStatus::SignedRakvor,
+                "0.1.0",
+                reg("{RV-MAILAUTH}"),
             ),
         ];
         v.sort_by(|a, b| a.tool.cmp(&b.tool));

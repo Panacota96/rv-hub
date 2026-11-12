@@ -6,8 +6,10 @@
 //! | No case, or no registered evidence yet                           | rv-hashinv  | `no_case` / `no_evidence`     |
 //! | Registered PDFs not yet analysed                                 | rv-pdfauth  | `pdf_not_analysed`            |
 //! | Images (JPEG/HEIC/PNG/WebP, by signature) not yet analysed       | rv-imgauth  | `images_not_analysed`         |
-//! | Chat exports (WhatsApp .txt by content, Telegram JSON/HTML, .msg, CSV) not converted | rv-rsmf | `chats_not_converted` |
+//! | Chat exports (WhatsApp .txt by content, Telegram JSON/HTML, CSV, Teams .msg) not converted | rv-rsmf | `chats_not_converted` |
 //! | Certificates, CRLs or timestamp tokens (.crt .cer .der .pem .p7b .p12 .crl .tsr .tst …, or DER / PEM content) not yet analysed | rv-certcheck | `certs_not_analysed` |
+//! | Emails (.eml, or a header block with `From:` and `Date:`/`Message-ID:`; .mbox, or a first line `From <sender> <date>`; email .msg) not yet analysed | rv-mailauth | `mail_not_analysed` |
+//! | .msg whose message class cannot be read, or is neither an email nor a Teams message | rv-rsmf and rv-mailauth | `msg_ambiguous` |
 //! | Any other described tool with matching, unexamined evidence      | that tool   | `not_examined`                |
 //! | Runs whose trusted timestamp is pending                          | `timestamp` | `timestamp_pending`           |
 //!
@@ -17,9 +19,25 @@
 //! WhatsApp line (`12/03/26, 09:14 - Name: …` or `[12/03/26 09:14:05] Name: …`); a `.txt` file that cannot be
 //! read is not suggested. An item counts as examined by a tool only through a completed run of that tool
 //! (`case_view`): a failed, cancelled or unfinished run does not.
+//!
+//! **Outlook `.msg`** (extension `.msg`, or compound-file content `D0 CF 11 E0 A1 B1 1A E1`) is accepted by both
+//! rv-mailauth (email) and rv-rsmf (Teams messages exported by Microsoft Purview, one `.msg` per message). The
+//! MAPI message class (PR_MESSAGE_CLASS, 0x001A) is read from the compound file with the `cfb` crate, read-only:
+//!
+//! ```mermaid
+//! flowchart TD
+//!     M[".msg or compound file"] --> C{"PR_MESSAGE_CLASS"}
+//!     C -- "IPM.Note, IPM.Note.*" --> A["rv-mailauth: mail_not_analysed"]
+//!     C -- "IPM.SkypeTeams.*" --> R["rv-rsmf: chats_not_converted"]
+//!     C -- "another class" --> B["both: msg_ambiguous"]
+//!     C -- "unreadable, .msg extension" --> B
+//!     C -- "unreadable, other extension (.doc, .xls)" --> N["neither"]
+//! ```
+//!
+//! An ambiguous `.msg` that either tool has already examined is not suggested again.
 
 use crate::case_view::{CaseView, EvidenceRow, TimestampStatus};
-use crate::tools::{Describe, ToolRole};
+use crate::tools::{Describe, SignatureSpec, ToolRole};
 use serde::Serialize;
 use std::io::Read;
 use std::path::{Path, PathBuf};
@@ -180,8 +198,201 @@ fn reason_for(tool: &str) -> &'static str {
         "rv-imgauth" => "images_not_analysed",
         "rv-rsmf" => "chats_not_converted",
         "rv-certcheck" => "certs_not_analysed",
+        MAIL_TOOL => "mail_not_analysed",
         _ => "not_examined",
     }
+}
+
+/// The email tool and the chat converter: both accept Outlook `.msg` files; the message class decides.
+const MAIL_TOOL: &str = "rv-mailauth";
+const CHAT_TOOL: &str = "rv-rsmf";
+/// Reason key of a `.msg` whose class is unreadable or neither an email nor a Teams message (both tools).
+pub const MSG_AMBIGUOUS: &str = "msg_ambiguous";
+/// First bytes of every OLE compound file (CFB), hence of every Outlook `.msg`.
+pub const CFB_MAGIC: [u8; 8] = [0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1];
+/// Longest message class read (real classes are a few dozen characters).
+const MAX_CLASS_BYTES: u64 = 1024;
+
+/// What an Outlook `.msg` holds, from its MAPI message class (PR_MESSAGE_CLASS, property 0x001A).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum MsgKind {
+    /// `IPM.Note` and its sub-classes (`IPM.Note.SMIME`, …): an email, for rv-mailauth.
+    Email,
+    /// `IPM.SkypeTeams.*` (`IPM.SkypeTeams.Message`, `IPM.SkypeTeams.SystemMessage`: Teams messages exported
+    /// by Microsoft Purview), for rv-rsmf.
+    Teams,
+    /// Another class (a meeting request, a contact, a task, …).
+    Other(String),
+    /// No class could be read: missing file, not a compound file, damaged, or no PR_MESSAGE_CLASS stream.
+    Unreadable,
+}
+
+impl MsgKind {
+    /// The kind of a message class. Classes compare case-insensitively ([MS-OXCMSG] 2.2.1.3).
+    pub fn of_class(class: &str) -> MsgKind {
+        let c = class.trim().to_ascii_lowercase();
+        let under = |prefix: &str| {
+            c == prefix
+                || c.strip_prefix(prefix)
+                    .is_some_and(|rest| rest.starts_with('.'))
+        };
+        if under("ipm.note") {
+            MsgKind::Email
+        } else if under("ipm.skypeteams") {
+            MsgKind::Teams
+        } else {
+            MsgKind::Other(class.trim().to_string())
+        }
+    }
+}
+
+/// Reads PR_MESSAGE_CLASS from an Outlook `.msg` (stream `__substg1.0_001A001F`, UTF-16LE, or `…001E`, 8-bit).
+/// The file is opened read-only; None when it is not a readable compound file or has no class.
+pub fn read_message_class(path: &Path) -> Option<String> {
+    let f = std::fs::File::open(path).ok()?;
+    // A damaged compound file must never stop the case view: a panic in the parser counts as unreadable.
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(move || {
+        let mut cf = cfb::CompoundFile::open(f).ok()?;
+        for (name, utf16) in [
+            ("/__substg1.0_001A001F", true),
+            ("/__substg1.0_001A001E", false),
+        ] {
+            if !cf.is_stream(name) {
+                continue;
+            }
+            let mut buf = Vec::new();
+            cf.open_stream(name)
+                .ok()?
+                .take(MAX_CLASS_BYTES)
+                .read_to_end(&mut buf)
+                .ok()?;
+            let text = if utf16 {
+                let units: Vec<u16> = buf
+                    .chunks_exact(2)
+                    .map(|c| u16::from_le_bytes([c[0], c[1]]))
+                    .collect();
+                String::from_utf16_lossy(&units)
+            } else {
+                buf.iter().map(|&b| b as char).collect()
+            };
+            let class = text.trim_matches(|c: char| c == '\0' || c.is_whitespace());
+            if !class.is_empty() {
+                return Some(class.to_string());
+            }
+        }
+        None
+    }))
+    .ok()
+    .flatten()
+}
+
+/// The kind of the `.msg` at `path` ([`MsgKind::Unreadable`] when there is no file or no class).
+pub fn msg_kind(path: Option<&Path>) -> MsgKind {
+    path.and_then(read_message_class)
+        .map(|c| MsgKind::of_class(&c))
+        .unwrap_or(MsgKind::Unreadable)
+}
+
+/// True when `text` starts with an RFC 5322 header block (a saved email without extension, or a `.txt`):
+/// the first line is a header field, and the fields before the first blank line, malformed line or the end of
+/// `text` include `From:` and `Date:` or `Message-ID:`. Folded lines (starting with a space or a tab) continue
+/// a field.
+pub fn looks_like_email(text: &[u8]) -> bool {
+    let s = String::from_utf8_lossy(text);
+    let (mut from, mut date, mut id) = (false, false, false);
+    for (i, line) in s.lines().take(200).enumerate() {
+        let line = if i == 0 {
+            line.trim_start_matches('\u{feff}')
+        } else {
+            line
+        };
+        if line.is_empty() {
+            break;
+        }
+        if line.starts_with([' ', '\t']) {
+            if i == 0 {
+                return false;
+            }
+            continue;
+        }
+        let name = match line.split_once(':') {
+            Some((n, _)) if !n.is_empty() && n.bytes().all(|b| (33..=126).contains(&b)) => n,
+            _ if i == 0 => return false,
+            _ => break,
+        };
+        match name.to_ascii_lowercase().as_str() {
+            "from" => from = true,
+            "date" => date = true,
+            "message-id" => id = true,
+            _ => {}
+        }
+    }
+    from && (date || id)
+}
+
+fn has_msg_extension(file_name: &str) -> bool {
+    Path::new(file_name)
+        .extension()
+        .is_some_and(|x| x.eq_ignore_ascii_case("msg"))
+}
+
+/// The reason key under which `d` is suggested for a registered item, or None. `msg`: the item's message
+/// kind when it is a `.msg` or a compound file (see the module documentation).
+fn route(
+    d: &Describe,
+    e: &EvidenceRow,
+    head_bytes: Option<&[u8]>,
+    msg: Option<&MsgKind>,
+) -> Option<&'static str> {
+    if (d.tool == MAIL_TOOL || d.tool == CHAT_TOOL)
+        && let Some(kind) = msg
+    {
+        return match kind {
+            MsgKind::Email => (d.tool == MAIL_TOOL).then_some(reason_for(&d.tool)),
+            MsgKind::Teams => (d.tool == CHAT_TOOL).then_some(reason_for(&d.tool)),
+            MsgKind::Other(_) => Some(MSG_AMBIGUOUS),
+            // A compound file without a class and without the .msg extension (a .doc, an .xls) is no message.
+            MsgKind::Unreadable => has_msg_extension(&e.file_name).then_some(MSG_AMBIGUOUS),
+        };
+    }
+    if d.tool == MAIL_TOOL {
+        // By extension, by an email header block, or by an mbox separator line; the bare "From " signature
+        // alone would also take a text note that starts with "From the …".
+        let by_content = head_bytes.is_some_and(|h| {
+            looks_like_email(h)
+                || looks_like_mbox(h)
+                || d.accepts.signatures.iter().any(|s| {
+                    !matches!(s, SignatureSpec::Format { format, .. } if format == "mbox")
+                        && s.matches(h)
+                })
+        });
+        return (by_content || d.accepts.matches_extension(&e.file_name))
+            .then(|| reason_for(&d.tool));
+    }
+    accepts(d, e, head_bytes).then(|| reason_for(&d.tool))
+}
+
+/// True when the first line of `text` is an mbox separator: `From <sender> <date>`, the date with a time
+/// (`From ana@example.org Thu Oct 15 09:00:00 2026`).
+pub fn looks_like_mbox(text: &[u8]) -> bool {
+    let first = String::from_utf8_lossy(&text[..text.len().min(1024)])
+        .lines()
+        .next()
+        .unwrap_or("")
+        .to_string();
+    let Some(rest) = first.strip_prefix("From ") else {
+        return false;
+    };
+    let mut tokens = rest.split_whitespace();
+    let sender_ok = tokens.next().is_some_and(|s| !s.ends_with(':'));
+    let is_time = |t: &str| {
+        let parts: Vec<&str> = t.split(':').collect();
+        (2..=3).contains(&parts.len())
+            && (1..=2).contains(&parts[0].len())
+            && parts[1..].iter().all(|p| p.len() == 2)
+            && parts.iter().all(|p| p.bytes().all(|b| b.is_ascii_digit()))
+    };
+    sender_ok && tokens.any(is_time)
 }
 
 /// True when `d` accepts the registered file (extension or content, see the module documentation).
@@ -243,10 +454,25 @@ pub fn suggest_with(
         .max()
         .unwrap_or(0)
         .max(SNIFF);
-    let heads: Vec<Option<Vec<u8>>> = view
+    let paths: Vec<Option<PathBuf>> = view
         .evidence
         .iter()
-        .map(|e| locate(e, evidence_dirs).and_then(|p| head(&p, want)))
+        .map(|e| locate(e, evidence_dirs))
+        .collect();
+    let heads: Vec<Option<Vec<u8>>> = paths
+        .iter()
+        .map(|p| p.as_deref().and_then(|p| head(p, want)))
+        .collect();
+    // The message class is read only for a .msg or a compound file, and only for items still open.
+    let msgs: Vec<Option<MsgKind>> = view
+        .evidence
+        .iter()
+        .zip(paths.iter().zip(&heads))
+        .map(|(e, (p, h))| {
+            let candidate = has_msg_extension(&e.file_name)
+                || h.as_deref().is_some_and(|h| h.starts_with(&CFB_MAGIC));
+            (candidate && e.superseded_by.is_none()).then(|| msg_kind(p.as_deref()))
+        })
         .collect();
     let mut tools: Vec<&Describe> = catalog
         .iter()
@@ -260,22 +486,37 @@ pub fn suggest_with(
     };
     tools.sort_by_key(|d| (rank(&d.tool), d.tool.clone()));
     for d in tools {
-        let ids: Vec<String> = view
-            .evidence
-            .iter()
-            .zip(&heads)
-            .filter(|(e, h)| {
-                e.superseded_by.is_none()
-                    && !e.examined_by.contains(&d.tool)
-                    && accepts(d, e, h.as_deref())
-            })
-            .map(|(e, _)| e.evidence_id.clone())
-            .collect();
-        if !ids.is_empty() {
+        // (reason key, ids): the tool's own reason first, then the ambiguous .msg files.
+        let mut groups: Vec<(&'static str, Vec<String>)> = Vec::new();
+        for ((e, h), m) in view.evidence.iter().zip(&heads).zip(&msgs) {
+            if e.superseded_by.is_some() {
+                continue;
+            }
+            let Some(reason) = route(d, e, h.as_deref(), m.as_ref()) else {
+                continue;
+            };
+            // An ambiguous .msg that either tool has examined is settled: the examiner chose.
+            let examined = if reason == MSG_AMBIGUOUS {
+                e.examined_by
+                    .iter()
+                    .any(|t| t == MAIL_TOOL || t == CHAT_TOOL)
+            } else {
+                e.examined_by.contains(&d.tool)
+            };
+            if examined {
+                continue;
+            }
+            match groups.iter_mut().find(|(r, _)| *r == reason) {
+                Some((_, ids)) => ids.push(e.evidence_id.clone()),
+                None => groups.push((reason, vec![e.evidence_id.clone()])),
+            }
+        }
+        groups.sort_by_key(|(r, _)| *r == MSG_AMBIGUOUS);
+        for (reason, ids) in groups {
             out.push(Suggestion {
                 tool: d.tool.clone(),
                 action: Action::Launch,
-                reason_key: reason_for(&d.tool).into(),
+                reason_key: reason.into(),
                 evidence_ids: ids,
                 run_dirs: vec![],
             });
@@ -454,6 +695,254 @@ mod tests {
         );
         assert_eq!(s[4].action, Action::Timestamp);
         assert_eq!(s[4].run_dirs, ["runs/rv-pdfauth/R2"]);
+    }
+
+    /// A minimal synthetic Outlook `.msg` (compound file): the property table and, when given, PR_MESSAGE_CLASS
+    /// as a UTF-16LE (`001F`) or 8-bit (`001E`) string stream.
+    fn msg_bytes(class: Option<&str>, utf16: bool) -> Vec<u8> {
+        use std::io::Write;
+        let mut cf = cfb::CompoundFile::create(std::io::Cursor::new(Vec::new())).unwrap();
+        cf.create_stream("/__properties_version1.0")
+            .unwrap()
+            .write_all(&[0u8; 32])
+            .unwrap();
+        if let Some(c) = class {
+            let (name, bytes): (&str, Vec<u8>) = if utf16 {
+                (
+                    "/__substg1.0_001A001F",
+                    c.encode_utf16().flat_map(|u| u.to_le_bytes()).collect(),
+                )
+            } else {
+                ("/__substg1.0_001A001E", c.as_bytes().to_vec())
+            };
+            cf.create_stream(name).unwrap().write_all(&bytes).unwrap();
+        }
+        cf.create_stream("/__substg1.0_0037001F")
+            .unwrap()
+            .write_all(
+                &"Synthetic subject"
+                    .encode_utf16()
+                    .flat_map(|u| u.to_le_bytes())
+                    .collect::<Vec<u8>>(),
+            )
+            .unwrap();
+        cf.flush().unwrap();
+        cf.into_inner().into_inner()
+    }
+
+    #[test]
+    fn message_classes_and_email_headers() {
+        assert_eq!(MsgKind::of_class("IPM.Note"), MsgKind::Email);
+        assert_eq!(
+            MsgKind::of_class("ipm.note.SMIME.MultipartSigned"),
+            MsgKind::Email
+        );
+        assert_eq!(MsgKind::of_class("IPM.SkypeTeams.Message"), MsgKind::Teams);
+        assert_eq!(
+            MsgKind::of_class("IPM.SkypeTeams.SystemMessage"),
+            MsgKind::Teams
+        );
+        assert_eq!(
+            MsgKind::of_class("IPM.Notebook"),
+            MsgKind::Other("IPM.Notebook".into())
+        );
+        assert!(matches!(
+            MsgKind::of_class("IPM.Appointment"),
+            MsgKind::Other(_)
+        ));
+        let d = tempfile::tempdir().unwrap();
+        let p = d.path().join("m.msg");
+        std::fs::write(&p, msg_bytes(Some("IPM.Note\0"), true)).unwrap();
+        assert_eq!(read_message_class(&p).as_deref(), Some("IPM.Note"));
+        std::fs::write(&p, msg_bytes(Some("IPM.SkypeTeams.Message"), false)).unwrap();
+        assert_eq!(msg_kind(Some(&p)), MsgKind::Teams);
+        std::fs::write(&p, msg_bytes(None, true)).unwrap();
+        assert_eq!(msg_kind(Some(&p)), MsgKind::Unreadable);
+        std::fs::write(&p, &msg_bytes(Some("IPM.Note"), true)[..600]).unwrap();
+        assert_eq!(msg_kind(Some(&p)), MsgKind::Unreadable);
+        assert_eq!(
+            msg_kind(Some(&d.path().join("gone.msg"))),
+            MsgKind::Unreadable
+        );
+        assert_eq!(msg_kind(None), MsgKind::Unreadable);
+
+        assert!(looks_like_email(
+            b"Return-Path: <a@example.org>\r\nReceived: from mx.example.org\r\n\tby mx2.example.org\r\nFrom: Ana <ana@example.org>\r\nDate: Thu, 15 Oct 2026 09:00:00 +0000\r\n\r\nbody"
+        ));
+        assert!(looks_like_email(
+            "\u{feff}Message-ID: <1@example.org>\nfrom: b@example.org\n".as_bytes()
+        ));
+        // From: alone, a header block that does not start the file, an mbox separator line: not an .eml.
+        assert!(!looks_like_email(
+            b"From: a@example.org\nSubject: x\n\nDate: y"
+        ));
+        assert!(!looks_like_email(b"Notes\nFrom: a@example.org\nDate: x\n"));
+        assert!(!looks_like_email(
+            b"From a@example.org Thu Oct 15 09:00:00 2026\nFrom: a@example.org\nDate: x\n"
+        ));
+        assert!(!looks_like_email(b""));
+        assert!(looks_like_mbox(
+            b"From ana@example.org Thu Oct 15 09:00:00 2026\nFrom: ana@example.org\n"
+        ));
+        assert!(looks_like_mbox(
+            b"From MAILER-DAEMON Fri Jul  8 12:08 2026\n"
+        ));
+        assert!(!looks_like_mbox(b"From the examiner: nothing to report\n"));
+        assert!(!looks_like_mbox(b"From: ana@example.org\n"));
+    }
+
+    /// Emails go to rv-mailauth; an Outlook .msg goes by its message class: email to rv-mailauth, Teams to
+    /// rv-rsmf, unreadable or another class to both (`msg_ambiguous`). Every address is example.org.
+    #[test]
+    fn mail_and_msg_rules() {
+        let d = tempfile::tempdir().unwrap();
+        let w = |n: &str, b: &[u8]| {
+            let p = d.path().join(n);
+            std::fs::write(&p, b).unwrap();
+            p
+        };
+        let eml = w("a.eml", b"just a body without headers");
+        let headers = w(
+            "saved-message",
+            b"From: Ana <ana@example.org>\nTo: luis@example.org\nDate: Thu, 15 Oct 2026 09:00:00 +0000\nMessage-ID: <1@example.org>\n\nHola\n",
+        );
+        let mbox = w("box.mbox", b"");
+        let mbox_content = w(
+            "export.dat",
+            b"From ana@example.org Thu Oct 15 09:00:00 2026\nFrom: ana@example.org\n\nx\n",
+        );
+        let email_msg = w("email.msg", &msg_bytes(Some("IPM.Note"), true));
+        let teams_msg = w(
+            "teams.msg",
+            &msg_bytes(Some("IPM.SkypeTeams.Message"), true),
+        );
+        let broken_msg = w("broken.msg", b"\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1truncated");
+        let meeting_msg = w(
+            "meeting.msg",
+            &msg_bytes(Some("IPM.Schedule.Meeting.Request"), false),
+        );
+        let disguised_msg = w("item.bin", &msg_bytes(Some("IPM.Note"), true));
+        let doc = w("report.doc", &msg_bytes(None, true));
+        let notes = w("notes.txt", b"From the examiner: nothing to report\n");
+        let gone = d.path().join("gone.msg");
+        let cat = catalog(&[]);
+        let v = CaseView {
+            case_id: Some("C".into()),
+            evidence: vec![
+                row("E0001", &eml, &["rv-hashinv"]),
+                row("E0002", &headers, &["rv-hashinv"]),
+                row("E0003", &mbox, &["rv-hashinv"]),
+                row("E0004", &mbox_content, &["rv-hashinv"]),
+                row("E0005", &email_msg, &["rv-hashinv"]),
+                row("E0006", &teams_msg, &["rv-hashinv"]),
+                row("E0007", &broken_msg, &["rv-hashinv"]),
+                row("E0008", &meeting_msg, &["rv-hashinv"]),
+                row("E0009", &disguised_msg, &["rv-hashinv"]),
+                row("E0010", &doc, &["rv-hashinv"]),
+                row("E0011", &notes, &["rv-hashinv"]),
+                row("E0012", &gone, &["rv-hashinv"]),
+                // Already examined: the email by rv-mailauth, an ambiguous .msg by rv-rsmf.
+                row("E0013", &email_msg, &["rv-hashinv", "rv-mailauth"]),
+                row("E0014", &broken_msg, &["rv-hashinv", "rv-rsmf"]),
+            ],
+            ..Default::default()
+        };
+        let got: Vec<(String, String, Vec<String>)> = suggest(&v, &cat)
+            .into_iter()
+            .map(|s| (s.tool, s.reason_key, s.evidence_ids))
+            .collect();
+        let ids = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        assert_eq!(
+            got,
+            vec![
+                (
+                    "rv-rsmf".into(),
+                    "chats_not_converted".into(),
+                    ids(&["E0006"])
+                ),
+                (
+                    "rv-rsmf".into(),
+                    "msg_ambiguous".into(),
+                    ids(&["E0007", "E0008", "E0012"])
+                ),
+                (
+                    "rv-mailauth".into(),
+                    "mail_not_analysed".into(),
+                    ids(&["E0001", "E0002", "E0003", "E0004", "E0005", "E0009"])
+                ),
+                (
+                    "rv-mailauth".into(),
+                    "msg_ambiguous".into(),
+                    ids(&["E0007", "E0008", "E0012"])
+                ),
+            ]
+        );
+        // The .msg files are read in place: nothing was written next to them.
+        assert_eq!(
+            std::fs::read(&email_msg).unwrap(),
+            msg_bytes(Some("IPM.Note"), true)
+        );
+    }
+
+    /// A moved Teams .msg is found in --evidence-dir and its class read there.
+    #[test]
+    fn msg_class_is_read_in_the_evidence_dir() {
+        let d = tempfile::tempdir().unwrap();
+        let moved = d.path().join("copies");
+        std::fs::create_dir(&moved).unwrap();
+        std::fs::write(
+            moved.join("teams.msg"),
+            msg_bytes(Some("IPM.SkypeTeams.SystemMessage"), true),
+        )
+        .unwrap();
+        let v = CaseView {
+            case_id: Some("C".into()),
+            evidence: vec![row(
+                "E0001",
+                &d.path().join("gone/teams.msg"),
+                &["rv-hashinv"],
+            )],
+            ..Default::default()
+        };
+        let keys = |s: Vec<Suggestion>| {
+            s.into_iter()
+                .map(|s| (s.tool, s.reason_key))
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(
+            keys(suggest(&v, &catalog(&[]))),
+            [
+                ("rv-rsmf".to_string(), "msg_ambiguous".to_string()),
+                ("rv-mailauth".to_string(), "msg_ambiguous".to_string())
+            ]
+        );
+        assert_eq!(
+            keys(suggest_with(&v, &catalog(&[]), &[moved])),
+            [("rv-rsmf".to_string(), "chats_not_converted".to_string())]
+        );
+    }
+
+    /// Every reason key the rules give is worded in English, Spanish and French.
+    #[test]
+    fn every_reason_key_is_translated() {
+        let mut keys: Vec<&str> = crate::tools::KNOWN_TOOLS
+            .iter()
+            .map(|t| reason_for(t))
+            .collect();
+        keys.extend([
+            "no_case",
+            "no_evidence",
+            "not_examined",
+            "timestamp_pending",
+            MSG_AMBIGUOUS,
+        ]);
+        for lang in ["en", "es", "fr"] {
+            for k in &keys {
+                let t = crate::i18n::catalog(lang).text("suggest", k);
+                assert!(t != *k && !t.is_empty(), "{lang}: suggest.{k}");
+            }
+        }
+        assert_eq!(reason_for("rv-mailauth"), "mail_not_analysed");
     }
 
     #[test]

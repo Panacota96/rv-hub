@@ -44,7 +44,7 @@ whether they are genuine, to open a tool on a case, to see what has been done in
 and, before a case is handed over, to check that nothing recorded in the case has changed.
 
 RV Hub does **not** examine evidence. It does not decide whether a document is forged or a photo edited; the
-analysis tools (rv-pdfauth, rv-imgauth, rv-certcheck) report signals for an examiner to weigh, and each of them
+analysis tools (rv-pdfauth, rv-imgauth, rv-certcheck, rv-mailauth) report signals for an examiner to weigh, and each of them
 documents its own method. RV Hub never changes what the tools wrote. When it finds a problem, it reports it and
 leaves the files exactly as they were, so the examiner can explain them.
 
@@ -63,7 +63,7 @@ Only the intake tool, rv-hashinv, opens a new binder and adds evidence to the re
 
 ```mermaid
 flowchart LR
-    I["1 · Intake<br/>rv-hashinv registers E0001…"] --> A["2 · Analysis<br/>rv-pdfauth · rv-imgauth<br/>rv-rsmf · rv-certcheck"]
+    I["1 · Intake<br/>rv-hashinv registers E0001…"] --> A["2 · Analysis<br/>rv-pdfauth · rv-imgauth<br/>rv-rsmf · rv-certcheck<br/>rv-mailauth"]
     A --> V["3 · Verify<br/>RV Hub checks every diary<br/>and every link"]
     V --> H["4 · Hand over<br/>case folder + verification report"]
     I -.-> C[("Case folder")]
@@ -160,14 +160,14 @@ Source map (all under `src/core/src/`): discovery `tools.rs`; signature `signatu
 
 | # | Source (`Source`) | What is read | Restriction |
 | --- | --- | --- | --- |
-| 1 | `registry {app_id}` | `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\{AppId}_is1` → `InstallLocation`, `DisplayVersion`, for the five AppIds in `APP_IDS` (Windows only) | the five known tools; another `rv-*` only when Rakvor-signed |
-| 2 | `local_programs` | every direct subfolder of `%LOCALAPPDATA%\Programs\Rakvor` | the five known tools; another `rv-*` only when Rakvor-signed |
-| 3 | `path` | every folder of `PATH` | **the five known tools only** (`KNOWN_TOOLS`) |
+| 1 | `registry {app_id}` | `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\{AppId}_is1` → `InstallLocation`, `DisplayVersion`, for the six AppIds in `APP_IDS` (Windows only) | the six known tools; another `rv-*` only when Rakvor-signed |
+| 2 | `local_programs` | every direct subfolder of `%LOCALAPPDATA%\Programs\Rakvor` | the six known tools; another `rv-*` only when Rakvor-signed |
+| 3 | `path` | every folder of `PATH` | **the six known tools only** (`KNOWN_TOOLS`) |
 | 4 | `user_folder` | each folder the user added, and its direct subfolders | any `rv-*` |
 
 `rv-hub` itself is excluded. A name outside `KNOWN_TOOLS` is run (`describe --json`) only from a folder the user
 added, or when its executable is Rakvor-signed; otherwise it is neither run nor listed. On Linux and macOS, where
-signatures are *not checked*, only the five known tools are run from sources 1–3. When several sources find the same folder, the entry is listed once with every source
+signatures are *not checked*, only the six known tools are run from sources 1–3. When several sources find the same folder, the entry is listed once with every source
 (the sample test finds one rv-pdfauth folder through the registry, the install folder and `PATH`). The same tool in
 two different folders gives two entries; `launch` then prefers a Rakvor-signed GUI, then the lowest source, then the
 folder name (`src/cli/src/hub.rs` `pick`).
@@ -181,6 +181,7 @@ The known AppIds (`tools.rs` `APP_IDS`):
 | `{7E0DA535-8638-4E9D-8680-ED046DCA9F45}` | rv-rsmf | |
 | `{04A0C3C3-4929-42ED-81F7-93DB361940C8}` | rv-imgauth (corrected AppId, from 0.2.1) | |
 | `{32343DE5-B0E4-4454-8A42-A5CF82EEC9BF}` | rv-certcheck | |
+| `{0D5428B0-B438-4B0F-804F-C48582CC8A7B}` | rv-mailauth | |
 
 A test (`installer_app_ids_are_unique`) checks that these and the hub's own installer AppId
 `{703D49A5-7B83-4C62-A97F-ED13C341CC23}` are all different.
@@ -595,7 +596,8 @@ anything either.
 | --- | --- | --- |
 | `case.json` missing or without `case_id` | the intake tool | `no_case` |
 | a case with no registered evidence | the intake tool | `no_evidence` |
-| for each non-intake tool that does not accept "any file", in the order rv-pdfauth, rv-imgauth, rv-rsmf, rv-certcheck, then others: registered items that are not superseded, not yet examined by that tool, and that it accepts | that tool, with the evidence ids | `pdf_not_analysed`, `images_not_analysed`, `chats_not_converted`, `certs_not_analysed`, `not_examined` |
+| for each non-intake tool that does not accept "any file", in the order rv-pdfauth, rv-imgauth, rv-rsmf, rv-certcheck, rv-mailauth, then others: registered items that are not superseded, not yet examined by that tool, and that it accepts | that tool, with the evidence ids | `pdf_not_analysed`, `images_not_analysed`, `chats_not_converted`, `certs_not_analysed`, `mail_not_analysed`, `not_examined` |
+| Outlook `.msg` files whose message class cannot be read or is neither an email nor a Teams message, examined by neither rv-rsmf nor rv-mailauth | rv-rsmf and rv-mailauth (after each tool's own suggestion) | `msg_ambiguous` |
 | runs whose timestamp status is pending | `<tool> timestamp`, with the run folders | `timestamp_pending` |
 
 "Accepts" (`suggest::accepts`) uses the catalogue: each discovered tool's `describe`, completed by the built-in table
@@ -606,6 +608,33 @@ its **content**: one of its first 20 lines must be a WhatsApp line (`suggest::is
 `12/03/26, 09:14 - Name: text` or iOS `[12/03/26 09:14:05] Name: text` (date parts separated by `/`, `.` or `-`,
 2- or 4-digit year, optional seconds and AM/PM marker, and a sender followed by `: `). A `.txt` file that cannot be
 read is **not** suggested.
+
+**Emails (rv-mailauth).** An item goes to rv-mailauth by its extension (`.eml`, `.mbox`, `.msg`), or by its content:
+an RFC 5322 header block from the first line on, with `From:` and `Date:` or `Message-ID:` among the fields before
+the first blank line (`suggest::looks_like_email`; folded lines continue a field), or an mbox separator line
+`From <sender> <date with a time>` (`suggest::looks_like_mbox`). The bare `From ` signature of rv-mailauth's
+`describe` is not enough on its own, so a note that starts "From the examiner: …" is not taken for a mailbox.
+
+**Outlook `.msg`: email or Teams?** rv-mailauth analyses emails saved by Outlook; rv-rsmf converts Microsoft Teams
+messages that Purview exports as one `.msg` per message. Both are OLE compound files (`D0 CF 11 E0 A1 B1 1A E1`) with
+the extension `.msg`. For an item with that extension or that content, the hub opens the file read-only with the
+`cfb` crate and reads the MAPI message class, PR_MESSAGE_CLASS (property `0x001A`, stream `__substg1.0_001A001F`
+UTF-16LE, else `__substg1.0_001A001E`), compared case-insensitively ([MS-OXCMSG] 2.2.1.3):
+
+```mermaid
+flowchart TD
+    M[".msg extension, or compound-file content"] --> C{"PR_MESSAGE_CLASS"}
+    C -- "IPM.Note, IPM.Note.*" --> A["rv-mailauth<br/>mail_not_analysed"]
+    C -- "IPM.SkypeTeams.*<br/>(Message, SystemMessage)" --> R["rv-rsmf<br/>chats_not_converted"]
+    C -- "another class<br/>(meeting request, contact, …)" --> B["rv-rsmf and rv-mailauth<br/>msg_ambiguous"]
+    C -- "unreadable, extension .msg<br/>(missing, damaged, no class)" --> B
+    C -- "unreadable, another extension<br/>(.doc, .xls: not a message)" --> N["neither"]
+```
+
+`IPM.SkypeTeams.Message` and `IPM.SkypeTeams.SystemMessage` are the classes rv-rsmf's Teams parser reads. An
+ambiguous `.msg` that either tool has already examined is not suggested again: the examiner has decided what it is.
+The class is a property written by the program that saved the file; it says what the item claims to be, not that it
+is authentic.
 
 Consequence seen in the sample: the registry records the paths the evidence had at intake (a temporary folder that no
 longer exists), so without `--evidence-dir` the hub cannot read the files and suggests nothing for the `.txt` items;
