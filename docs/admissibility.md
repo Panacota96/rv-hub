@@ -68,13 +68,13 @@ annex of Implementing Regulation (EU) 2025/1929.
 | H3 | Launch control: re-hash and re-check at launch, refusal of a changed executable, untrusted launch only after a confirmation that is logged first | `launch.rs` |
 | H4 | Hub session log: hash-chained record of inventories, launches, confirmations and window actions | `session.rs` |
 | H5 | Read-only case dashboard and next-step suggestions (a prompt, not a finding) | `case_view.rs`, `suggest.rs` |
-| H6 | Whole-case verification: case-log chain, `case.json` and registry digests, every run's audit chain, case links, end-of-run head, timestamp tokens, review logs, unannounced runs, unknown logs | `checks.rs`, `run.rs` |
+| H6 | Whole-case verification: case-log chain, `case.json` and registry digests, every run's audit chain, case links, end-of-run head, timestamp tokens, review logs, unannounced runs, unknown logs, and every output file each run's audit log records, re-hashed against its digests (`RUN_OUTPUT_CHANGED`) | `checks.rs`, `run.rs`, `outputs.rs` |
 | H7 | Re-hash of every registered evidence file and comparison with the registry (`--rehash`) | `checks.rs` |
 | H8 | Cross-check: each run's own tool's `verify-log` verdict compared with the hub's (full and chain-only verdicts) | `run.rs` `crosscheck` |
 | H9 | The verification is itself a run: hash-chained audit log, `environment.json`, `hashes.csv`, statistics and per-item technical / summary / custody reports (en/es/fr), linked in the case log | `run.rs`, `report/` |
 | H10 | Never edits, moves or deletes another tool's file; a broken case log is never extended | `run.rs` `open_target` |
 | H11 | Every finding states what it shows and what it does not prove; four limitations are printed in every report | `i18n/*.json` |
-| H12 | Independent verifier in standard-library Python (chain and hash register); a real sample case made by the tools, with seven tampered variants and their expected findings | `tests/verify_chain.py`, `tests/samples/`, `examples/sample/` |
+| H12 | Independent verifier in standard-library Python (chain and hash register); a real sample case made by the tools, with eight variants (one clean; an edited report among the tampered ones) and their expected findings | `tests/verify_chain.py`, `tests/samples/`, `examples/sample/` |
 | H13 | RFC 3161 timestamp of the verification's own audit head (non-qualified TSA by default) and optional PDF signature with the examiner's certificate | `trust.rs` |
 | H14 | Source auditable by customers and opposing experts; release with SHA256SUMS, SBOM and build-provenance attestation | `LICENSE`, `release.yml` |
 
@@ -315,6 +315,7 @@ These are stated here so that nobody has to find them by cross-examination. Each
 | HG5 | No validated error rates, no per-release validation record | CO-P15, CO-P16, CO-J8, 27041, ISO-12, US-6, US-12, UK-1 | H12 sample and variants; CI | Validation report per release (17025 §7.2.2.4, SWGDE §6), independent tester, separate dataset (G6) |
 | HG6 | TSA chain validated only with `--tsa-ca`; no revocation check of the TSA certificate | EU-4, CO-L9 | Pass `--tsa-ca` with the TSA's roots; establish revocation separately from CRL/OCSP evidence covering `genTime` (`openssl verify -crl_check` with that CRL, or rv-certcheck `--crl`/`--ocsp`); `openssl ts -verify` alone is a signature/chain check, not a revocation check ([forensic-audit.md](forensic-audit.md#timestamps)) | Offline CRL/OCSP response checking |
 | HG7 | `--tool-exe` accepts any signature | CO-P9 | Recorded as `override: true`; state it in the report | Show overrides in the statistics report |
+| HG9 | Tool releases made before their `verify-log` re-hashed recorded outputs answer *intact* on a run whose report was edited | CO-P14, ISO-1 | The hub re-hashes every run's outputs itself (`RUN_OUTPUT_CHANGED`) and reports the tool's answer as `TOOL_VERIFY_DISAGREES` with the reason ([ADR 0004](adr/0004-case-verdicts-and-cross-check.md)) | Every tool ships `outputs.rs` (rv-hashinv and rv-certcheck have it) |
 | HG8 | Suggestions read registered paths, or the folder given with `--evidence-dir` (CLI) or *Evidence copies in* (GUI Case tab) — **closed** in the GUI: both front ends offer the folder | none (not a finding) | Treat suggestions as prompts; give the folder where the evidence is now | — |
 | G1 | Not accredited (COFRAC / ONAC) | ISO-18 | State "not accredited" | Roadmap |
 | G2 | TSA not qualified, not a Colombian ECD | EU-4, EU-5, CO-L9 | `--tsa-url` to a QTSP / ECD | Dual stamping for cross-border cases |
