@@ -325,12 +325,29 @@ pub fn check_run(
     }
 
     // The verify-log verdict: the same function `<tool> verify-log` runs (chain, timestamps, truncation against
-    // the case log, review log).
+    // the case log, review log, recorded outputs).
     let mut verifier_problems: Vec<String> = Vec::new();
     let verdict = match crate::verify::verify_log_with(&audit_path, tsa_anchors) {
         Ok(v) => {
             if !v.truncation.is_empty() {
                 item.fact("fact_truncation", v.truncation.clone());
+            }
+            // Recorded outputs (outputs.rs, shared by every tool), whatever tool wrote the run: each file that no
+            // longer has its recorded digests is a finding of its own, so an edited report is named even when the
+            // run's audit chain is intact.
+            if let Some(o) = &v.outputs {
+                item.fact("fact_outputs", o.summary());
+                for s in o.skipped_lines() {
+                    item.fact("fact_outputs", s);
+                }
+                for p in &o.problems {
+                    item.findings.push(
+                        Finding::of(f::RUN_OUTPUT_CHANGED)
+                            .with("run", label.clone())
+                            .with("file", p.file.clone())
+                            .with("problem", p.to_string()),
+                    );
+                }
             }
             for w in &v.warnings {
                 item.fact("fact_warning", w.clone());

@@ -28,6 +28,7 @@ pub mod findings;
 pub mod hash;
 pub mod i18n;
 pub mod launch;
+pub mod outputs;
 pub mod proc;
 pub mod report;
 pub mod review;

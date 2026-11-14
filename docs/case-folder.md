@@ -109,6 +109,7 @@ whole-case verification, which adds reports, the review-log check, the cross-che
 | --- | --- | --- |
 | Case-log chain, `case.json`, registry digest | ✔ | ✔ (`CASE_LOG_BROKEN`) |
 | Every announced run: chain, `case_linked`, end-of-run head, timestamps | ✔ | ✔ (`RUN_LOG_BROKEN`) |
+| Every output a run's audit log records (reports, registers), re-hashed (`outputs.rs`) | ✔ (`outputs: N verified of M recorded`) | ✔ (`RUN_OUTPUT_CHANGED`, one per file) |
 | A run folder the case log never announced | **warning, exit 0** | **`RUN_NOT_IN_CASE_LOG`, high, exit 3** |
 | Review logs | — (not checked by the hub's `verify-case`) | ✔ (`REVIEW_LOG_BROKEN`) |
 | Unknown `*.jsonl` logs | — | `UNKNOWN_LOG_FORMAT` |

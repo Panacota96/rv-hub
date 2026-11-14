@@ -154,7 +154,7 @@ DONE  run 20261105T103427Z-706d96
   timestamp: off
   report: case/runs/rv-hub/20261105T103427Z-706d96/reports/statistics.en.html
   logs:   case/runs/rv-hub/20261105T103427Z-706d96/logs
-  case:   SAMPLE-1 (run recorded in the case log) | runs 4 (intact 4, broken 0, not in case log 0) | evidence re-hashed 5 (match 5, differ 0, missing 0) | cross-check agree 0, disagree 0, not done 4
+  case:   SAMPLE-1 (run recorded in the case log) | runs 4 (intact 4, broken 0, outputs changed 0, not in case log 0) | evidence re-hashed 5 (match 5, differ 0, missing 0) | cross-check agree 0, disagree 0, not done 4
 ```
 
 Ten items: the case log, the four runs, the five evidence files. Exit code 0.
@@ -193,9 +193,16 @@ The same case with tampering, from `tests/samples/make_tampered.py` (expected co
 | the last run removed from the case log (re-chained) | `RUN_NOT_IN_CASE_LOG`, `RUN_LOG_INTACT` ×3 | 3 |
 | rv-imgauth review log re-anchored | `REVIEW_LOG_BROKEN`, `RUN_LOG_INTACT` ×3 | 3 |
 | one byte of `contrato.pdf` changed, `--rehash` | `EVIDENCE_REHASH_MISMATCH`, `RUN_LOG_INTACT` ×4 | 3 |
+| the rv-pdfauth run's `reports/statistics.json` edited (its audit log untouched) | `RUN_OUTPUT_CHANGED`, `RUN_LOG_INTACT` ×3 (with `--crosscheck auto` and an rv-pdfauth release that does not re-hash outputs, such as 0.2.1: also `TOOL_VERIFY_DISAGREES`) | 3 |
 
 The technical report of a broken run says what failed, e.g.
-`RUN_LOG_BROKEN: audit.jsonl line 1: entry_hash does not match its content (edited entry)`.
+`RUN_LOG_BROKEN: audit.jsonl line 1: entry_hash does not match its content (edited entry)`, or for an edited report
+`RUN_OUTPUT_CHANGED: output reports/statistics.json: sha256 differs from audit entry #13 (recorded …, now …): edited
+or replaced after the run`. Each run's *Recorded outputs re-hashed* fact is the `outputs: N verified of M recorded`
+line. When the run's own tool is a release whose `verify-log` does not re-hash outputs, it answers *intact*: the
+run also gets `TOOL_VERIFY_DISAGREES`, and its reason and the cross-check fact say why (`RV Hub found 1 recorded
+output changed (reports/statistics.json); this release of the tool does not re-hash the outputs its audit log
+records (no "outputs:" line in its verify-log), so its "intact" covers the log only`).
 
 ## 3. Interpreting each finding
 
@@ -205,7 +212,8 @@ The technical report of a broken run says what failed, e.g.
 | `RUN_LOG_BROKEN` | high | That run's reports cannot be relied on until explained; if a copy of the run folder exists elsewhere (e.g. the hand-over copy), compare. Re-running the tool creates a new run; it does not repair the old one. |
 | `REVIEW_LOG_BROKEN` | high | Only the record of what was viewed after the run is in doubt; the run's own log is checked separately. |
 | `RUN_NOT_IN_CASE_LOG` | high | A run folder the case never announced: copied in from elsewhere, or its case-log entries removed. Find its origin. |
-| `TOOL_VERIFY_DISAGREES` | high | Two implementations of the same check disagree. Do not rely on the case until a developer has examined both; report it to Rakvor engineering with the run folder. |
+| `RUN_OUTPUT_CHANGED` | high | A report, register or export of the run no longer has the digest its audit log recorded (named, with both digests). Do not use that file; compare with the hand-over copy and explain the change. The run's log itself may be intact. |
+| `TOOL_VERIFY_DISAGREES` | high | Two implementations of the same check disagree. When its reason says the tool's release does not re-hash outputs, the hub's `RUN_OUTPUT_CHANGED` on the same run is the explanation: update the tool, then verify again. Do not rely on the case until a developer has examined both; report it to Rakvor engineering with the run folder. |
 | `EVIDENCE_REHASH_MISMATCH` | high | The file found is not bit-identical to the registered item. Check that `--evidence-dir` points to the right copies; if it does, the evidence changed after intake. |
 | `EVIDENCE_MISSING` | high | Not found or unreadable. Give its folder with `--evidence-dir`, or explain where the item is. |
 | `UNKNOWN_LOG_FORMAT` | medium | A log the hub does not know; not checked. Identify which tool wrote it. |

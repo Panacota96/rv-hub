@@ -171,6 +171,7 @@
     "runs": "Exécutions",
     "runs_intact": "Exécutions intactes",
     "runs_broken": "Exécutions au journal rompu",
+    "runs_outputs_changed": "Exécutions avec une sortie enregistrée modifiée",
     "runs_not_in_case_log": "Exécutions absentes du journal de l'affaire",
     "reviews_broken": "Journaux de revue rompus",
     "evidence_checked": "Scellés hachés à nouveau",
@@ -190,6 +191,7 @@
     "fact_timestamp_token": "Jeton d'horodatage",
     "fact_verify_log": "Verdict verify-log (hub)",
     "fact_truncation": "Troncature",
+    "fact_outputs": "Sorties enregistrées recalculées",
     "fact_crosscheck": "Contre-vérification par l'outil",
     "fact_case_log_entries": "Entrées du journal de l'affaire",
     "fact_registry_items": "Éléments enregistrés",
@@ -231,6 +233,11 @@
       "title": "Journal de l'exécution rompu",
       "shows": "Le journal d'audit de l'exécution %{run} ne passe pas la vérification : %{problem}.",
       "does_not_prove": "Ce que la modification a changé ni qui l'a faite ; les rapports de cette exécution ne sont pas fiables tant que ce n'est pas expliqué."
+    },
+    "RUN_OUTPUT_CHANGED": {
+      "title": "Sortie enregistrée modifiée",
+      "shows": "Un fichier que le journal d'audit de l'exécution %{run} enregistre avec ses empreintes ne leur correspond plus : %{problem}.",
+      "does_not_prove": "Qui a modifié le fichier, quand, ni si la modification importe ; le journal d'audit de l'exécution peut rester intact. Le fichier ne peut pas être pris pour la sortie de l'exécution tant que la modification n'est pas expliquée."
     },
     "REVIEW_LOG_BROKEN": {
       "title": "Journal de revue rompu",

@@ -352,12 +352,39 @@ fn sample_case_verifies_and_the_hub_writes_only_its_run_and_the_case_log_tail() 
         std::fs::read_to_string(reports.join("statistics.en.html")).unwrap()
     );
     // The hub's log verifies (anchored by the case log), with the hub and with the template's independent oracle.
-    bin()
-        .arg("verify-log")
-        .arg(&logs)
-        .assert()
-        .code(0)
-        .stdout(predicate::str::contains("anchored by the case log"));
+    bin().arg("verify-log").arg(&logs).assert().code(0).stdout(
+        predicate::str::contains("anchored by the case log").and(
+            predicate::str::is_match(
+                r"outputs: [1-9]\d* verified of [1-9]\d* recorded \(md5, sha256\)",
+            )
+            .unwrap(),
+        ),
+    );
+    // Every output the hub's log records is re-hashed: an edited report and a deleted one are problems (exit 3).
+    let item = std::fs::read_dir(reports.join("items"))
+        .unwrap()
+        .next()
+        .unwrap()
+        .unwrap()
+        .path();
+    let technical = item.join("technical.json");
+    let saved = std::fs::read(&technical).unwrap();
+    std::fs::write(&technical, b"{\"edited\": true}\n").unwrap();
+    let pdf = reports.join("statistics.en.pdf");
+    let saved_pdf = std::fs::read(&pdf).unwrap();
+    std::fs::remove_file(&pdf).unwrap();
+    bin().arg("verify-log").arg(&logs).assert().code(3).stdout(
+        predicate::str::contains(format!(
+            "output reports/items/{}/technical.json: md5 differs from audit entry #",
+            item.file_name().unwrap().to_string_lossy()
+        ))
+        .and(predicate::str::contains(
+            "output reports/statistics.en.pdf: missing",
+        ))
+        .and(predicate::str::contains("1 missing, 1 changed")),
+    );
+    std::fs::write(&technical, saved).unwrap();
+    std::fs::write(&pdf, saved_pdf).unwrap();
     // The case log is registered as found (its first N bytes): the hub appends run_finished afterwards, so the
     // oracle's re-hash of the current file differs for that row only.
     if let Ok(o) = std::process::Command::new(python())
@@ -554,9 +581,12 @@ fn crosscheck_with_the_tools_own_verify_log_agrees_on_every_variant() {
             .collect();
         let (code, stats) = verify_variant(dir, &args, &extra);
         let mut got = codes(&stats);
-        assert_eq!(
-            got.remove("TOOL_VERIFY_DISAGREES"),
-            None,
+        // A release made before verify-log re-hashed recorded outputs says "intact" on an edited report: that
+        // disagreement is expected (and reported), never more than the variant states.
+        let released = w["released_tools_disagree"].as_u64().unwrap_or(0);
+        let disagreed = got.remove("TOOL_VERIFY_DISAGREES").unwrap_or(0);
+        assert!(
+            disagreed <= released,
             "{name}: a tool disagrees with the hub: {stats:#}"
         );
         // A deleted run folder cannot be cross-checked; everything else must have the tool's verdict.
@@ -583,12 +613,17 @@ fn crosscheck_with_the_tools_own_verify_log_agrees_on_every_variant() {
         for r in runs {
             let want = if r["verdict"] == "not_verifiable" {
                 "unavailable"
+            } else if disagreed > 0 && r["findings"].to_string().contains("RUN_OUTPUT_CHANGED") {
+                "disagrees"
             } else {
                 "agrees"
             };
             assert_eq!(r["crosscheck"], want, "{name}: {r}");
         }
-        assert_eq!(stats["case"]["verification"]["crosscheck_disagreed"], 0);
+        assert_eq!(
+            stats["case"]["verification"]["crosscheck_disagreed"],
+            disagreed
+        );
     }
 }
 
@@ -617,6 +652,61 @@ fn a_tool_that_disagrees_is_a_high_finding() {
     // The other three tools are not installed here: their cross-check is reported as not done.
     assert_eq!(c.get("CROSSCHECK_UNAVAILABLE"), Some(&3), "{c:?}");
     assert_eq!(stats["case"]["verification"]["crosscheck_disagreed"], 1);
+}
+
+/// A tool release made before verify-log re-hashed recorded outputs answers "intact" on a run whose report was
+/// edited: RV Hub names the changed output (RUN_OUTPUT_CHANGED) and reports the disagreement
+/// (TOOL_VERIFY_DISAGREES, with the reason), even for rv-pdfauth, whose verdict is otherwise compared at chain
+/// level only.
+#[cfg(unix)]
+#[test]
+fn a_release_without_the_outputs_check_disagrees_on_an_edited_report() {
+    use std::os::unix::fs::PermissionsExt;
+    let tmp = tempfile::tempdir().unwrap();
+    let Some(vs) = variants(tmp.path()) else {
+        return;
+    };
+    let fake = tmp.path().join("rv-pdfauth");
+    std::fs::write(
+        &fake,
+        "#!/bin/sh\necho \"OK  14 entries, chain intact\"\nexit 0\n",
+    )
+    .unwrap();
+    std::fs::set_permissions(&fake, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let extra: Vec<std::ffi::OsString> = vec![
+        "--crosscheck".into(),
+        "auto".into(),
+        "--tool-exe".into(),
+        format!("rv-pdfauth={}", fake.display()).into(),
+    ];
+    let (code, stats) = verify_variant(&vs["run_report_edited"], &[], &extra);
+    assert_eq!(code, 3);
+    let c = codes(&stats);
+    assert_eq!(c.get("RUN_OUTPUT_CHANGED"), Some(&1), "{c:?}");
+    assert_eq!(c.get("TOOL_VERIFY_DISAGREES"), Some(&1), "{c:?}");
+    let pdf = stats["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|i| i["kind"] == "run" && i["tool"] == "rv-pdfauth")
+        .unwrap();
+    assert_eq!(pdf["crosscheck"], "disagrees", "{pdf:#}");
+    assert!(
+        !pdf["findings"].to_string().contains("RUN_LOG_INTACT"),
+        "{pdf:#}"
+    );
+    // The reason is in the hub's audit log (crosscheck entry: tool_rehashes_outputs, changed_outputs).
+    let run = hub_runs(&vs["run_report_edited"].join("case"))
+        .last()
+        .unwrap()
+        .clone();
+    let audit = std::fs::read_to_string(run.join("logs/audit.jsonl")).unwrap();
+    assert!(
+        audit.contains("\"tool_rehashes_outputs\":false")
+            && audit.contains("reports/statistics.json")
+            && audit.contains("does not re-hash the outputs"),
+        "{audit}"
+    );
 }
 
 /// The chain-level comparison is only for the tools known to lack the truncation check (rv-pdfauth,

@@ -171,6 +171,7 @@
     "runs": "Ejecuciones",
     "runs_intact": "Ejecuciones íntegras",
     "runs_broken": "Ejecuciones con registro roto",
+    "runs_outputs_changed": "Ejecuciones con una salida registrada modificada",
     "runs_not_in_case_log": "Ejecuciones fuera del registro del caso",
     "reviews_broken": "Registros de revisión rotos",
     "evidence_checked": "Evidencias con hash recalculado",
@@ -190,6 +191,7 @@
     "fact_timestamp_token": "Token de sello de tiempo",
     "fact_verify_log": "Veredicto verify-log (hub)",
     "fact_truncation": "Truncamiento",
+    "fact_outputs": "Salidas registradas recalculadas",
     "fact_crosscheck": "Verificación cruzada con la herramienta",
     "fact_case_log_entries": "Entradas del registro del caso",
     "fact_registry_items": "Elementos registrados",
@@ -231,6 +233,11 @@
       "title": "Registro de la ejecución roto",
       "shows": "El registro de auditoría de la ejecución %{run} no supera la verificación: %{problem}.",
       "does_not_prove": "Qué cambió la edición ni quién la hizo; no se debe confiar en los informes de esa ejecución hasta que se explique."
+    },
+    "RUN_OUTPUT_CHANGED": {
+      "title": "Salida registrada modificada",
+      "shows": "Un archivo que el registro de auditoría de la ejecución %{run} registra con sus resúmenes ya no coincide con ellos: %{problem}.",
+      "does_not_prove": "Quién modificó el archivo, cuándo, ni si el cambio importa; el registro de auditoría de la ejecución puede seguir íntegro. No puede tomarse el archivo como salida de la ejecución hasta que se explique el cambio."
     },
     "REVIEW_LOG_BROKEN": {
       "title": "Registro de revisión roto",

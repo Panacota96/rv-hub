@@ -18,6 +18,8 @@ codes `rv-hub verify` must report for each are listed in examples/sample/expecte
                           GUI viewer only, so the CLI-made sample has none: the log is built here with the same
                           rules as rv-imgauth's review.rs, then re-anchored.)
   evidence_byte_changed   one byte of the evidence copy contrato.pdf changed (detected with --rehash)
+  run_report_edited       the rv-pdfauth run's reports/statistics.json edited (one value changed); its audit
+                          log is untouched, so only the re-hash of the outputs it records shows the edit
 
 Prints a JSON object {variant: path} on stdout.
 """
@@ -132,6 +134,13 @@ def evidence_byte_changed(_case: Path, ev: Path) -> None:
     p.write_bytes(bytes(b))
 
 
+def run_report_edited(case: Path, _ev: Path) -> None:
+    stats = run_dir(case, "rv-pdfauth") / "reports" / "statistics.json"
+    report = json.loads(stats.read_text(encoding="utf-8"))
+    report["edited_after_the_run"] = True
+    stats.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+
+
 VARIANTS = {
     "clean": None,
     "case_log_line_edited": case_log_line_edited,
@@ -140,6 +149,7 @@ VARIANTS = {
     "run_unlinked": run_unlinked,
     "review_reanchored": review_reanchored,
     "evidence_byte_changed": evidence_byte_changed,
+    "run_report_edited": run_report_edited,
 }
 
 
