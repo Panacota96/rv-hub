@@ -4,7 +4,7 @@ One engine, two front-ends. The engine (`src/core`, crate `rv_hub_core`) does al
 CLI and the GUI turn user input into calls of its public API and render what it returns (for the main verb, the
 `Event` stream). Both interfaces therefore produce identical logs and reports.
 
-RV Hub is the main app of the six Rakvor tools (rv-hashinv, rv-pdfauth, rv-imgauth, rv-rsmf, rv-certcheck, rv-mailauth). Each tool stays a
+RV Hub is the main app of the seven Rakvor tools (rv-hashinv, rv-pdfauth, rv-imgauth, rv-rsmf, rv-certcheck, rv-mailauth, rv-timeline). Each tool stays a
 separate signed program; the hub discovers them, checks their signatures, launches them on a case folder, shows a
 read-only case dashboard with next-step suggestions, and verifies the whole case.
 
@@ -151,7 +151,7 @@ sequenceDiagram
 ```
 
 Run items carry two verdicts. **Full** is exactly `verify::verify_log` (chain, timestamp tokens, review log,
-truncation against the timestamp and the case log, and the re-hash of the recorded outputs, `outputs.rs`): what rv-hashinv, rv-rsmf, rv-certcheck and rv-mailauth's
+truncation against the timestamp and the case log, and the re-hash of the recorded outputs, `outputs.rs`): what rv-hashinv, rv-rsmf, rv-certcheck, rv-mailauth and rv-timeline's
 `verify-log` answer. **Chain** leaves out the truncation check against the case log: what rv-pdfauth and rv-imgauth's current
 `verify-log` answer ([rv-hub#21](https://github.com/Panacota96/rv-hub/issues/21)). The cross-check accepts the
 tool's verdict when it equals the full one, or, for rv-pdfauth and rv-imgauth only (no truncation check), the
@@ -196,7 +196,9 @@ hash they cover (`trust::verify_timestamps`), not for the TSA's CMS signature.
 at most the first few kilobytes of an evidence file, read-only, and only when it exists. For an Outlook `.msg` (or
 any compound file) it also reads the MAPI message class with the `cfb` crate, read-only, to choose between
 rv-mailauth (email) and rv-rsmf (Teams), or to suggest both when the class is unreadable
-([theory.md B10](theory.md#b10-the-dashboard-and-the-suggestion-rules)).
+([theory.md B10](theory.md#b10-the-dashboard-and-the-suggestion-rules)). rv-timeline is suggested from the runs
+table, not from the evidence: once two or more intake/analysis tools have completed runs and no completed timeline
+run is newer than the newest of them.
 
 ## GUI state
 

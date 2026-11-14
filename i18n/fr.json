@@ -523,6 +523,8 @@
     "mail_not_analysed": "Des courriels enregistrés (.eml, .mbox, .msg Outlook) n'ont pas encore été analysés.",
     "msg_ambiguous": "Des fichiers .msg Outlook enregistrés dont la classe de message n'a pas pu être lue, ou n'est ni un courriel ni un message Teams : ouvrez-les avec RV MailAuth s'il s'agit de courriels, avec RV RSMF s'il s'agit de messages Teams.",
     "not_examined": "Des éléments enregistrés que cet outil accepte n'ont pas encore été examinés par lui.",
+    "timeline_not_built": "Des exécutions de deux outils ou plus sont terminées et la chronologie de l'affaire n'a pas encore été construite : RV Timeline réunit leurs événements dans une seule chronologie.",
+    "timeline_outdated": "La chronologie de l'affaire a été construite avant les dernières exécutions : reconstruisez-la avec RV Timeline pour les inclure.",
     "timestamp_pending": "Certaines exécutions attendent encore leur horodatage : lancez `timestamp` une fois en ligne."
   }
 }

@@ -523,6 +523,8 @@
     "mail_not_analysed": "Registered emails (.eml, .mbox, Outlook .msg) have not been analysed yet.",
     "msg_ambiguous": "Registered Outlook .msg files whose message class could not be read, or is neither an email nor a Teams message: open them with RV MailAuth if they are emails, with RV RSMF if they are Teams messages.",
     "not_examined": "Registered items this tool accepts have not been examined by it yet.",
+    "timeline_not_built": "Runs of two or more tools are complete and no case timeline has been built yet: RV Timeline puts their events in one timeline.",
+    "timeline_outdated": "The case timeline was built before the latest runs: build it again with RV Timeline to include them.",
     "timestamp_pending": "Some runs are still waiting for their trusted timestamp: run `timestamp` when online."
   }
 }

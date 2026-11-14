@@ -589,9 +589,14 @@ fn case_summary_never_writes_into_the_case() {
     assert!(text.contains("Problems: none"));
     assert!(text.contains("Suggested next steps:"));
     // The evidence is not at its registered paths here: notas.txt cannot be read, so it is not taken for a chat
-    // export, and every other item has been examined.
+    // export, and every other item has been examined. Four tools' runs are complete and no timeline is built.
     assert!(!text.contains("rv-hub launch rv-rsmf"), "{text}");
-    assert!(text.contains("No suggestion"), "{text}");
+    assert!(!text.contains("No suggestion"), "{text}");
+    let timeline = format!(
+        "  - rv-hub launch rv-timeline: {}",
+        rv_hub_core::i18n::catalog("en").text("suggest", "timeline_not_built")
+    );
+    assert!(text.lines().any(|l| l == timeline), "{text}");
 
     // French text, JSON with French reasons: still nothing written.
     let fr = hub_bin(&empty, &data)
@@ -629,7 +634,19 @@ fn case_summary_never_writes_into_the_case() {
         .output()
         .unwrap();
     let without: Value = serde_json::from_slice(&without.stdout).unwrap();
-    assert_eq!(without["suggestions"], serde_json::json!([]), "{without:#}");
+    // Three tools' runs are still complete: only the timeline is suggested.
+    let only: Vec<(&str, &str)> = without["suggestions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|s| {
+            (
+                s["tool"].as_str().unwrap(),
+                s["reason_key"].as_str().unwrap(),
+            )
+        })
+        .collect();
+    assert_eq!(only, [("rv-timeline", "timeline_not_built")], "{without:#}");
     let out = hub_bin(&empty, &data)
         .args(["case", "--json", "--lang", "fr", "--case-dir"])
         .arg(&failed)
@@ -646,7 +663,8 @@ fn case_summary_never_writes_into_the_case() {
     assert_eq!(v["evidence_count"], 5);
     assert_eq!(v["runs"].as_array().unwrap().len(), 4);
     assert_eq!(v["severity"]["info"], 6);
-    assert_eq!(v["suggestions"].as_array().unwrap().len(), 1, "{v:#}");
+    assert_eq!(v["suggestions"].as_array().unwrap().len(), 2, "{v:#}");
+    assert_eq!(v["suggestions"][1]["tool"], "rv-timeline", "{v:#}");
     let s = &v["suggestions"][0];
     assert_eq!(s["reason_key"], "chats_not_converted");
     let chat_id = v["evidence"]

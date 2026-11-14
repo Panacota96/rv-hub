@@ -10,17 +10,17 @@
 ![License](https://img.shields.io/badge/license-Rakvor%20source--auditable-6B00FF)
 ![Windows 10/11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6)
 
-RV Hub is the one window an examiner opens first. The six Rakvor tools stay separate, separately signed
+RV Hub is the one window an examiner opens first. The seven Rakvor tools stay separate, separately signed
 programs; the hub sits beside them and does five things:
 
-1. **Finds** the installed tools (rv-hashinv, rv-pdfauth, rv-imgauth, rv-rsmf, rv-certcheck, rv-mailauth), with their
+1. **Finds** the installed tools (rv-hashinv, rv-pdfauth, rv-imgauth, rv-rsmf, rv-certcheck, rv-mailauth, rv-timeline), with their
    version and the SHA-256 of each executable.
 2. **Checks** each tool's Authenticode signature, and that its certificate chain ends at the Rakvor root bundled in
    the hub (Windows).
 3. **Launches** a tool's desktop app on a case folder (`<tool>-gui.exe --case-dir CASE`), and records which
    executable was started, on which case, by whom.
 4. **Shows** a read-only case dashboard: evidence, runs, findings by severity, timestamp status, and suggested next
-   steps (which tool has not yet examined which item).
+   steps (which tool has not yet examined which item, and when to build or rebuild the case timeline).
 5. **Verifies the whole case** (`rv-hub verify`): the case log, every run's audit log, review log and timestamps, the
    links between them, and optionally every evidence file again; then it asks each run's own tool to verify its logs
    too (`<tool> verify-log`) and compares the two answers.
@@ -35,11 +35,12 @@ flowchart LR
         T4[["rv-rsmf"]]
         T5[["rv-certcheck"]]
         T6[["rv-mailauth"]]
+        T7[["rv-timeline"]]
     end
     CASE[("Case folder<br/>case.json · case-log.jsonl<br/>evidence/ · runs/")]
-    HUB -- "discover + signature check" --> T1 & T2 & T3 & T4 & T5 & T6
+    HUB -- "discover + signature check" --> T1 & T2 & T3 & T4 & T5 & T6 & T7
     HUB -- "launch --case-dir" --> T2
-    T1 & T2 & T3 & T4 & T5 & T6 -- "each writes its own run" --> CASE
+    T1 & T2 & T3 & T4 & T5 & T6 & T7 -- "each writes its own run" --> CASE
     HUB -. "reads (dashboard)" .-> CASE
     HUB -- "verify: writes only runs/rv-hub/ + 2 case-log entries" --> CASE
     HUB -- "cross-check: verify-log" --> T2
@@ -48,7 +49,7 @@ flowchart LR
 ## Contents
 
 - [What it does, and what it does not do](#what-it-does-and-what-it-does-not-do)
-- [The six tools and how they are found](#the-six-tools-and-how-they-are-found)
+- [The seven tools and how they are found](#the-seven-tools-and-how-they-are-found)
 - [Install](#install)
 - [Quick start: desktop app](#quick-start-desktop-app)
 - [Quick start: command line](#quick-start-command-line)
@@ -70,7 +71,7 @@ flowchart LR
 | Ask each run's own tool for its `verify-log` verdict and report any disagreement (high severity) | Prove that a tool's findings are correct, or that the evidence is authentic: verification shows integrity, not content |
 | Write its verification as a run of its own (`runs/rv-hub/<RUN-ID>/`), linked in the case log | Write anything else in the case: two case-log entries (`run_started`, `run_finished`) are its only change outside its own run folder |
 
-## The six tools and how they are found
+## The seven tools and how they are found
 
 | Tool | Role | Accepts (built-in table) | Repository |
 | --- | --- | --- | --- |
@@ -80,10 +81,16 @@ flowchart LR
 | **rv-rsmf** | conversion: chat exports to RSMF 2.0 | `.txt` (only when it looks like a chat export), `.json`, `.html`, `.htm`, `.msg` (Teams), `.csv` | [Panacota96/rv-rsmf](https://github.com/Panacota96/rv-rsmf) |
 | **rv-certcheck** | analysis: certificates, CRLs, timestamp tokens, keys, CSRs | `.crt .cer .der .pem .p7b .p7c .p12 .pfx .crl .tsr .tst .key .csr`, or DER / PEM content | [Panacota96/rv-certcheck](https://github.com/Panacota96/rv-certcheck) |
 | **rv-mailauth** | analysis: email authenticity signals (.eml, Outlook .msg, .mbox) | `.eml .mbox .msg`, or a compound file (`.msg`) / a first line `From ` (mbox) | [Panacota96/rv-mailauth](https://github.com/Panacota96/rv-mailauth) |
+| **rv-timeline** | analysis: one timeline of the case from the case log and every other tool's runs (`build --case-dir`; not released yet) | the case folder only (its `.json`/`.jsonl` files), never an evidence file | [Panacota96/rv-timeline](https://github.com/Panacota96/rv-timeline) |
 
 An Outlook `.msg` is accepted by both rv-mailauth and rv-rsmf: the case view reads its message class and suggests
 rv-mailauth for an email (`IPM.Note…`), rv-rsmf for a Teams message (`IPM.SkypeTeams.…`), and both when the class
 cannot be read ([theory.md B10](docs/theory.md#b10-the-dashboard-and-the-suggestion-rules)).
+
+rv-timeline reads the case folder, never an evidence file. It is suggested once completed runs of two or more
+intake or analysis tools exist and no completed rv-timeline run started after the newest of them finished
+(`timeline_not_built`, or `timeline_outdated` with the runs the timeline does not cover). RV Hub's own
+verification runs do not count, and a case with runs of fewer than two such tools gets no timeline suggestion.
 
 Discovery looks in four places, in this order, and lists an executable found by several sources once, with every
 source ([theory.md B1](docs/theory.md#b1-discovery)):
@@ -91,7 +98,7 @@ source ([theory.md B1](docs/theory.md#b1-discovery)):
 1. the Windows uninstall registry, `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\{AppId}_is1`, for the
    tools' known installer AppIds;
 2. `%LOCALAPPDATA%\Programs\Rakvor\*\` (where every Rakvor installer puts its tool);
-3. the folders of `PATH` (the six known tool names only);
+3. the folders of `PATH` (the seven known tool names only);
 4. folders you add (for example portable zips on a USB stick), and their direct subfolders.
 
 Each Rakvor-signed tool is asked `describe --json` (schema `rakvor.describe/1`, 10 s limit) for its version and what

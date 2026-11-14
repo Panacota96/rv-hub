@@ -225,6 +225,17 @@ mod tests {
         assert_eq!(keys.len(), 5, "one label per status");
     }
 
+    /// The preview workstation has the six released tools; rv-timeline (not released) is a dimmed card.
+    #[test]
+    fn unreleased_timeline_is_shown_not_installed() {
+        let c = cards(&crate::state::testing::known_tools(r"C:\Programs\Rakvor"));
+        assert_eq!(c.len(), KNOWN_TOOLS.len());
+        let t = c.iter().find(|c| c.tool == "rv-timeline").unwrap();
+        assert_eq!(t.title, "RV Timeline");
+        assert!(!t.installed && !t.can_launch() && t.version.is_none());
+        assert_eq!(c.iter().filter(|c| c.installed).count(), 6);
+    }
+
     #[test]
     fn tool_cards_from_a_fake_discovery() {
         let d = tempfile::tempdir().unwrap();

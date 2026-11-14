@@ -111,7 +111,7 @@ Runs:
 Problems: none
 
 Suggested next steps:
-  No suggestion: every registered item has been examined.
+  - rv-hub launch rv-timeline: Runs of two or more tools are complete and no case timeline has been built yet: RV Timeline puts their events in one timeline.
 ```
 
 The numbers come from the tools' own `statistics.json`, as they are: this is a summary, not a verification. A
@@ -122,7 +122,10 @@ with an email header block) are suggested to rv-mailauth. An Outlook `.msg` goes
 cannot be read (a damaged or missing file) or is another one, both are suggested with the reason "the file type is
 ambiguous" (`msg_ambiguous`): open it with the tool that fits. When the evidence is no longer at its registered
 path, give its folder so the hub can look inside: `rv-hub case --case-dir D:\cases\CASE-2026-014 --evidence-dir
-F:\copies` ([theory.md B10](theory.md#b10-the-dashboard-and-the-suggestion-rules)). Decide yourself; ignoring a
+F:\copies` ([theory.md B10](theory.md#b10-the-dashboard-and-the-suggestion-rules)). rv-timeline reads the case folder, never an evidence file. It is suggested once completed runs of two or more
+intake or analysis tools exist and no completed rv-timeline run started after the newest of them finished
+(`timeline_not_built`, or `timeline_outdated` with the runs the timeline does not cover). RV Hub's own
+verification runs do not count, and a case with runs of fewer than two such tools gets no timeline suggestion. In the sample, four tools' runs are complete and there is no timeline yet. Decide yourself; ignoring a
 suggestion has no effect on the case.
 
 ### 2.4 Launch the analysis tools

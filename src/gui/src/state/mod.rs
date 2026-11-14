@@ -861,7 +861,8 @@ pub mod testing {
         t
     }
 
-    /// The six Rakvor tools as discovered on a workstation (no files on disk): screenshots and tests.
+    /// The six released Rakvor tools as discovered on a workstation (no files on disk): screenshots and tests.
+    /// rv-timeline has no release yet: it is not in this list, so the Tools tab shows it as not installed.
     /// `root` is shown as is (e.g. a Windows path on any platform): the folders are `<root>\\<title>`.
     pub fn known_tools(root: &str) -> Vec<ToolInfo> {
         let p = |t: &str| std::path::PathBuf::from(format!("{root}\\{t}"));

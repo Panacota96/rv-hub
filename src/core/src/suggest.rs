@@ -11,6 +11,8 @@
 //! | Emails (.eml, or a header block with `From:` and `Date:`/`Message-ID:`; .mbox, or a first line `From <sender> <date>`; email .msg) not yet analysed | rv-mailauth | `mail_not_analysed` |
 //! | .msg whose message class cannot be read, or is neither an email nor a Teams message | rv-rsmf and rv-mailauth | `msg_ambiguous` |
 //! | Any other described tool with matching, unexamined evidence      | that tool   | `not_examined`                |
+//! | Completed runs of two or more intake/analysis tools, no completed rv-timeline run | rv-timeline | `timeline_not_built` |
+//! | The same, and every completed rv-timeline run is older than one of those runs | rv-timeline | `timeline_outdated` (runs listed) |
 //! | Runs whose trusted timestamp is pending                          | `timestamp` | `timestamp_pending`           |
 //!
 //! Matching uses each tool's `accepts` lists (from `describe --json`, or the built-in table): the extension, or
@@ -35,8 +37,17 @@
 //! ```
 //!
 //! An ambiguous `.msg` that either tool has already examined is not suggested again.
+//!
+//! **Timeline (rv-timeline).** rv-timeline reads the case folder (the case log and every other tool's runs), never
+//! an evidence file: its `accepts` list (`.json`, `.jsonl`) is not matched against registered evidence. It is
+//! suggested once the case has completed runs of at least two tools whose role is intake or analysis (the role
+//! the run recorded in the case log, else the tool's described role; RV Hub's own verification runs and
+//! rv-timeline's runs do not count), and no completed rv-timeline run is newer than the newest of those runs: a
+//! timeline run covers a run that finished before it started (case-log order when a time is missing). A case with
+//! runs of fewer than two such tools gets no timeline suggestion. `timeline_outdated` lists the runs the newest
+//! timeline does not cover.
 
-use crate::case_view::{CaseView, EvidenceRow, TimestampStatus};
+use crate::case_view::{CaseView, EvidenceRow, RunStatus, TimestampStatus};
 use crate::tools::{Describe, SignatureSpec, ToolRole};
 use serde::Serialize;
 use std::io::Read;
@@ -58,7 +69,8 @@ pub struct Suggestion {
     /// Key in the `suggest` section of i18n/*.json.
     pub reason_key: String,
     pub evidence_ids: Vec<String>,
-    /// For `Timestamp`: "runs/<tool>/<RUN-ID>".
+    /// For `Timestamp`: the runs to timestamp; for `timeline_outdated`: the runs the newest timeline does not
+    /// cover. "runs/<tool>/<RUN-ID>".
     pub run_dirs: Vec<String>,
 }
 
@@ -201,6 +213,83 @@ fn reason_for(tool: &str) -> &'static str {
         MAIL_TOOL => "mail_not_analysed",
         _ => "not_examined",
     }
+}
+
+/// The case-folder tool: suggested from the case's runs, never for an evidence file.
+pub const TIMELINE_TOOL: &str = "rv-timeline";
+/// Reason keys of the timeline suggestion.
+pub const TIMELINE_NOT_BUILT: &str = "timeline_not_built";
+pub const TIMELINE_OUTDATED: &str = "timeline_outdated";
+
+/// The timeline suggestion (see the module documentation), or None.
+fn timeline(view: &CaseView, catalog: &[Describe]) -> Option<Suggestion> {
+    let described = |tool: &str| catalog.iter().find(|d| d.tool == tool).map(|d| d.role);
+    let completed = |r: &&crate::case_view::RunRow| r.status == RunStatus::Completed;
+    let counts = |r: &crate::case_view::RunRow| {
+        r.tool != TIMELINE_TOOL
+            && r.tool != crate::TOOL_NAME
+            && match r.role.as_deref() {
+                Some(role) => role == "intake" || role == "analysis",
+                None => matches!(
+                    described(&r.tool),
+                    Some(ToolRole::Intake | ToolRole::Analysis)
+                ),
+            }
+    };
+    let sources: Vec<(usize, &crate::case_view::RunRow)> = view
+        .runs
+        .iter()
+        .enumerate()
+        .filter(|(_, r)| completed(r) && counts(r))
+        .collect();
+    let mut tools: Vec<&str> = sources.iter().map(|(_, r)| r.tool.as_str()).collect();
+    tools.sort_unstable();
+    tools.dedup();
+    if tools.len() < 2 {
+        return None;
+    }
+    let timelines: Vec<(usize, &crate::case_view::RunRow)> = view
+        .runs
+        .iter()
+        .enumerate()
+        .filter(|(_, r)| completed(r) && r.tool == TIMELINE_TOOL)
+        .collect();
+    // `s` is newer than the timeline run `t`: it finished after `t` started (case-log order without times).
+    let newer = |(si, s): &(usize, &crate::case_view::RunRow),
+                 (ti, t): &(usize, &crate::case_view::RunRow)| {
+        match (
+            s.finished_utc.as_deref().or(s.started_utc.as_deref()),
+            t.started_utc.as_deref(),
+        ) {
+            (Some(a), Some(b)) => a > b,
+            _ => si > ti,
+        }
+    };
+    let (reason, run_dirs) = match timelines.last() {
+        None => (TIMELINE_NOT_BUILT, vec![]),
+        Some(_)
+            if timelines
+                .iter()
+                .any(|t| !sources.iter().any(|s| newer(s, t))) =>
+        {
+            return None;
+        }
+        Some(latest) => (
+            TIMELINE_OUTDATED,
+            sources
+                .iter()
+                .filter(|s| newer(s, latest))
+                .map(|(_, r)| r.run_dir.clone())
+                .collect(),
+        ),
+    };
+    Some(Suggestion {
+        tool: TIMELINE_TOOL.into(),
+        action: Action::Launch,
+        reason_key: reason.into(),
+        evidence_ids: vec![],
+        run_dirs,
+    })
 }
 
 /// The email tool and the chat converter: both accept Outlook `.msg` files; the message class decides.
@@ -476,7 +565,7 @@ pub fn suggest_with(
         .collect();
     let mut tools: Vec<&Describe> = catalog
         .iter()
-        .filter(|d| d.role != ToolRole::Intake && !d.accepts.any())
+        .filter(|d| d.role != ToolRole::Intake && !d.accepts.any() && d.tool != TIMELINE_TOOL)
         .collect();
     let rank = |t: &str| {
         crate::tools::KNOWN_TOOLS
@@ -522,6 +611,7 @@ pub fn suggest_with(
             });
         }
     }
+    out.extend(timeline(view, catalog));
     let mut pending: Vec<(String, Vec<String>)> = Vec::new();
     for r in view
         .runs
@@ -935,6 +1025,8 @@ mod tests {
             "not_examined",
             "timestamp_pending",
             MSG_AMBIGUOUS,
+            TIMELINE_NOT_BUILT,
+            TIMELINE_OUTDATED,
         ]);
         for lang in ["en", "es", "fr"] {
             for k in &keys {
@@ -946,15 +1038,229 @@ mod tests {
     }
 
     #[test]
-    fn sample_case_has_nothing_left_to_examine() {
+    fn sample_case_has_nothing_left_to_examine_but_its_timeline() {
         let v =
             read_case(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/sample/case"));
-        // Registered paths are not on this machine: nothing is suggested (notas.txt cannot be read, so it is
-        // not taken for a chat export).
-        assert_eq!(suggest(&v, &catalog(&[])), vec![]);
+        // Registered paths are not on this machine: no evidence is suggested (notas.txt cannot be read, so it is
+        // not taken for a chat export). The four tools' completed runs have no timeline yet.
+        let s = suggest(&v, &catalog(&[]));
+        assert_eq!(s.len(), 1, "{s:?}");
+        assert_eq!(
+            (s[0].tool.as_str(), s[0].reason_key.as_str()),
+            (TIMELINE_TOOL, TIMELINE_NOT_BUILT)
+        );
+        assert_eq!(s[0].action, Action::Launch);
+        assert!(s[0].evidence_ids.is_empty() && s[0].run_dirs.is_empty());
         // With the evidence folder, the content is read: notas.txt is still not a chat export.
         let ev = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/sample/evidence");
         let s = suggest_with(&v, &catalog(&[]), &[ev]);
         assert!(s.iter().all(|x| x.tool != "rv-rsmf"), "{s:?}");
+    }
+
+    const T0: &str = "2026-11-01T10:00:00.000Z";
+
+    /// A run of `tool` that started at `start` and finished at `end` ("" = no time).
+    fn run(tool: &str, id: &str, role: Option<&str>, start: &str, end: &str) -> RunRow {
+        RunRow {
+            tool: tool.into(),
+            run_id: id.into(),
+            run_dir: format!("runs/{tool}/{id}"),
+            version: None,
+            role: role.map(String::from),
+            actor: None,
+            started_utc: (!start.is_empty()).then(|| start.to_string()),
+            finished_utc: (!end.is_empty()).then(|| end.to_string()),
+            status: RunStatus::Completed,
+            folder_present: true,
+            evidence_ids: vec![],
+            items: None,
+            severity: None,
+            timestamp: TimestampStatus::Obtained,
+        }
+    }
+
+    fn with_status(r: &RunRow, status: RunStatus) -> RunRow {
+        RunRow {
+            status,
+            ..r.clone()
+        }
+    }
+
+    fn untimed(r: &RunRow) -> RunRow {
+        RunRow {
+            started_utc: None,
+            finished_utc: None,
+            ..r.clone()
+        }
+    }
+
+    /// The timeline suggestion for a case with these runs: (reason key, run_dirs), or None.
+    fn timeline_of(runs: &[RunRow]) -> Option<(String, Vec<String>)> {
+        let v = CaseView {
+            case_id: Some("C".into()),
+            runs: runs.to_vec(),
+            ..Default::default()
+        };
+        let s: Vec<Suggestion> = suggest(&v, &catalog(&[]))
+            .into_iter()
+            .filter(|s| s.tool == TIMELINE_TOOL)
+            .collect();
+        assert!(s.len() <= 1, "{s:?}");
+        s.into_iter().next().map(|s| {
+            assert_eq!(s.action, Action::Launch);
+            assert!(s.evidence_ids.is_empty());
+            (s.reason_key, s.run_dirs)
+        })
+    }
+
+    /// rv-timeline: suggested once two or more intake/analysis tools have completed runs and no completed
+    /// timeline run is newer than the newest of them; "outdated" lists the runs it does not cover.
+    #[test]
+    fn timeline_rules() {
+        let not_built = Some((TIMELINE_NOT_BUILT.to_string(), vec![]));
+        let h = run(
+            "rv-hashinv",
+            "H1",
+            Some("intake"),
+            T0,
+            "2026-11-01T10:05:00.000Z",
+        );
+        let h2 = run(
+            "rv-hashinv",
+            "H2",
+            Some("intake"),
+            "2026-11-01T10:06:00.000Z",
+            "2026-11-01T10:07:00.000Z",
+        );
+        let p = run(
+            "rv-pdfauth",
+            "P1",
+            Some("analysis"),
+            "2026-11-01T11:00:00.000Z",
+            "2026-11-01T11:05:00.000Z",
+        );
+        let tl = |id: &str, start: &str| {
+            run(
+                TIMELINE_TOOL,
+                id,
+                Some("analysis"),
+                start,
+                "2026-11-30T00:00:00.000Z",
+            )
+        };
+        let hub = run(
+            crate::TOOL_NAME,
+            "V1",
+            Some("analysis"),
+            "2026-11-02T00:00:00.000Z",
+            "2026-11-02T00:01:00.000Z",
+        );
+
+        // Fewer than two tools' completed runs: never suggested.
+        assert_eq!(timeline_of(&[]), None);
+        assert_eq!(timeline_of(std::slice::from_ref(&h)), None);
+        assert_eq!(timeline_of(&[h.clone(), h2.clone()]), None);
+        for st in [
+            RunStatus::Failed,
+            RunStatus::Cancelled,
+            RunStatus::Running,
+            RunStatus::NotInCaseLog,
+        ] {
+            assert_eq!(
+                timeline_of(&[h.clone(), with_status(&p, st)]),
+                None,
+                "{st:?}"
+            );
+        }
+        // RV Hub's verification runs and rv-timeline's own runs are not sources.
+        assert_eq!(timeline_of(&[h.clone(), hub.clone()]), None);
+        assert_eq!(
+            timeline_of(&[h.clone(), tl("T0", "2026-11-03T00:00:00.000Z")]),
+            None
+        );
+
+        // Two tools and no completed timeline: not built.
+        assert_eq!(timeline_of(&[h.clone(), p.clone()]), not_built);
+        let failed = with_status(&tl("T0", "2026-11-03T00:00:00.000Z"), RunStatus::Failed);
+        assert_eq!(timeline_of(&[h.clone(), p.clone(), failed]), not_built);
+        // The role the run recorded decides (rv-rsmf's runs record "analysis"); without one, the described role
+        // (rv-rsmf: conversion, not counted; rv-pdfauth: analysis).
+        let r = run(
+            "rv-rsmf",
+            "R1",
+            Some("analysis"),
+            "2026-11-01T13:00:00.000Z",
+            "2026-11-01T13:01:00.000Z",
+        );
+        assert_eq!(timeline_of(&[h.clone(), r.clone()]), not_built);
+        let r_none = RunRow {
+            role: None,
+            ..r.clone()
+        };
+        assert_eq!(timeline_of(&[h.clone(), r_none]), None);
+        let p_none = RunRow {
+            role: None,
+            ..p.clone()
+        };
+        assert_eq!(timeline_of(&[h.clone(), p_none]), not_built);
+
+        // A timeline started after the newest run finished: up to date (RV Hub's later run does not matter).
+        let built = tl("T1", "2026-11-01T11:06:00.000Z");
+        assert_eq!(
+            timeline_of(&[h.clone(), p.clone(), built.clone(), hub]),
+            None
+        );
+        // A run that finished after the timeline started: outdated, that run listed.
+        let late = run(
+            "rv-imgauth",
+            "I1",
+            Some("analysis"),
+            "2026-11-01T11:05:30.000Z",
+            "2026-11-01T11:10:00.000Z",
+        );
+        assert_eq!(
+            timeline_of(&[h.clone(), p.clone(), built.clone(), late.clone()]),
+            Some((
+                TIMELINE_OUTDATED.to_string(),
+                vec!["runs/rv-imgauth/I1".to_string()]
+            ))
+        );
+        // A newer timeline covers it again, whatever older timelines there are.
+        let rebuilt = tl("T2", "2026-11-01T12:00:00.000Z");
+        assert_eq!(
+            timeline_of(&[h.clone(), p.clone(), built, late, rebuilt]),
+            None
+        );
+
+        // Without times, the case-log order decides.
+        let t3 = untimed(&tl("T3", ""));
+        assert_eq!(timeline_of(&[untimed(&h), untimed(&p), t3.clone()]), None);
+        assert_eq!(
+            timeline_of(&[untimed(&h), t3, untimed(&p)]),
+            Some((
+                TIMELINE_OUTDATED.to_string(),
+                vec!["runs/rv-pdfauth/P1".to_string()]
+            ))
+        );
+    }
+
+    /// rv-timeline accepts `.json` / `.jsonl`, but is never suggested for a registered evidence file.
+    #[test]
+    fn timeline_is_never_suggested_for_evidence() {
+        let d = tempfile::tempdir().unwrap();
+        let j = d.path().join("export.json");
+        std::fs::write(&j, b"{\"name\": \"chat\", \"messages\": []}").unwrap();
+        let l = d.path().join("events.jsonl");
+        std::fs::write(&l, b"{}\n").unwrap();
+        let v = CaseView {
+            case_id: Some("C".into()),
+            evidence: vec![
+                row("E0001", &j, &["rv-hashinv"]),
+                row("E0002", &l, &["rv-hashinv"]),
+            ],
+            ..Default::default()
+        };
+        let s = suggest(&v, &catalog(&[]));
+        assert!(s.iter().all(|x| x.tool != TIMELINE_TOOL), "{s:?}");
     }
 }

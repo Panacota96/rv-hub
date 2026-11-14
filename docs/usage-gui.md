@@ -24,7 +24,7 @@ flowchart LR
 ![Tools tab](images/hub-tools.png)
 
 One card per tool found in the installed programs, `%LOCALAPPDATA%\Programs\Rakvor`, the `PATH` and the folders you
-add. A known tool (rv-hashinv, rv-pdfauth, rv-imgauth, rv-rsmf, rv-certcheck, rv-mailauth) that is not found is
+add. A known tool (rv-hashinv, rv-pdfauth, rv-imgauth, rv-rsmf, rv-certcheck, rv-mailauth, rv-timeline) that is not found is
 shown dimmed as *not installed*. Each card shows the version, where it was
 found, the install path and the signature badge of the GUI executable:
 
@@ -61,6 +61,8 @@ you are asked again or the launch is refused (refresh the list).
   a PDF, an image or an email, an Outlook `.msg` whose message class says email or Teams) look for it there by file name, as `rv-hub case --evidence-dir` does. It is the same value as
   the Verify tab's re-hash folder; a folder that does not exist is refused.
 - **Suggested next steps**, each with its reason and a one-click button that opens the suggested tool on the case.
+  RV Timeline is suggested once runs of two or more tools are complete and the case has no timeline newer than
+  them (in the screenshot it is not installed, so the line says so instead of offering the button).
 
 The view is read-only: nothing in the case folder is changed. It is read again with **Refresh** and whenever the
 window regains the focus (for example after closing a tool that added a run).

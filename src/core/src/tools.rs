@@ -5,17 +5,17 @@
 //! 1. the uninstall registry keys `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\{AppId}_is1` of the
 //!    known AppIds ([`APP_IDS`], Windows only): `InstallLocation`, `DisplayVersion`;
 //! 2. `%LOCALAPPDATA%\Programs\Rakvor\*\rv-*.exe` (the per-user install folder of every Rakvor installer);
-//! 3. `PATH` (the six known tools only: nothing else named `rv-*` is ever executed);
+//! 3. `PATH` (the seven known tools only: nothing else named `rv-*` is ever executed);
 //! 4. folders the user added (portable zips, a USB stick): the folder and its direct subfolders.
 //!
-//! A program named `rv-*` that is not one of the six known tools is run (`describe`) only when it was found in a
+//! A program named `rv-*` that is not one of the seven known tools is run (`describe`) only when it was found in a
 //! folder the user added, or is Rakvor-signed (Windows): from sources 1–3 on a system where signatures cannot be
 //! checked, it is neither run nor listed. RV Hub never runs itself.
 //!
 //! `describe --json` runs with a time limit, and only for executables that are Rakvor-signed (or where the
 //! signature cannot be checked, i.e. not Windows): an executable signed by someone else is never run by the hub.
 //! When `describe` is absent (tool versions before it), fails, or reports another schema, the built-in table of
-//! the six tools is used and the inventory says so (`describe_source: builtin`, version unknown).
+//! the seven tools is used and the inventory says so (`describe_source: builtin`, version unknown).
 
 use crate::hash::{HashAlgo, hash_reader};
 use crate::signature::{SignatureStatus, SignatureVerifier};
@@ -29,14 +29,15 @@ pub const SCHEMA_DESCRIBE: &str = "rakvor.describe/1";
 /// Log chains a tool may declare in `log_formats`.
 pub const LOG_AUDIT: &str = "rakvor.audit/1";
 pub const LOG_REVIEW: &str = "rakvor.review/1";
-/// The six tools RV Hub coordinates (CLI names without extension). The order is the order of the suggestions.
-pub const KNOWN_TOOLS: [&str; 6] = [
+/// The seven tools RV Hub coordinates (CLI names without extension). The order is the order of the suggestions.
+pub const KNOWN_TOOLS: [&str; 7] = [
     "rv-hashinv",
     "rv-pdfauth",
     "rv-imgauth",
     "rv-rsmf",
     "rv-certcheck",
     "rv-mailauth",
+    "rv-timeline",
 ];
 pub const DEFAULT_DESCRIBE_TIMEOUT: Duration = Duration::from_secs(10);
 
@@ -90,7 +91,7 @@ pub struct KnownAppId {
 /// key names whichever of the two was installed last: the tool is identified by the executables in its
 /// InstallLocation, and a warning is attached. `{04A0C3C3-…}` is rv-imgauth's corrected AppId (plan §0.3, from
 /// 0.2.1). Tools installed under any other key are still found in `%LOCALAPPDATA%\Programs\Rakvor`.
-pub const APP_IDS: [KnownAppId; 6] = [
+pub const APP_IDS: [KnownAppId; 7] = [
     KnownAppId {
         app_id: "{6D3F3B0E-5B7A-4B2C-9E61-2A1C7D4E9F10}",
         tool: Some("rv-hashinv"),
@@ -122,6 +123,11 @@ pub const APP_IDS: [KnownAppId; 6] = [
     KnownAppId {
         app_id: "{0D5428B0-B438-4B0F-804F-C48582CC8A7B}",
         tool: Some("rv-mailauth"),
+        warning: None,
+    },
+    KnownAppId {
+        app_id: "{BE690C03-DA5F-42F0-9284-A86D5FF89D0E}",
+        tool: Some("rv-timeline"),
         warning: None,
     },
 ];
@@ -398,6 +404,17 @@ pub fn builtin(tool: &str) -> Option<Describe> {
                 sig("msg", &[(0, "d0cf11e0a1b11ae1")]),
                 sig("mbox", &[(0, "46726f6d20")]),
             ],
+            &[LOG_AUDIT, LOG_REVIEW],
+        ),
+        // A case-folder tool: it reads the case's JSON documents and logs and the other tools' runs, never an
+        // evidence file (no signature). The suggestions treat it apart (`suggest::TIMELINE_TOOL`): its
+        // extensions are never matched against registered evidence. Its review log is `logs/review.jsonl`.
+        "rv-timeline" => (
+            "RV Timeline",
+            ToolRole::Analysis,
+            "build",
+            &["json", "jsonl"],
+            vec![],
             &[LOG_AUDIT, LOG_REVIEW],
         ),
         _ => return None,
@@ -884,7 +901,14 @@ mod tests {
             Some("0.3.0")
         ));
         assert!(verify_log_lacks_truncation_check("rv-imgauth", None));
-        for t in ["rv-hashinv", "rv-rsmf", "rv-certcheck", "rv-other"] {
+        for t in [
+            "rv-hashinv",
+            "rv-rsmf",
+            "rv-certcheck",
+            "rv-mailauth",
+            "rv-timeline",
+            "rv-other",
+        ] {
             assert!(!verify_log_lacks_truncation_check(t, Some("0.1.0")), "{t}");
             assert!(!verify_log_lacks_truncation_check(t, None), "{t}");
         }
@@ -906,7 +930,7 @@ mod tests {
         assert!(!builtin("rv-rsmf").unwrap().accepts.any());
         assert!(builtin("rv-other").is_none());
         assert_eq!(catalog(&[]).len(), KNOWN_TOOLS.len());
-        assert_eq!(catalog(&[]).len(), 6);
+        assert_eq!(catalog(&[]).len(), 7);
         assert_eq!(img.version, None);
         let cert = builtin("rv-certcheck").unwrap();
         assert_eq!(
@@ -999,6 +1023,136 @@ mod tests {
         assert!(t.describe.accepts.matches_extension("x.eml"));
         assert!(catalog(&tools).iter().any(|c| c.tool == "rv-mailauth"));
     }
+
+    #[test]
+    fn timeline_is_a_case_folder_analysis_tool_in_the_builtin_table() {
+        let t = builtin("rv-timeline").unwrap();
+        assert_eq!(
+            (t.title.as_str(), t.role, t.main_verb.as_str()),
+            ("RV Timeline", ToolRole::Analysis, "build")
+        );
+        assert_eq!(
+            (t.cli_exe.as_str(), t.gui_exe.as_str()),
+            ("rv-timeline.exe", "rv-timeline-gui.exe")
+        );
+        assert_eq!(t.log_formats, [LOG_AUDIT, LOG_REVIEW]);
+        // It reads the case folder's JSON documents and logs; no evidence signature, never "any file".
+        assert!(t.accepts.signatures.is_empty() && !t.accepts.any());
+        assert!(t.accepts.matches_extension("case-log.jsonl"));
+        assert!(!t.accepts.matches_content(b"%PDF-1.7"));
+        // Its verify-log checks truncation and re-hashes the recorded outputs: compared with the full verdict.
+        assert!(!verify_log_lacks_truncation_check("rv-timeline", None));
+        assert!(APP_IDS.iter().any(|k| k.tool == Some("rv-timeline")
+            && k.app_id == "{BE690C03-DA5F-42F0-9284-A86D5FF89D0E}"));
+        assert_eq!(KNOWN_TOOLS.last(), Some(&"rv-timeline"));
+    }
+
+    /// rv-timeline installed by its own installer: found through its uninstall key (AppId) and in the per-user
+    /// Programs folder, listed once with both sources. Not a real program here: described from the built-in
+    /// table, and its GUI is found next to it (the launcher starts it with `--case-dir`).
+    #[test]
+    fn timeline_installed_under_its_app_id_is_found() {
+        let d = tempfile::tempdir().unwrap();
+        let lp = d.path().join("Programs/Rakvor");
+        let dir = lp.join("RV Timeline");
+        std::fs::create_dir_all(&dir).unwrap();
+        let s = std::env::consts::EXE_SUFFIX;
+        for n in ["rv-timeline", "rv-timeline-gui"] {
+            std::fs::write(dir.join(format!("{n}{s}")), b"not a program").unwrap();
+        }
+        let app_id = APP_IDS
+            .iter()
+            .find(|k| k.tool == Some("rv-timeline"))
+            .unwrap()
+            .app_id;
+        let opts = DiscoverOptions {
+            registry: vec![RegistryEntry {
+                app_id: app_id.into(),
+                install_location: dir.clone(),
+                display_version: Some("0.1.0".into()),
+            }],
+            local_programs: Some(lp),
+            path_dirs: vec![],
+            user_folders: vec![],
+            describe_timeout: Duration::from_millis(2000),
+            describe_untrusted: false,
+        };
+        let tools = discover(
+            &opts,
+            &crate::signature::StaticVerifier::always(SignatureStatus::NotChecked {
+                reason: "test".into(),
+            }),
+        );
+        assert_eq!(tools.len(), 1, "{tools:#?}");
+        let t = &tools[0];
+        assert_eq!(
+            (t.tool.as_str(), t.title.as_str()),
+            ("rv-timeline", "RV Timeline")
+        );
+        assert_eq!(
+            t.sources,
+            vec![
+                Source::Registry {
+                    app_id: app_id.into()
+                },
+                Source::LocalPrograms
+            ]
+        );
+        assert!(t.warnings.is_empty(), "{:?}", t.warnings);
+        assert_eq!(t.describe_source, DescribeSource::Builtin);
+        assert_eq!(t.describe.role, ToolRole::Analysis);
+        assert!(
+            t.gui_exe
+                .as_ref()
+                .unwrap()
+                .ends_with(format!("rv-timeline-gui{s}"))
+        );
+        assert!(catalog(&tools).iter().any(|c| c.tool == "rv-timeline"));
+    }
+
+    /// rv-timeline's own `describe --json` (as its src/cli prints it) is read: version, role and verb.
+    #[cfg(unix)]
+    #[test]
+    fn timeline_describe_is_read() {
+        let d = tempfile::tempdir().unwrap();
+        let bin = d.path().join("bin");
+        std::fs::create_dir_all(&bin).unwrap();
+        let json = d.path().join("timeline.json");
+        std::fs::write(&json, TIMELINE_DESCRIBE).unwrap();
+        script(&bin, "rv-timeline", &format!("cat '{}'", json.display()));
+        script(&bin, "rv-timeline-gui", "exit 0");
+        let opts = DiscoverOptions {
+            registry: vec![],
+            local_programs: None,
+            path_dirs: vec![bin],
+            user_folders: vec![],
+            describe_timeout: Duration::from_millis(2000),
+            describe_untrusted: false,
+        };
+        let tools = discover(
+            &opts,
+            &StaticVerifier::always(SignatureStatus::NotChecked {
+                reason: "test".into(),
+            }),
+        );
+        assert_eq!(tools.len(), 1, "{tools:#?}");
+        let t = &tools[0];
+        assert_eq!(t.describe_source, DescribeSource::Describe, "{t:#?}");
+        assert_eq!(t.version.as_deref(), Some("0.1.0"));
+        assert_eq!(
+            (t.describe.role, t.describe.main_verb.as_str()),
+            (ToolRole::Analysis, "build")
+        );
+        assert!(t.describe.accepts.signatures.is_empty());
+    }
+
+    /// `rv-timeline describe --json` 0.1.0 (rv-timeline src/cli/src/main.rs, `describe`).
+    #[cfg(unix)]
+    const TIMELINE_DESCRIBE: &str = r#"{"accepts":{"extensions":["json","jsonl"],"signatures":[]},
+"case_formats":["rakvor.case/1"],"cli_exe":"rv-timeline.exe",
+"exit_codes":{"0":"Timeline built","1":"Runtime error","2":"Usage error","3":"Timeline built with signals","130":"Cancelled"},
+"gui_exe":"rv-timeline-gui.exe","log_formats":["rakvor.audit/1"],"main_verb":"build","role":"analysis",
+"schema":"rakvor.describe/1","title":"RV Timeline","tool":"rv-timeline","version":"0.1.0"}"#;
 
     #[test]
     fn executable_names() {
