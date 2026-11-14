@@ -336,8 +336,8 @@ prev_entry_hash = entry_hash of the previous entry; 64 zeros for entry #1
 seq             = 1, 2, 3, … with no gap
 ```
 
-An independent implementation in 80 lines of standard-library Python is in
-[`tests/verify_chain.py`](../tests/verify_chain.py). A chain alone detects an edited, inserted, deleted or re-ordered
+An independent implementation in standard-library Python, which also re-hashes every output the audit log records,
+is in [`tests/verify_chain.py`](../tests/verify_chain.py). A chain alone detects an edited, inserted, deleted or re-ordered
 line, but **not the removal of the last lines**: the shortened file is still a valid chain. Truncation is detected
 only against a record kept outside the log: a timestamp that covers a later entry, or the case log
 ([B5](#b5-case-log-run-log-and-review-log-checks)).
@@ -516,7 +516,7 @@ Real values (sample case, first verification):
 hashes.csv row 1:  case/case-log.jsonl, size 5735, sha256 9dd52b95…40b549bf
 sha256(whole file now, 8572 bytes)   = 4c497814…129a099fc5   (≠: the hub and a second run appended)
 sha256(first 5735 bytes)             = 9dd52b95…40b549bf     (= recorded: accepted)
-python3 tests/verify_chain.py case/runs/rv-hub/<RUN-ID>/logs  →  chain: intact | register: matches
+python3 tests/verify_chain.py case/runs/rv-hub/<RUN-ID>/logs  →  chain: intact | register: matches | outputs: match
 ```
 
 ```mermaid

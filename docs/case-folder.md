@@ -126,7 +126,8 @@ tools run.
 2. `rv-hub verify --case-dir <copy> --rehash --evidence-dir <evidence copies>` on Windows with the tools installed
    (for the cross-check and the signature check).
 3. Re-check the hub's own record with the independent verifier, from the same working folder as step 2:
-   `python3 tests/verify_chain.py <copy>/runs/rv-hub/<RUN-ID>/logs` → `chain: intact | register: matches`
+   `python3 tests/verify_chain.py <copy>/runs/rv-hub/<RUN-ID>/logs` →
+   `chain: intact | register: matches | outputs: match`
    ([theory.md B8](theory.md#b8-the-hash-register-and-the-append-only-case-log-prefix-rule)).
 4. Check each timestamp token's TSA signature with OpenSSL or rv-certcheck
    ([forensic-audit.md](forensic-audit.md#timestamps)).
