@@ -150,8 +150,8 @@ sequenceDiagram
     R-->>UI: RunSummary (codes, tally) → exit 0 / 3
 ```
 
-Run items carry two verdicts. **Full** is exactly `verify::verify_log` (chain, timestamp tokens, review log and
-truncation against the timestamp and the case log): what rv-hashinv, rv-rsmf, rv-certcheck and rv-mailauth's
+Run items carry two verdicts. **Full** is exactly `verify::verify_log` (chain, timestamp tokens, review log,
+truncation against the timestamp and the case log, and the re-hash of the recorded outputs, `outputs.rs`): what rv-hashinv, rv-rsmf, rv-certcheck and rv-mailauth's
 `verify-log` answer. **Chain** leaves out the truncation check against the case log: what rv-pdfauth and rv-imgauth's current
 `verify-log` answer ([rv-hub#21](https://github.com/Panacota96/rv-hub/issues/21)). The cross-check accepts the
 tool's verdict when it equals the full one, or, for rv-pdfauth and rv-imgauth only (no truncation check), the
@@ -167,9 +167,10 @@ install folder, `PATH`, and the `--add-folder` folders), plus `--tool-exe` overr
 | --- | --- | --- |
 | `CASE_LOG_BROKEN` | high | case-log chain, case.json digest, registry digest, or run_finished without run_started |
 | `RUN_LOG_BROKEN` | high | run audit chain, case_linked link, run_finished head, entries after run_finished, timestamp token (including a `timestamp_obtained` entry whose token and metadata were deleted), any other verify-log problem, or the run folder missing |
+| `RUN_OUTPUT_CHANGED` | high | a file the run's audit log records no longer has its digests (missing, changed, replaced, or an unsafe path): one per file |
 | `REVIEW_LOG_BROKEN` | high | `review.jsonl` chain or anchor (to this run's run_finished) |
 | `RUN_NOT_IN_CASE_LOG` | high | a run folder the case log never announced |
-| `TOOL_VERIFY_DISAGREES` | high | the run's own tool's verify-log differs from both hub verdicts |
+| `TOOL_VERIFY_DISAGREES` | high | the run's own tool's verify-log differs from both hub verdicts, or says intact on a run with `RUN_OUTPUT_CHANGED` |
 | `EVIDENCE_REHASH_MISMATCH` | high | `--rehash`: digest differs from the registry |
 | `EVIDENCE_MISSING` | high | `--rehash`: not at its path nor in `--evidence-dir`, or unreadable |
 | `UNKNOWN_LOG_FORMAT` | medium | another `*.jsonl` in a run's `logs/` |

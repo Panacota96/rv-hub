@@ -61,6 +61,8 @@ pub struct Tally {
     pub runs: u64,
     pub runs_intact: u64,
     pub runs_broken: u64,
+    /// Runs with at least one recorded output that no longer has its digests (RUN_OUTPUT_CHANGED).
+    pub runs_outputs_changed: u64,
     pub runs_not_in_case_log: u64,
     pub reviews_broken: u64,
     pub evidence_checked: u64,
@@ -80,6 +82,7 @@ impl Tally {
             ("runs", self.runs),
             ("runs_intact", self.runs_intact),
             ("runs_broken", self.runs_broken),
+            ("runs_outputs_changed", self.runs_outputs_changed),
             ("runs_not_in_case_log", self.runs_not_in_case_log),
             ("reviews_broken", self.reviews_broken),
             ("evidence_checked", self.evidence_checked),

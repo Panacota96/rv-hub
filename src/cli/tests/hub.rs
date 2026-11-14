@@ -340,6 +340,35 @@ fn tools_lists_fake_tools_on_path_and_records_the_call() {
 
     // Each call is in the hub session log (one session per call), never in a case.
     let actions = session_actions(&data);
+    // A session log records only logs/ outputs (environment.json): verify-log re-hashes it; a deleted one is a
+    // problem (exit 3).
+    let session = std::fs::read_dir(data.join("logs"))
+        .unwrap()
+        .next()
+        .unwrap()
+        .unwrap()
+        .path();
+    Command::cargo_bin("rv-hub")
+        .unwrap()
+        .arg("verify-log")
+        .arg(&session)
+        .assert()
+        .code(0)
+        .stdout(predicates::str::contains(
+            "outputs: 1 verified of 1 recorded (sha256)",
+        ));
+    let env = std::fs::read(session.join("environment.json")).unwrap();
+    std::fs::remove_file(session.join("environment.json")).unwrap();
+    Command::cargo_bin("rv-hub")
+        .unwrap()
+        .arg("verify-log")
+        .arg(&session)
+        .assert()
+        .code(3)
+        .stdout(predicates::str::contains(
+            "output logs/environment.json: missing",
+        ));
+    std::fs::write(session.join("environment.json"), env).unwrap();
     let listed: Vec<&Value> = actions
         .iter()
         .filter(|(a, _)| a == "tools_listed")

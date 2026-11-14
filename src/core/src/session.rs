@@ -128,4 +128,43 @@ mod tests {
         assert_eq!(crate::audit::verify(&s.audit_path()), Ok(3));
         assert!(s.dir.join("environment.json").is_file());
     }
+
+    /// verify-log of a session log re-hashes its only output (logs/environment.json); a deleted or edited one is a
+    /// problem.
+    #[test]
+    fn session_log_outputs_are_rehashed_by_verify_log() {
+        let d = tempfile::tempdir().unwrap();
+        let s = Session::start(d.path(), "tester", "test", &["rv-hub".into()]).unwrap();
+        let v = crate::verify::verify_log(&s.audit_path()).unwrap();
+        assert!(v.problems.is_empty(), "{:?}", v.problems);
+        let o = v.outputs.unwrap();
+        assert_eq!(o.summary(), "outputs: 1 verified of 1 recorded (sha256)");
+        let env = s.dir.join("environment.json");
+        let saved = std::fs::read(&env).unwrap();
+        std::fs::write(&env, b"{}").unwrap();
+        let v = crate::verify::verify_log(&s.audit_path()).unwrap();
+        assert!(
+            v.problems
+                .iter()
+                .any(|p| p.starts_with("output logs/environment.json: sha256 differs")),
+            "{:?}",
+            v.problems
+        );
+        std::fs::remove_file(&env).unwrap();
+        let v = crate::verify::verify_log(&s.audit_path()).unwrap();
+        assert!(
+            v.problems
+                .iter()
+                .any(|p| p.starts_with("output logs/environment.json: missing")),
+            "{:?}",
+            v.problems
+        );
+        std::fs::write(&env, saved).unwrap();
+        assert!(
+            crate::verify::verify_log(&s.audit_path())
+                .unwrap()
+                .problems
+                .is_empty()
+        );
+    }
 }

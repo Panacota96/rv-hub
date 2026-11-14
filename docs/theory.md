@@ -394,6 +394,7 @@ problem:
 | Pending timestamp | `timestamp_pending` without a later `timestamp_obtained` → `TIMESTAMP_PENDING` (low) |
 | Review log | when `logs/review.jsonl` exists: each `seq` is 1, 2, …; entry #1 holds the `anchor_seq` / `anchor_hash` of this run's `run_finished`; every entry names this run; every `prev_entry_hash` links; every `entry_hash` matches → otherwise `REVIEW_LOG_BROKEN` (high) |
 | Unknown logs | any other `*.jsonl` in `logs/` → `UNKNOWN_LOG_FORMAT` (medium); it is not checked |
+| Recorded outputs | every file the audit log records with digests (`environment_recorded`, `hash_register_written`, `item_reports_written`, `statistics_report_written`, `output_written`, `timeline_written`, `report_written`, `rsmf_written`, `trace_written`; the latest entry for a path wins) is re-hashed with every recorded algorithm (`outputs.rs`, the module every tool's `verify-log` uses): missing, changed, not a regular file, or a path that is absolute, has `..` or leads outside the run folder → `RUN_OUTPUT_CHANGED` (high), one per file. Fact *Recorded outputs re-hashed*: `outputs: N verified of M recorded (algorithms)` and every file not re-hashed with its reason (timestamp tokens, files written outside the run folder) |
 | Verify-log | `verify::verify_log` (the rules of `<tool> verify-log`, including every `timestamp_obtained` entry's token still present with its recorded SHA-256): each of its problems the checks above did not already report → `RUN_LOG_BROKEN`, except "the case log is broken: it cannot vouch for this log's length", which is the case log's `CASE_LOG_BROKEN` (the run then gets neither code). A run whose verdict is not intact never gets `RUN_LOG_INTACT` |
 | Intact | when the verify-log verdict is intact and the run item has no high finding at this point → `RUN_LOG_INTACT` (info) |
 
@@ -416,7 +417,8 @@ For each run item, `checks::check_run` sets two verdicts:
   verify-log` answers: chain, timestamp tokens and their files, review log, and **truncation against the case log**
   (the log must end at the head recorded at `run_finished`; when the case log itself is broken, it cannot vouch for
   the length, and the full verdict is broken);
-- **chain-only** (`item.chain_verdict`) = chain + timestamp tokens + review log, without the case-log comparison.
+- **chain-only** (`item.chain_verdict`) = chain + timestamp tokens + review log, without the case-log comparison
+  (and without the recorded outputs).
 
 Why two: the tools' own `verify-log` commands do not all check the same things
 ([rv-hub#21](https://github.com/Panacota96/rv-hub/issues/21)). rv-hashinv, rv-rsmf (and rv-certcheck, which carries
@@ -448,9 +450,18 @@ flowchart TB
     A -- no --> K{"tool listed in<br/>VERIFY_LOG_WITHOUT_TRUNCATION?<br/>(rv-pdfauth, rv-imgauth)"}
     K -- no --> DIS["TOOL_VERIFY_DISAGREES (high)"]
     K -- yes --> B{"= hub chain-only verdict?"}
-    B -- yes --> AG2["agrees at chain level<br/>(reason recorded:<br/>tool does not check truncation)"]
+    B -- yes --> O{"tool says intact and<br/>RUN_OUTPUT_CHANGED?"}
+    O -- no --> AG2["agrees at chain level<br/>(reason recorded:<br/>tool does not check truncation)"]
+    O -- yes --> DIS
     B -- no --> DIS
 ```
+
+A tool that answers *intact* on a run with `RUN_OUTPUT_CHANGED` always disagrees, at any level: tool releases made
+before `outputs.rs` do not re-hash outputs, and their *intact* covers the log only. The finding's `reason`, the
+cross-check fact and the `crosscheck` audit entry (`tool_rehashes_outputs`: whether the tool printed an `outputs:`
+line; `changed_outputs`) say so, e.g. `RV Hub found 1 recorded output changed (reports/statistics.json); this release
+of the tool does not re-hash the outputs its audit log records (no "outputs:" line in its verify-log), so its
+"intact" covers the log only`.
 
 Every cross-check is recorded in the hub's audit log (`crosscheck`: exe, exe SHA-256, arguments, exit code, first 20
 lines of output, outcome, both hub verdicts, the executable's version, whether only the chain level was compared,

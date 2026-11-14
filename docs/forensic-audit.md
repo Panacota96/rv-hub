@@ -50,6 +50,38 @@ outside the log:
 | a verification run written to `--out` (broken case) | its timestamp only |
 | the hub session log | nothing: **its truncation is not detectable** (`verify-log` says "truncation not detectable without a timestamp or case record"); archive session logs with the case |
 
+### Recorded outputs: the files the log vouches for
+
+The chain proves that the *digests* recorded in a log are unchanged, not that the files they describe still have
+them. `rv-hub verify-log` (and `verify-case` and `rv-hub verify`, for every run of the case, whatever tool wrote
+it) therefore re-hashes every output file the log records and compares it with every digest recorded for it
+([src/core/src/outputs.rs](../src/core/src/outputs.rs), byte-identical in every Rakvor tool; its module
+documentation lists every tool's audit shapes):
+
+```mermaid
+flowchart LR
+    A["audit.jsonl (chain intact)"] --> R["recorded files<br/>path → digests; the latest entry wins"]
+    R --> S{"safe relative path,<br/>inside the run folder?"}
+    S -- no --> X["problem: rejected, not read"]
+    S -- yes --> E{"exists, regular file?"}
+    E -- no --> M["problem: missing / replaced"]
+    E -- yes --> H{"every recorded<br/>digest equal?"}
+    H -- no --> C["problem: changed (named, both digests)"]
+    H -- yes --> V["verified"]
+```
+
+| Log | Outputs re-hashed |
+| --- | --- |
+| the hub session log | `logs/environment.json` (`environment_recorded`): a session writes nothing else |
+| the hub's verification run | `logs/environment.json`, `logs/hashes.csv`, every item report (`item_reports_written`) and the statistics reports |
+| a tool's run in the case | the same entries, plus each tool's own (`output_written`, `timeline_written`, `report_written`, `rsmf_written`, `trace_written`) |
+
+`timestamp_obtained` tokens are listed as not re-hashed (the timestamp check verifies them), as are files a tool
+wrote outside the run folder at a path the operator chose. A recorded path that is absolute, contains `..`, a drive,
+`\` or `:`, or resolves outside the run folder through a symlink or junction is rejected and never read. Output:
+`outputs: N verified of M recorded (algorithms)`; in `rv-hub verify` each changed file is a `RUN_OUTPUT_CHANGED`
+finding (high) on the run's item. Files the run never recorded (added later) are not checked.
+
 ## Hub session log
 
 `<hub data>\logs\<SESSION-ID>\` with `audit.jsonl`, `audit.log` and `environment.json` (hub version, OS, host, user,
@@ -87,8 +119,8 @@ log in the case.
 | `evidence_superseded` | `--rehash` | an item replaced by a later registration of the same path |
 | `inputs_resolved` | | number of items, bytes, runs, evidence items |
 | `item_started`, `item_hashed` | each item | index, kind, path, size; digests and bytes read |
-| `crosscheck` | each run item, `--crosscheck auto` | tool, exe, exe SHA-256, arguments, exit code, first 20 lines of output, outcome, reason, hub full and chain-only verdicts, `override` |
-| `item_verified` | each item | findings, verdict, facts, status |
+| `crosscheck` | each run item, `--crosscheck auto` | tool, exe, exe SHA-256, arguments, exit code, first 20 lines of output, outcome, reason, hub full and chain-only verdicts, `tool_rehashes_outputs` (the tool printed an `outputs:` line), `changed_outputs`, `override` |
+| `item_verified` | each item | findings, verdict, facts (a run's `fact_outputs`: `outputs: N verified of M recorded`), status |
 | `item_cancelled`, `run_cancelled` | on cancel | processed count |
 | `hash_register_written` | | digests of `hashes.csv` |
 | `item_reports_written` | each item | digests of every report file |
@@ -167,7 +199,7 @@ flowchart LR
 
 | 27037 principle / activity | How RV Hub supports it |
 | --- | --- |
-| Auditability (5.3.2) | Every launch and every check is a chained entry with actor and UTC time; `verify-log` and `tests/verify_chain.py` check the chains |
+| Auditability (5.3.2) | Every launch and every check is a chained entry with actor and UTC time; `verify-log` and `tests/verify_chain.py` check the chains; `verify-log` and `rv-hub verify` re-hash every output a log records |
 | Repeatability (5.3.3) | `environment.json` records the hub's exact version and dependencies; the same case gives the same findings and digests |
 | Reproducibility (5.3.4) | Independent verifier in another language; the cross-check asks a second implementation (each run's own tool) |
 | Justifiability (5.3.5) | Every finding states what it shows and what it does **not** prove; four limitations in every report |

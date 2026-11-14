@@ -783,6 +783,13 @@ fn pipeline(
                 if it
                     .findings
                     .iter()
+                    .any(|f| f.code == fnd::RUN_OUTPUT_CHANGED)
+                {
+                    tally.runs_outputs_changed += 1;
+                }
+                if it
+                    .findings
+                    .iter()
                     .any(|f| f.code == fnd::RUN_NOT_IN_CASE_LOG)
                 {
                     tally.runs_not_in_case_log += 1;
@@ -1248,6 +1255,32 @@ fn crosscheck(
         })
         .unwrap_or_default();
     x.exit_code = out.as_ref().ok().and_then(|o| o.code);
+    // Recorded outputs that RV Hub found changed (RUN_OUTPUT_CHANGED), and whether the tool's own verify-log
+    // re-hashes outputs at all: releases made before outputs.rs print no "outputs:" line. A tool that answers
+    // "intact" while RV Hub found a changed output always disagrees, at any level: it is never hidden.
+    let changed_outputs: Vec<String> = it
+        .findings
+        .iter()
+        .filter(|f| f.code == fnd::RUN_OUTPUT_CHANGED)
+        .filter_map(|f| f.params.get("file").cloned())
+        .collect();
+    let tool_rehashes_outputs = output
+        .lines()
+        .any(|l| l.trim_start().starts_with("outputs: "));
+    let outputs_note = (!changed_outputs.is_empty() && tool_verdict == Some(Verdict::Intact))
+        .then(|| {
+            format!(
+                "RV Hub found {} recorded output{} changed ({}){}",
+                changed_outputs.len(),
+                if changed_outputs.len() == 1 { "" } else { "s" },
+                changed_outputs.join(", "),
+                if tool_rehashes_outputs {
+                    ""
+                } else {
+                    "; this release of the tool does not re-hash the outputs its audit log records (no \"outputs:\" line in its verify-log), so its \"intact\" covers the log only"
+                }
+            )
+        });
     match tool_verdict {
         None => {
             let why = reason.unwrap_or_default();
@@ -1271,6 +1304,7 @@ fn crosscheck(
         // their verdict is compared at that level. Every other tool gets the full verdict.
         Some(tv)
             if Some(tv) == it.chain_verdict
+                && outputs_note.is_none()
                 && tools::verify_log_lacks_truncation_check(&run.tool, exe_version.as_deref()) =>
         {
             x.outcome = "agrees".into();
@@ -1285,27 +1319,34 @@ fn crosscheck(
         }
         Some(tv) => {
             x.outcome = "disagrees".into();
+            x.reason = outputs_note.clone();
             // Two verifiers disagree on this run: it is not reported as intact.
             it.findings.retain(|f| f.code != fnd::RUN_LOG_INTACT);
-            it.findings.push(
-                Finding::of(fnd::TOOL_VERIFY_DISAGREES)
-                    .with("tool", run.tool.clone())
-                    .with("run", run.rel.clone())
-                    .with("hub", checks::verdict_word(hub))
-                    .with("tool_verdict", checks::verdict_word(tv))
-                    .with(
-                        "exit_code",
-                        x.exit_code.map(|c| c.to_string()).unwrap_or_default(),
-                    ),
-            );
+            let mut d = Finding::of(fnd::TOOL_VERIFY_DISAGREES)
+                .with("tool", run.tool.clone())
+                .with("run", run.rel.clone())
+                .with("hub", checks::verdict_word(hub))
+                .with("tool_verdict", checks::verdict_word(tv))
+                .with(
+                    "exit_code",
+                    x.exit_code.map(|c| c.to_string()).unwrap_or_default(),
+                );
+            if let Some(n) = &outputs_note {
+                d = d.with("reason", n.clone());
+            }
+            it.findings.push(d);
             it.fact(
                 "fact_crosscheck",
                 format!(
-                    "{} verify-log: {} (exit {}), RV Hub: {}",
+                    "{} verify-log: {} (exit {}), RV Hub: {}{}",
                     run.tool,
                     checks::verdict_word(tv),
                     x.exit_code.unwrap_or(-1),
-                    checks::verdict_word(hub)
+                    checks::verdict_word(hub),
+                    outputs_note
+                        .as_deref()
+                        .map(|n| format!(": {n}"))
+                        .unwrap_or_default()
                 ),
             );
         }
@@ -1317,6 +1358,7 @@ fn crosscheck(
                "exit_code": x.exit_code, "outcome": x.outcome, "reason": x.reason, "hub_verdict": hub,
                "hub_chain_verdict": it.chain_verdict, "exe_version": exe_version,
                "chain_level_only": tools::verify_log_lacks_truncation_check(&run.tool, exe_version.as_deref()),
+               "tool_rehashes_outputs": tool_rehashes_outputs, "changed_outputs": changed_outputs,
                "output": output, "override": cfg.tool_overrides.contains_key(&run.tool)}),
     )
     .map_err(io)?;

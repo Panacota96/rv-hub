@@ -50,6 +50,7 @@ impl Finding {
 // Whole-case verification (`rv-hub verify`).
 pub const CASE_LOG_BROKEN: &str = "CASE_LOG_BROKEN";
 pub const RUN_LOG_BROKEN: &str = "RUN_LOG_BROKEN";
+pub const RUN_OUTPUT_CHANGED: &str = "RUN_OUTPUT_CHANGED";
 pub const REVIEW_LOG_BROKEN: &str = "REVIEW_LOG_BROKEN";
 pub const RUN_NOT_IN_CASE_LOG: &str = "RUN_NOT_IN_CASE_LOG";
 pub const TOOL_VERIFY_DISAGREES: &str = "TOOL_VERIFY_DISAGREES";
@@ -67,9 +68,10 @@ pub const TOOL_SIGNATURE_INVALID: &str = "TOOL_SIGNATURE_INVALID";
 pub const TOOL_UNSIGNED: &str = "TOOL_UNSIGNED";
 
 /// Every code RV Hub emits, with its severity (plan §1 "New finding codes" + the tool inventory table).
-pub const CODES: [(&str, Severity); 16] = [
+pub const CODES: [(&str, Severity); 17] = [
     (CASE_LOG_BROKEN, Severity::High),
     (RUN_LOG_BROKEN, Severity::High),
+    (RUN_OUTPUT_CHANGED, Severity::High),
     (REVIEW_LOG_BROKEN, Severity::High),
     (RUN_NOT_IN_CASE_LOG, Severity::High),
     (TOOL_VERIFY_DISAGREES, Severity::High),
