@@ -199,7 +199,7 @@ flowchart LR
 
 | 27037 principle / activity | How RV Hub supports it |
 | --- | --- |
-| Auditability (5.3.2) | Every launch and every check is a chained entry with actor and UTC time; `verify-log` and `tests/verify_chain.py` check the chains; `verify-log` and `rv-hub verify` re-hash every output a log records |
+| Auditability (5.3.2) | Every launch and every check is a chained entry with actor and UTC time; `verify-log` and `tests/verify_chain.py` check the chains; `verify-log`, `rv-hub verify` and `tests/verify_chain.py` re-hash every output a log records |
 | Repeatability (5.3.3) | `environment.json` records the hub's exact version and dependencies; the same case gives the same findings and digests |
 | Reproducibility (5.3.4) | Independent verifier in another language; the cross-check asks a second implementation (each run's own tool) |
 | Justifiability (5.3.5) | Every finding states what it shows and what it does **not** prove; four limitations in every report |

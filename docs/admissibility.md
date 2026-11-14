@@ -74,7 +74,7 @@ annex of Implementing Regulation (EU) 2025/1929.
 | H9 | The verification is itself a run: hash-chained audit log, `environment.json`, `hashes.csv`, statistics and per-item technical / summary / custody reports (en/es/fr), linked in the case log | `run.rs`, `report/` |
 | H10 | Never edits, moves or deletes another tool's file; a broken case log is never extended | `run.rs` `open_target` |
 | H11 | Every finding states what it shows and what it does not prove; four limitations are printed in every report | `i18n/*.json` |
-| H12 | Independent verifier in standard-library Python (chain and hash register); a real sample case made by the tools, with eight variants (one clean; an edited report among the tampered ones) and their expected findings | `tests/verify_chain.py`, `tests/samples/`, `examples/sample/` |
+| H12 | Independent verifier in standard-library Python (chain, hash register and recorded outputs); a real sample case made by the tools, with eight variants (one clean; an edited report among the tampered ones) and their expected findings | `tests/verify_chain.py`, `tests/samples/`, `examples/sample/` |
 | H13 | RFC 3161 timestamp of the verification's own audit head (non-qualified TSA by default) and optional PDF signature with the examiner's certificate | `trust.rs` |
 | H14 | Source auditable by customers and opposing experts; release with SHA256SUMS, SBOM and build-provenance attestation | `LICENSE`, `release.yml` |
 
@@ -102,7 +102,7 @@ What an opposing expert can test, and how:
 | Claim | How it can be tested |
 | --- | --- |
 | The checks are exact, not statistical | Each check is a hash comparison or a link comparison ([theory.md Part B](theory.md#part-b-for-examiners-and-opposing-experts)); a single changed byte in a log line or an evidence file changes the SHA-256 |
-| The hub's verdicts are reproducible by someone else | `tests/verify_chain.py` re-implements the chain and the hash register in standard-library Python, including the append-only case-log prefix rule ([theory.md B8](theory.md#b8-the-hash-register-and-the-append-only-case-log-prefix-rule)) |
+| The hub's verdicts are reproducible by someone else | `tests/verify_chain.py` re-implements the chain, the hash register and the recorded-outputs check in standard-library Python, including the append-only case-log prefix rule ([theory.md B8](theory.md#b8-the-hash-register-and-the-append-only-case-log-prefix-rule)) |
 | The hub detects the tampering it claims to detect | The sample case and its seven variants (edited case-log line, edited audit entry, deleted run folder, unlinked run, re-anchored review log, changed evidence byte) with the exact expected codes ([examples/](../examples/README.md)); the validator runs them in CI |
 | Two verifier implementations agree | The cross-check (H8) asks each run's own tool; a disagreement is a high finding. The tools do not all check the same things yet (rv-hub#21); the hub's rule for that is stated in [theory.md B6](theory.md#b6-the-cross-check-rule-two-verdicts) |
 | The hub never altered what it verifies | H10; every file in the case is opened read-only; the only writes are the hub's own run folder and two appended case-log lines, both recorded in its own audit log |
