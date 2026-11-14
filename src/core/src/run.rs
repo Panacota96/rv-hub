@@ -1443,6 +1443,171 @@ mod tests {
         assert!(case::verify_case(&case).problems.is_empty());
     }
 
+    /// Adds a completed rv-timeline run to `case`, laid out as rv-timeline writes it: linked in the case log
+    /// (run_started / run_finished), `reports/timeline.jsonl` recorded by a `timeline_written` entry, and a review
+    /// log (`ui_timeline_viewed`). Returns the run folder.
+    fn add_timeline_run(case: &Path) -> PathBuf {
+        let run_id = "20261114T120000Z-71e11e";
+        let rel = format!("runs/rv-timeline/{run_id}");
+        let w = Writer {
+            tool: "rv-timeline".into(),
+            version: "0.1.0".into(),
+            run_id: run_id.into(),
+            actor: "Sample Examiner".into(),
+        };
+        let c = Case::open(case).unwrap();
+        let (seq, head) = c
+            .append(
+                &w,
+                "run_started",
+                json!({"tool": "rv-timeline", "version": "0.1.0", "run_dir": rel, "frontend": "cli",
+                       "role": "analysis", "evidence_ids": []}),
+            )
+            .unwrap();
+        let dir = case.join(&rel);
+        let logs = dir.join("logs");
+        let reports = dir.join("reports");
+        let mut log = AuditLog::create(&logs, run_id, "Sample Examiner").unwrap();
+        log.record(
+            "run_started",
+            None,
+            json!({"tool": "rv-timeline", "version": "0.1.0"}),
+        )
+        .unwrap();
+        log.record(
+            "case_linked",
+            None,
+            json!({"case_id": "SAMPLE-1", "role": "analysis", "run_dir": rel, "case_log_seq_at_start": seq,
+                   "case_log_head_at_start": head}),
+        )
+        .unwrap();
+        std::fs::create_dir_all(&reports).unwrap();
+        let timeline = b"{\"ts_utc\":\"2026-10-29T11:00:57.077Z\",\"source\":\"case-log\",\"action\":\"case_created\"}\n";
+        std::fs::write(reports.join("timeline.jsonl"), timeline).unwrap();
+        log.record(
+            "timeline_written",
+            None,
+            json!({"folder": "reports", "files": {"timeline.jsonl": {
+                "sha256": hash_bytes(timeline, HashAlgo::Sha256)}}}),
+        )
+        .unwrap();
+        log.record("run_finished", None, json!({"items": 1}))
+            .unwrap();
+        c.append(
+            &w,
+            "run_finished",
+            json!({"tool": "rv-timeline", "version": "0.1.0", "run_dir": rel, "status": "completed",
+                   "audit_entries": log.entries(), "audit_head": log.head(), "timestamp_status": "off"}),
+        )
+        .unwrap();
+        crate::review::append(
+            &logs,
+            "Sample Examiner",
+            "ui_timeline_viewed",
+            json!({"events": 1}),
+        )
+        .unwrap();
+        dir
+    }
+
+    /// A case with an rv-timeline run: the run is shown like the others, its review log and recorded output are
+    /// verified, and an edited reports/timeline.jsonl is a RUN_OUTPUT_CHANGED finding.
+    #[test]
+    fn a_timeline_run_is_verified_and_its_edited_timeline_is_flagged() {
+        let d = tempfile::tempdir().unwrap();
+        let case = sample_copy(d.path());
+        let catalog = tools::catalog(&[]);
+        let before = crate::case_view::read_case(&case);
+        assert_eq!(
+            crate::suggest::suggest(&before, &catalog)
+                .iter()
+                .map(|s| s.reason_key.as_str())
+                .collect::<Vec<_>>(),
+            [crate::suggest::TIMELINE_NOT_BUILT]
+        );
+        let dir = add_timeline_run(&case);
+        assert!(case::verify_case(&case).problems.is_empty());
+        let view = crate::case_view::read_case(&case);
+        let row = view.runs.iter().find(|r| r.tool == "rv-timeline").unwrap();
+        assert_eq!(
+            (row.status, row.role.as_deref(), row.folder_present),
+            (
+                crate::case_view::RunStatus::Completed,
+                Some("analysis"),
+                true
+            )
+        );
+        // The timeline is newer than every other run: nothing left to suggest.
+        assert_eq!(crate::suggest::suggest(&view, &catalog), vec![]);
+
+        let s = run(
+            &cfg(&case, &d.path().join("out")),
+            &mut |_| {},
+            &AtomicBool::new(false),
+        )
+        .unwrap();
+        assert_eq!((s.high, s.items), (0, 6), "{:?}", s.codes);
+        assert_eq!(s.codes, ["RUN_LOG_INTACT"]);
+        let check = |case: &Path| {
+            let entries = checks::read_entries(&case.join(CASE_LOG));
+            let r = checks::runs_of_case(case, &entries)
+                .into_iter()
+                .find(|r| r.tool == "rv-timeline")
+                .unwrap();
+            let mut it = crate::report::Item::new(
+                2,
+                crate::report::ItemKind::Run,
+                r.rel.clone(),
+                r.log_dir(case).join("audit.jsonl"),
+            );
+            checks::check_run(case, "SAMPLE-1", &r, None, &mut it);
+            it
+        };
+        let it = check(&case);
+        assert!(
+            it.facts
+                .iter()
+                .any(|(k, v)| k == "fact_review_entries" && v == "1"),
+            "{:?}",
+            it.facts
+        );
+        assert_eq!(it.verdict, Some(crate::report::Verdict::Intact));
+
+        // One byte of the timeline changed: the recorded digest no longer matches.
+        let t = dir.join("reports/timeline.jsonl");
+        let mut b = std::fs::read(&t).unwrap();
+        b[2] ^= 0x01;
+        std::fs::write(&t, b).unwrap();
+        let s = run(
+            &cfg(&case, &d.path().join("out")),
+            &mut |_| {},
+            &AtomicBool::new(false),
+        )
+        .unwrap();
+        assert!(
+            s.codes.iter().any(|c| c == fnd::RUN_OUTPUT_CHANGED),
+            "{:?}",
+            s.codes
+        );
+        assert_eq!(s.high, 1, "{:?}", s.codes);
+        let it = check(&case);
+        let changed: Vec<&Finding> = it
+            .findings
+            .iter()
+            .filter(|f| f.code == fnd::RUN_OUTPUT_CHANGED)
+            .collect();
+        assert_eq!(changed.len(), 1, "{:?}", it.findings);
+        assert!(
+            changed[0]
+                .params
+                .get("file")
+                .is_some_and(|f| f.ends_with("timeline.jsonl")),
+            "{:?}",
+            changed[0]
+        );
+        assert_eq!(it.verdict, Some(crate::report::Verdict::Broken));
+    }
+
     #[test]
     fn a_broken_case_log_is_never_extended() {
         let d = tempfile::tempdir().unwrap();
