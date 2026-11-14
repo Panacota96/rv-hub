@@ -307,6 +307,10 @@
               "images_not_analysed",
               "chats_not_converted",
               "certs_not_analysed",
+              "mail_not_analysed",
+              "msg_ambiguous",
+              "timeline_not_built",
+              "timeline_outdated",
               "not_examined",
               "timestamp_pending"
             ]
