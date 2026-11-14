@@ -18,6 +18,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
   cannot be read or is another one (`msg_ambiguous`). A compound file that is not a message (`.doc`, `.xls`) is no
   longer suggested to rv-rsmf.
 
+## [0.4.1](https://github.com/Panacota96/rv-hub/compare/v0.4.0...v0.4.1) (2026-11-14)
+
+
+### Bug Fixes
+
+* **core:** late audit entries and redirected run folders cannot hide an edited output ([e082124](https://github.com/Panacota96/rv-hub/commit/e0821243c860638d4a58d67ca43a382b54dc51b3))
+* verify-log and verify-case re-hash the outputs the audit log records ([bc826d9](https://github.com/Panacota96/rv-hub/commit/bc826d91014b3d4a9a4b59695fd215dded9f3adf))
+* **verify:** re-hash every run's recorded outputs, report tool disagreements ([16dc1e6](https://github.com/Panacota96/rv-hub/commit/16dc1e62e6fdf49fa85fb6ad062ab76f6112c50a))
+
 ## [0.4.0](https://github.com/Panacota96/rv-hub/compare/v0.3.0...v0.4.0) (2026-11-12)
 
 
