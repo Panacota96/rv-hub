@@ -17,6 +17,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
   class (read-only, `cfb` crate): `IPM.Note*` to rv-mailauth, `IPM.SkypeTeams.*` to rv-rsmf, both when the class
   cannot be read or is another one (`msg_ambiguous`). A compound file that is not a message (`.doc`, `.xls`) is no
   longer suggested to rv-rsmf.
+* **core:** RV Timeline (`rv-timeline`, one timeline of the case from the case log and every run) is the seventh known
+  tool: discovery (installer AppId `{BE690C03-DA5F-42F0-9284-A86D5FF89D0E}`, install folder, PATH), signature check,
+  launch with `--case-dir`, built-in description (analysis, `build`), review-log and recorded-output checks, and its
+  own `verify-log` in the cross-check (full verdict). Not released yet: the Tools tab shows it as not installed.
+* **core:** suggestions: rv-timeline once completed runs of two or more intake/analysis tools exist and no completed
+  rv-timeline run is newer than the newest of them (`timeline_not_built`, `timeline_outdated` with the runs not
+  covered). Never for an evidence file, never for a case with fewer than two tools' runs. `schemas/hub-case.schema.json`
+  lists every reason key (`mail_not_analysed`, `msg_ambiguous` were missing).
 
 ## [0.4.1](https://github.com/Panacota96/rv-hub/compare/v0.4.0...v0.4.1) (2026-11-14)
 

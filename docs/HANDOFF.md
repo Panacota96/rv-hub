@@ -82,7 +82,8 @@ variables or prompts and never logged; no GPL/AGPL/LGPL components; tools report
 
 ## 6. Open work
 
-- Known tools (`tools::KNOWN_TOOLS`): rv-hashinv, rv-pdfauth, rv-imgauth, rv-rsmf, rv-certcheck, rv-mailauth. A new
+- Known tools (`tools::KNOWN_TOOLS`): rv-hashinv, rv-pdfauth, rv-imgauth, rv-rsmf, rv-certcheck, rv-mailauth,
+  rv-timeline. A new
   tool needs its entry in `KNOWN_TOOLS`, `APP_IDS` and `builtin` (`src/core/src/tools.rs`), a reason key in
   `suggest.rs` and `i18n/*.json` (`suggest`), and the docs that list the tools.
 - `.msg` routing between rv-mailauth and rv-rsmf relies on PR_MESSAGE_CLASS (`suggest::MsgKind`); it was tested on
@@ -95,7 +96,7 @@ variables or prompts and never logged; no GPL/AGPL/LGPL components; tools report
   (`RUN_OUTPUT_CHANGED`, high, one per file; tally `runs_outputs_changed`). Tool releases made before their
   `verify-log` re-hashed outputs answer *intact* on a run with an edited report: the hub reports that as
   `TOOL_VERIFY_DISAGREES` with the reason ([ADR 0004](adr/0004-case-verdicts-and-cross-check.md), decision 5). It
-  goes away as each tool ships `outputs.rs` (rv-hashinv and rv-certcheck have it; rv-rsmf, rv-imgauth, rv-pdfauth,
+  goes away as each tool ships `outputs.rs` (rv-hashinv, rv-certcheck and rv-timeline have it; rv-rsmf, rv-imgauth, rv-pdfauth,
   rv-mailauth to do). The forge's Python template has no equivalent yet.
 - RUSTSEC-2023-0071 is a documented exception until a stable `cms` 0.3 (rsa 0.10) exists ([ADR 0003](adr/0003-dependency-advisories.md)).
 

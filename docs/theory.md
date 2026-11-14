@@ -44,7 +44,7 @@ whether they are genuine, to open a tool on a case, to see what has been done in
 and, before a case is handed over, to check that nothing recorded in the case has changed.
 
 RV Hub does **not** examine evidence. It does not decide whether a document is forged or a photo edited; the
-analysis tools (rv-pdfauth, rv-imgauth, rv-certcheck, rv-mailauth) report signals for an examiner to weigh, and each of them
+analysis tools (rv-pdfauth, rv-imgauth, rv-certcheck, rv-mailauth, rv-timeline) report signals for an examiner to weigh, and each of them
 documents its own method. RV Hub never changes what the tools wrote. When it finds a problem, it reports it and
 leaves the files exactly as they were, so the examiner can explain them.
 
@@ -63,7 +63,7 @@ Only the intake tool, rv-hashinv, opens a new binder and adds evidence to the re
 
 ```mermaid
 flowchart LR
-    I["1 · Intake<br/>rv-hashinv registers E0001…"] --> A["2 · Analysis<br/>rv-pdfauth · rv-imgauth<br/>rv-rsmf · rv-certcheck<br/>rv-mailauth"]
+    I["1 · Intake<br/>rv-hashinv registers E0001…"] --> A["2 · Analysis<br/>rv-pdfauth · rv-imgauth<br/>rv-rsmf · rv-certcheck<br/>rv-mailauth · rv-timeline"]
     A --> V["3 · Verify<br/>RV Hub checks every diary<br/>and every link"]
     V --> H["4 · Hand over<br/>case folder + verification report"]
     I -.-> C[("Case folder")]
@@ -160,14 +160,14 @@ Source map (all under `src/core/src/`): discovery `tools.rs`; signature `signatu
 
 | # | Source (`Source`) | What is read | Restriction |
 | --- | --- | --- | --- |
-| 1 | `registry {app_id}` | `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\{AppId}_is1` → `InstallLocation`, `DisplayVersion`, for the six AppIds in `APP_IDS` (Windows only) | the six known tools; another `rv-*` only when Rakvor-signed |
-| 2 | `local_programs` | every direct subfolder of `%LOCALAPPDATA%\Programs\Rakvor` | the six known tools; another `rv-*` only when Rakvor-signed |
-| 3 | `path` | every folder of `PATH` | **the six known tools only** (`KNOWN_TOOLS`) |
+| 1 | `registry {app_id}` | `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\{AppId}_is1` → `InstallLocation`, `DisplayVersion`, for the seven AppIds in `APP_IDS` (Windows only) | the seven known tools; another `rv-*` only when Rakvor-signed |
+| 2 | `local_programs` | every direct subfolder of `%LOCALAPPDATA%\Programs\Rakvor` | the seven known tools; another `rv-*` only when Rakvor-signed |
+| 3 | `path` | every folder of `PATH` | **the seven known tools only** (`KNOWN_TOOLS`) |
 | 4 | `user_folder` | each folder the user added, and its direct subfolders | any `rv-*` |
 
 `rv-hub` itself is excluded. A name outside `KNOWN_TOOLS` is run (`describe --json`) only from a folder the user
 added, or when its executable is Rakvor-signed; otherwise it is neither run nor listed. On Linux and macOS, where
-signatures are *not checked*, only the six known tools are run from sources 1–3. When several sources find the same folder, the entry is listed once with every source
+signatures are *not checked*, only the seven known tools are run from sources 1–3. When several sources find the same folder, the entry is listed once with every source
 (the sample test finds one rv-pdfauth folder through the registry, the install folder and `PATH`). The same tool in
 two different folders gives two entries; `launch` then prefers a Rakvor-signed GUI, then the lowest source, then the
 folder name (`src/cli/src/hub.rs` `pick`).
@@ -182,6 +182,7 @@ The known AppIds (`tools.rs` `APP_IDS`):
 | `{04A0C3C3-4929-42ED-81F7-93DB361940C8}` | rv-imgauth (corrected AppId, from 0.2.1) | |
 | `{32343DE5-B0E4-4454-8A42-A5CF82EEC9BF}` | rv-certcheck | |
 | `{0D5428B0-B438-4B0F-804F-C48582CC8A7B}` | rv-mailauth | |
+| `{BE690C03-DA5F-42F0-9284-A86D5FF89D0E}` | rv-timeline | |
 
 A test (`installer_app_ids_are_unique`) checks that these and the hub's own installer AppId
 `{703D49A5-7B83-4C62-A97F-ED13C341CC23}` are all different.
@@ -607,8 +608,9 @@ anything either.
 | --- | --- | --- |
 | `case.json` missing or without `case_id` | the intake tool | `no_case` |
 | a case with no registered evidence | the intake tool | `no_evidence` |
-| for each non-intake tool that does not accept "any file", in the order rv-pdfauth, rv-imgauth, rv-rsmf, rv-certcheck, rv-mailauth, then others: registered items that are not superseded, not yet examined by that tool, and that it accepts | that tool, with the evidence ids | `pdf_not_analysed`, `images_not_analysed`, `chats_not_converted`, `certs_not_analysed`, `mail_not_analysed`, `not_examined` |
+| for each non-intake tool that does not accept "any file" (rv-timeline excepted: it reads the case folder, never an evidence file), in the order rv-pdfauth, rv-imgauth, rv-rsmf, rv-certcheck, rv-mailauth, then others: registered items that are not superseded, not yet examined by that tool, and that it accepts | that tool, with the evidence ids | `pdf_not_analysed`, `images_not_analysed`, `chats_not_converted`, `certs_not_analysed`, `mail_not_analysed`, `not_examined` |
 | Outlook `.msg` files whose message class cannot be read or is neither an email nor a Teams message, examined by neither rv-rsmf nor rv-mailauth | rv-rsmf and rv-mailauth (after each tool's own suggestion) | `msg_ambiguous` |
+| completed runs of two or more tools whose role is intake or analysis (RV Hub's and rv-timeline's own runs excluded), and no completed rv-timeline run newer than the newest of them | rv-timeline | `timeline_not_built` (no completed timeline run), `timeline_outdated` (with the runs the newest timeline does not cover) |
 | runs whose timestamp status is pending | `<tool> timestamp`, with the run folders | `timestamp_pending` |
 
 "Accepts" (`suggest::accepts`) uses the catalogue: each discovered tool's `describe`, completed by the built-in table
@@ -646,6 +648,27 @@ flowchart TD
 ambiguous `.msg` that either tool has already examined is not suggested again: the examiner has decided what it is.
 The class is a property written by the program that saved the file; it says what the item claims to be, not that it
 is authentic.
+
+**The case timeline (rv-timeline).** rv-timeline puts the events of the case log and of every other tool's runs in
+one timeline; it reads the case folder, so its `accepts` list (`.json`, `.jsonl`) is never matched against
+registered evidence. `suggest::timeline` counts the tools with at least one **completed** run whose role is intake or
+analysis: the role the run recorded in the case log (`run_started.details.role`; rv-rsmf's runs record
+"analysis"), else the tool's described role. RV Hub (`rv-hub`) and rv-timeline itself are not counted. With fewer
+than two such tools, nothing is suggested. Otherwise a completed rv-timeline run **covers** a counted run when it
+started (`ts_utc` of its `run_started`) after that run finished (`run_finished`, else `run_started`), or, when a
+time is missing, when it comes later in the case log. No completed timeline run: `timeline_not_built`. Completed
+timeline runs, none covering every counted run: `timeline_outdated`, with the counted runs the newest timeline does
+not cover in `run_dirs`. A failed, cancelled or unfinished rv-timeline run is ignored.
+
+```mermaid
+flowchart TD
+    R["completed runs of intake / analysis tools<br/>(not rv-hub, not rv-timeline)"] --> N{"two or more tools?"}
+    N -- "no" --> X["no timeline suggestion"]
+    N -- "yes" --> T{"completed rv-timeline run?"}
+    T -- "none" --> NB["rv-timeline: timeline_not_built"]
+    T -- "one started after the newest run finished" --> X
+    T -- "all older than some run" --> O["rv-timeline: timeline_outdated<br/>(runs not covered)"]
+```
 
 Consequence seen in the sample: the registry records the paths the evidence had at intake (a temporary folder that no
 longer exists), so without `--evidence-dir` the hub cannot read the files and suggests nothing for the `.txt` items;

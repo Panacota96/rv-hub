@@ -78,7 +78,7 @@ The rules:
 | Role | Tools | In the case |
 | --- | --- | --- |
 | intake | rv-hashinv | creates `case.json` and the case log; registers evidence; the only role that may open a folder without `case.json` |
-| analysis | rv-pdfauth, rv-imgauth, rv-certcheck, rv-mailauth, **and RV Hub** (`CASE_ROLE`) | re-hashes registered items and compares them with the registry; links its run |
+| analysis | rv-pdfauth, rv-imgauth, rv-certcheck, rv-mailauth, rv-timeline (reads the other runs, writes `reports/timeline.jsonl`), **and RV Hub** (`CASE_ROLE`) | re-hashes registered items and compares them with the registry; links its run |
 | conversion | rv-rsmf | like analysis, and writes derived files (RSMF) in its own run folder |
 
 The hub is recorded as an analysis tool because `rakvor.describe/1` and the case log have no "hub" role; its
