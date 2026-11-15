@@ -26,6 +26,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
   covered). Never for an evidence file, never for a case with fewer than two tools' runs. `schemas/hub-case.schema.json`
   lists every reason key (`mail_not_analysed`, `msg_ambiguous` were missing).
 
+## [0.5.0](https://github.com/Panacota96/rv-hub/compare/v0.4.1...v0.5.0) (2026-11-14)
+
+
+### Features
+
+* **core:** add RV Timeline as a known tool ([8dbfb82](https://github.com/Panacota96/rv-hub/commit/8dbfb824b9abdc0595c3b4248f4ea7cdbab1b512))
+* **core:** suggest RV Timeline once two tools have completed runs ([2c04450](https://github.com/Panacota96/rv-hub/commit/2c0445078211041782fb1abebdc50d058afa1f63))
+* RV Hub knows RV Timeline and suggests it once a case has two tools' runs ([c314037](https://github.com/Panacota96/rv-hub/commit/c314037f8c0de31898d9855f6e1e355489b2d04b))
+
 ## [0.4.1](https://github.com/Panacota96/rv-hub/compare/v0.4.0...v0.4.1) (2026-11-14)
 
 
