@@ -80,6 +80,7 @@ The rules:
 | intake | rv-hashinv | creates `case.json` and the case log; registers evidence; the only role that may open a folder without `case.json` |
 | analysis | rv-pdfauth, rv-imgauth, rv-certcheck, rv-mailauth, rv-timeline (reads the other runs, writes `reports/timeline.jsonl`), **and RV Hub** (`CASE_ROLE`) | re-hashes registered items and compares them with the registry; links its run |
 | conversion | rv-rsmf | like analysis, and writes derived files (RSMF) in its own run folder |
+| collection | rv-triage | none: it runs on the machine being collected, from removable media, and writes a hashed, audit-logged package outside any case; the examiner registers that package with rv-hashinv. It takes no case folder, writes no case-log entry, and RV Hub never opens it on a case |
 
 The hub is recorded as an analysis tool because `rakvor.describe/1` and the case log have no "hub" role; its
 `purpose: verification` tells its runs apart. It needs no evidence input.

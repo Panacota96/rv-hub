@@ -4,7 +4,7 @@ One engine, two front-ends. The engine (`src/core`, crate `rv_hub_core`) does al
 CLI and the GUI turn user input into calls of its public API and render what it returns (for the main verb, the
 `Event` stream). Both interfaces therefore produce identical logs and reports.
 
-RV Hub is the main app of the seven Rakvor tools (rv-hashinv, rv-pdfauth, rv-imgauth, rv-rsmf, rv-certcheck, rv-mailauth, rv-timeline). Each tool stays a
+RV Hub is the main app of the eight Rakvor tools (rv-triage, rv-hashinv, rv-pdfauth, rv-imgauth, rv-rsmf, rv-certcheck, rv-mailauth, rv-timeline). Each tool stays a
 separate signed program; the hub discovers them, checks their signatures, launches them on a case folder, shows a
 read-only case dashboard with next-step suggestions, and verifies the whole case.
 
@@ -198,7 +198,9 @@ any compound file) it also reads the MAPI message class with the `cfb` crate, re
 rv-mailauth (email) and rv-rsmf (Teams), or to suggest both when the class is unreadable
 ([theory.md B10](theory.md#b10-the-dashboard-and-the-suggestion-rules)). rv-timeline is suggested from the runs
 table, not from the evidence: once two or more intake/analysis tools have completed runs and no completed timeline
-run is newer than the newest of them.
+run is newer than the newest of them. A collection tool (rv-triage, `ToolRole::Collection`) is never suggested and
+its runs never count; `launch` never passes it `--case-dir` (it starts with no arguments, and `tool_launched` records
+the folder in `case_dir_not_passed`).
 
 ## GUI state
 

@@ -24,8 +24,10 @@ flowchart LR
 ![Tools tab](images/hub-tools.png)
 
 One card per tool found in the installed programs, `%LOCALAPPDATA%\Programs\Rakvor`, the `PATH` and the folders you
-add. A known tool (rv-hashinv, rv-pdfauth, rv-imgauth, rv-rsmf, rv-certcheck, rv-mailauth, rv-timeline) that is not found is
-shown dimmed as *not installed*. Each card shows the version, where it was
+add. A known tool (rv-triage, rv-hashinv, rv-pdfauth, rv-imgauth, rv-rsmf, rv-certcheck, rv-mailauth, rv-timeline) that is not
+found is shown dimmed as *not installed*. RV Triage's card is labelled *collection — runs on the suspect machine*: its
+Launch opens it with no arguments, never on the open case (it runs on the machine being collected, from removable
+media; register its package with RV HashInv). Each card shows the version, where it was
 found, the install path and the signature badge of the GUI executable:
 
 | Badge | Meaning | Launch |
@@ -37,7 +39,7 @@ found, the install path and the signature badge of the GUI executable:
 | grey **Signature not checked** | not Windows, or the file could not be checked | asks first, stating the risk |
 
 **Launch** opens the tool on the open case (`--case-dir`). With no case open, it opens the tool without one, after
-asking. The executable is hashed and its signature checked again at launch; if it changed since the list was made,
+asking. RV Triage (collection) always opens without arguments, even with a case open. The executable is hashed and its signature checked again at launch; if it changed since the list was made,
 you are asked again or the launch is refused (refresh the list).
 
 **Add a portable folder** (a text field, plus *Browse…* on Windows) adds e.g. an unzipped release on a USB stick;
@@ -52,7 +54,8 @@ you are asked again or the launch is refused (refresh the list).
 - **Create case** starts rv-hashinv on an empty (or new) folder: the intake tool creates `case.json`. RV Hub never
   writes `case.json` itself.
 - The header shows the case id, the jurisdiction (custody form) and a quick check of the case-log chain.
-- **Evidence**: id, file, size and the tools whose runs examined each item.
+- **Evidence**: id, file, size and the tools whose runs examined each item. A case with no evidence yet adds
+  "Collected with RV Triage? Register its package folder with RV HashInv."
 - **Runs**: tool, run id, time (UTC), findings High / Medium / Low / Info, timestamp (obtained, pending, off) and
   status.
 - **Findings by severity** over all runs, and any **problems** reading the folder.
