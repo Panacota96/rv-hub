@@ -30,7 +30,7 @@ const EXIT_CANCELLED: u8 = 130;
 const ABOUT: &str = "RV Hub, the main app of the Rakvor tools: find and check the installed tools, launch them on a case folder, show the case and verify it as a whole.";
 
 const ROOT_LONG_ABOUT: &str = "\
-RV Hub, the main app of the Rakvor tools (rv-hashinv, rv-pdfauth, rv-imgauth, rv-rsmf,
+RV Hub, the main app of the Rakvor tools (rv-triage, rv-hashinv, rv-pdfauth, rv-imgauth, rv-rsmf,
 rv-certcheck, rv-mailauth, rv-timeline). Everything the desktop app does can be done here, without a display:
   verify    verify a whole case folder and cross-check each run with its own tool (main verb)
   tools     list the installed tools with their version, source and signature
@@ -140,7 +140,7 @@ DESCRIPTION:
   signature status and folder. Tools are found, in this order, in:
     - the Windows uninstall registry (the tools' installer AppIds; source \"registry\");
     - %LOCALAPPDATA%\\Programs\\Rakvor\\<tool>\\ (source \"install folder\");
-    - the folders of PATH (the seven known tools only; source \"PATH\");
+    - the folders of PATH (the eight known tools only; source \"PATH\");
     - the folders given with --add-folder, and their subfolders (source \"folder\").
   Another program named rv-* is run only from an --add-folder folder, or when it is
   Rakvor-signed (so never from the registry, install folder or PATH where signatures cannot be
@@ -210,7 +210,9 @@ DESCRIPTION:
       is suggested when completed runs of two or more intake/analysis tools exist and no
       completed rv-timeline run started after the newest of them finished
       (\"timeline_not_built\", or \"timeline_outdated\" with the runs it does not cover);
-      RV Hub's own runs do not count. Evidence files are read at their registered path, else by file
+      RV Hub's own runs do not count. rv-triage (role collection: it runs on the machine
+      being collected, from removable media) is never suggested and its runs never count; a
+      case with no evidence yet is sent to the intake tool. Evidence files are read at their registered path, else by file
       name in the --evidence-dir folders.
   This is a summary, not a verification: `rv-hub verify` checks every chain and link. --json
   prints one rakvor.hub-case/1 object (schemas/hub-case.schema.json).";
@@ -541,8 +543,10 @@ struct CaseCli {
 
 #[derive(Args)]
 struct LaunchCli {
-    /// The tool to open: rv-hashinv, rv-pdfauth, rv-imgauth, rv-rsmf, rv-certcheck, rv-mailauth
-    /// or rv-timeline (or another rv-* tool found in an added folder). Required.
+    /// The tool to open: rv-hashinv, rv-pdfauth, rv-imgauth, rv-rsmf, rv-certcheck, rv-mailauth,
+    /// rv-timeline or rv-triage (or another rv-* tool found in an added folder). Required.
+    /// rv-triage (role collection) runs on the machine being collected: it opens with no
+    /// arguments, never on the case (the case folder is recorded as not passed).
     ///
     /// Default: none. Example: rv-pdfauth
     #[arg(value_name = "TOOL", verbatim_doc_comment)]

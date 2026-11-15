@@ -791,6 +791,10 @@ pub const UI_KEYS: &[&str] = &[
     "read_at",
     "evidence_title",
     "evidence_none",
+    "evidence_none_collected",
+    "role_collection",
+    "launch_tip_collection",
+    "confirm_collection",
     "col_id",
     "col_file",
     "col_size",
@@ -862,7 +866,8 @@ pub mod testing {
     }
 
     /// The six released Rakvor tools as discovered on a workstation (no files on disk): screenshots and tests.
-    /// rv-timeline has no release yet: it is not in this list, so the Tools tab shows it as not installed.
+    /// rv-timeline and rv-triage have no release yet: they are not in this list, so the Tools tab shows them as
+    /// not installed.
     /// `root` is shown as is (e.g. a Windows path on any platform): the folders are `<root>\\<title>`.
     pub fn known_tools(root: &str) -> Vec<ToolInfo> {
         let p = |t: &str| std::path::PathBuf::from(format!("{root}\\{t}"));
@@ -1076,6 +1081,45 @@ mod tests {
             Ok(log.len() as u64)
         );
         assert!(s.notice.as_ref().unwrap().text.contains("777"));
+    }
+
+    /// rv-triage (collection) is never opened on the open case: started with no arguments, and the hub's
+    /// session log records the case folder that was not passed.
+    #[test]
+    fn a_collection_tool_never_gets_the_case_dir() {
+        let d = tempfile::tempdir().unwrap();
+        let case = sample_case(d.path());
+        let mut s = hub(d.path());
+        s.apply_discovery(vec![fake_tool(
+            d.path(),
+            "rv-triage",
+            SignatureStatus::SignedRakvor,
+        )]);
+        assert!(s.cards[0].collection);
+        let rec = Recorder::default();
+        let v = StaticVerifier::always(SignatureStatus::SignedRakvor);
+        let env = LaunchEnv {
+            verifier: &v,
+            spawner: &rec,
+        };
+        s.open_case(&case.display().to_string());
+        let LaunchStep::Started(l) = s.request_launch(0, "tools", &env) else {
+            panic!("not started")
+        };
+        assert_eq!(l.case_dir, PathBuf::new());
+        assert!(rec.0.borrow()[0].1.is_empty(), "{:?}", rec.0.borrow());
+        let log = std::fs::read_to_string(s.session.as_ref().unwrap().audit_path()).unwrap();
+        let launched: Value = log
+            .lines()
+            .map(|l| serde_json::from_str::<Value>(l).unwrap())
+            .rfind(|e| e["action"] == "tool_launched")
+            .unwrap();
+        assert!(launched["details"]["case_dir"].is_null());
+        assert_eq!(launched["details"]["role"], "collection");
+        assert_eq!(
+            launched["details"]["case_dir_not_passed"],
+            rv_hub_core::case::normalize(&case).display().to_string()
+        );
     }
 
     #[test]

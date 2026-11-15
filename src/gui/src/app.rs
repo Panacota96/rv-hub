@@ -505,6 +505,9 @@ impl HubApp {
                         }
                     });
                 });
+                if let Some(k) = c.role_key() {
+                    ui.colored_label(CYAN, tr(k));
+                }
                 if c.installed {
                     let sources: Vec<String> = c.sources.iter().map(|k| tr(k)).collect();
                     ui.label(format!(
@@ -531,11 +534,7 @@ impl HubApp {
                     ui.add_space(14.0);
                 }
                 ui.add_space(4.0);
-                let tip = if self.state.case.is_some() {
-                    tr("launch_tip_case")
-                } else {
-                    tr("launch_tip_no_case")
-                };
+                let tip = tr(c.launch_tip_key(self.state.case.is_some()));
                 let fill = if c.badge == Badge::SignedRakvor {
                     BLUE
                 } else {
@@ -647,7 +646,16 @@ impl HubApp {
                     ui.weak(exe.display().to_string());
                 }
             }
+            let collection = self
+                .state
+                .tools
+                .get(p.tool_index)
+                .is_some_and(|t| !t.describe.role.takes_case());
             match &p.target {
+                // Never opened on a case (the core passes no argument): say so instead of --case-dir.
+                _ if collection => {
+                    ui.label(self.state.trf("confirm_collection", &[("tool", &title)]));
+                }
                 LaunchTarget::NoCase => {
                     ui.label(self.state.trf("confirm_no_case", &[("tool", &title)]));
                 }
@@ -795,6 +803,7 @@ impl HubApp {
         Self::section_title(ui, tr("evidence_title"));
         if c.evidence.is_empty() {
             ui.weak(tr("evidence_none"));
+            ui.weak(tr("evidence_none_collected"));
         } else {
             egui::Grid::new("evidence")
                 .striped(true)

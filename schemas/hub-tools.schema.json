@@ -192,7 +192,8 @@
             "enum": [
               "intake",
               "analysis",
-              "conversion"
+              "conversion",
+              "collection"
             ]
           },
           "main_verb": {

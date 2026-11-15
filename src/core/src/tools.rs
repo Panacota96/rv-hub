@@ -29,8 +29,11 @@ pub const SCHEMA_DESCRIBE: &str = "rakvor.describe/1";
 /// Log chains a tool may declare in `log_formats`.
 pub const LOG_AUDIT: &str = "rakvor.audit/1";
 pub const LOG_REVIEW: &str = "rakvor.review/1";
-/// The seven tools RV Hub coordinates (CLI names without extension). The order is the order of the suggestions.
-pub const KNOWN_TOOLS: [&str; 7] = [
+/// The eight tools RV Hub coordinates (CLI names without extension), in the order of a case's life: the order of
+/// the tool lists and of the suggestions. rv-triage (collection, on the suspect machine) comes before the intake
+/// tool; it is never suggested ([`ToolRole::Collection`]), so its place does not change the suggestions.
+pub const KNOWN_TOOLS: [&str; 8] = [
+    "rv-triage",
     "rv-hashinv",
     "rv-pdfauth",
     "rv-imgauth",
@@ -91,7 +94,7 @@ pub struct KnownAppId {
 /// key names whichever of the two was installed last: the tool is identified by the executables in its
 /// InstallLocation, and a warning is attached. `{04A0C3C3-…}` is rv-imgauth's corrected AppId (plan §0.3, from
 /// 0.2.1). Tools installed under any other key are still found in `%LOCALAPPDATA%\Programs\Rakvor`.
-pub const APP_IDS: [KnownAppId; 7] = [
+pub const APP_IDS: [KnownAppId; 8] = [
     KnownAppId {
         app_id: "{6D3F3B0E-5B7A-4B2C-9E61-2A1C7D4E9F10}",
         tool: Some("rv-hashinv"),
@@ -130,6 +133,12 @@ pub const APP_IDS: [KnownAppId; 7] = [
         tool: Some("rv-timeline"),
         warning: None,
     },
+    // From the suite's shared installer table (src/cli/tests/packaging.rs, RAKVOR_APP_IDS).
+    KnownAppId {
+        app_id: "{EED6D788-369E-4217-B0D7-83E4D8A93196}",
+        tool: Some("rv-triage"),
+        warning: None,
+    },
 ];
 
 /// What a tool does in a case.
@@ -139,6 +148,27 @@ pub enum ToolRole {
     Intake,
     Analysis,
     Conversion,
+    /// Runs on the machine being collected, from removable media, and writes a hashed, audit-logged package
+    /// that the intake tool registers in the lab (rv-triage). It takes no case folder and no evidence file:
+    /// the hub never opens it on a case (`launch`) and never suggests it (`suggest`).
+    Collection,
+}
+
+impl ToolRole {
+    /// The `role` value of `describe --json`.
+    pub fn key(self) -> &'static str {
+        match self {
+            ToolRole::Intake => "intake",
+            ToolRole::Analysis => "analysis",
+            ToolRole::Conversion => "conversion",
+            ToolRole::Collection => "collection",
+        }
+    }
+
+    /// True when the hub opens the tool on a case (`--case-dir`): every role but collection.
+    pub fn takes_case(self) -> bool {
+        self != ToolRole::Collection
+    }
 }
 
 /// One part of a content signature: these bytes (hex) at this offset.
@@ -340,6 +370,15 @@ pub fn builtin(tool: &str) -> Option<Describe> {
         Vec<SignatureSpec>,
         &[&str],
     ) = match tool {
+        // Runs from removable media on the machine being collected: no case folder, no evidence file.
+        "rv-triage" => (
+            "RV Triage",
+            ToolRole::Collection,
+            "collect",
+            &[],
+            vec![],
+            &[LOG_AUDIT],
+        ),
         "rv-hashinv" => (
             "RV HashInv",
             ToolRole::Intake,
@@ -440,7 +479,12 @@ pub fn builtin(tool: &str) -> Option<Describe> {
             extensions: ext.iter().map(|e| e.to_string()).collect(),
             signatures: sigs,
         },
-        case_formats: vec![crate::case::SCHEMA_CASE.into()],
+        // A collection tool reads and writes no case folder.
+        case_formats: if role.takes_case() {
+            vec![crate::case::SCHEMA_CASE.into()]
+        } else {
+            vec![]
+        },
         log_formats: logs.iter().map(|l| l.to_string()).collect(),
         cli_exe: format!("{tool}.exe"),
         gui_exe: format!("{tool}-gui.exe"),
@@ -930,7 +974,7 @@ mod tests {
         assert!(!builtin("rv-rsmf").unwrap().accepts.any());
         assert!(builtin("rv-other").is_none());
         assert_eq!(catalog(&[]).len(), KNOWN_TOOLS.len());
-        assert_eq!(catalog(&[]).len(), 7);
+        assert_eq!(catalog(&[]).len(), 8);
         assert_eq!(img.version, None);
         let cert = builtin("rv-certcheck").unwrap();
         assert_eq!(
@@ -1045,6 +1089,59 @@ mod tests {
         assert!(APP_IDS.iter().any(|k| k.tool == Some("rv-timeline")
             && k.app_id == "{BE690C03-DA5F-42F0-9284-A86D5FF89D0E}"));
         assert_eq!(KNOWN_TOOLS.last(), Some(&"rv-timeline"));
+    }
+
+    #[test]
+    fn triage_is_a_collection_tool_in_the_builtin_table() {
+        let t = builtin("rv-triage").unwrap();
+        assert_eq!(
+            (t.title.as_str(), t.role, t.main_verb.as_str()),
+            ("RV Triage", ToolRole::Collection, "collect")
+        );
+        assert_eq!(
+            (t.cli_exe.as_str(), t.gui_exe.as_str()),
+            ("rv-triage.exe", "rv-triage-gui.exe")
+        );
+        assert_eq!(t.log_formats, [LOG_AUDIT]);
+        // No case folder, no evidence file: nothing to match, never "any file".
+        assert!(t.accepts.extensions.is_empty() && t.accepts.signatures.is_empty());
+        assert!(!t.accepts.any() && !t.accepts.matches_extension("x.pdf"));
+        assert!(!t.accepts.matches_content(b"%PDF-1.7"));
+        assert!(t.case_formats.is_empty());
+        assert!(!t.role.takes_case() && ToolRole::Intake.takes_case());
+        assert_eq!(t.role.key(), "collection");
+        // First in a case's life, before the intake tool; its AppId is the suite's.
+        assert_eq!(KNOWN_TOOLS.first(), Some(&"rv-triage"));
+        assert!(
+            APP_IDS.iter().any(|k| k.tool == Some("rv-triage")
+                && k.app_id == "{EED6D788-369E-4217-B0D7-83E4D8A93196}")
+        );
+        assert!(catalog(&[]).iter().any(|d| d.tool == "rv-triage"));
+    }
+
+    /// `describe --json` with role "collection" and an empty `accepts` (as rv-triage reports it) is read.
+    #[test]
+    fn collection_describe_is_read() {
+        let json = r#"{"schema":"rakvor.describe/1","tool":"rv-triage","title":"RV Triage","version":"0.1.0",
+          "role":"collection","main_verb":"collect","accepts":{"extensions":[],"signatures":[]},
+          "case_formats":[],"log_formats":["rakvor.audit/1"],"cli_exe":"rv-triage.exe","gui_exe":"rv-triage-gui.exe",
+          "exit_codes":{"0":"a","1":"b","2":"c","130":"e"}}"#;
+        let d = parse_describe(json.as_bytes()).unwrap();
+        assert_eq!(d.role, ToolRole::Collection);
+        assert_eq!(d.main_verb, "collect");
+        assert!(!d.accepts.any() && d.accepts.extensions.is_empty());
+        assert_eq!(
+            serde_json::to_value(ToolRole::Collection).unwrap(),
+            serde_json::json!("collection")
+        );
+        for r in [
+            ToolRole::Intake,
+            ToolRole::Analysis,
+            ToolRole::Conversion,
+            ToolRole::Collection,
+        ] {
+            assert_eq!(serde_json::to_value(r).unwrap(), serde_json::json!(r.key()));
+        }
     }
 
     /// rv-timeline installed by its own installer: found through its uninstall key (AppId) and in the per-user
