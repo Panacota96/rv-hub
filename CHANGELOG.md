@@ -26,6 +26,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
   covered). Never for an evidence file, never for a case with fewer than two tools' runs. `schemas/hub-case.schema.json`
   lists every reason key (`mail_not_analysed`, `msg_ambiguous` were missing).
 
+## [0.6.0](https://github.com/Panacota96/rv-hub/compare/v0.5.0...v0.6.0) (2026-11-16)
+
+
+### Features
+
+* collection role and RV Triage as a known tool ([#44](https://github.com/Panacota96/rv-hub/issues/44)) ([c0bef57](https://github.com/Panacota96/rv-hub/commit/c0bef57879e5ddeea9e2a3e28c12c3bf1ef2d947))
+
 ## [0.5.0](https://github.com/Panacota96/rv-hub/compare/v0.4.1...v0.5.0) (2026-11-14)
 
 
