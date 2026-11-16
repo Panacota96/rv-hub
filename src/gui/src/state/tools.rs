@@ -2,7 +2,7 @@
 //! installed) and the signature badge of each.
 
 use rv_hub_core::signature::SignatureStatus;
-use rv_hub_core::tools::{DescribeSource, KNOWN_TOOLS, Source, ToolInfo, builtin};
+use rv_hub_core::tools::{DescribeSource, KNOWN_TOOLS, Source, ToolInfo, ToolRole, builtin};
 
 /// The colour family of a badge or a notice (the window maps it to the Rakvor palette).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -101,12 +101,31 @@ pub struct ToolCard {
     /// The description came from the built-in table (no `describe --json`).
     pub builtin_describe: bool,
     pub warnings: Vec<String>,
+    /// A collection tool (rv-triage): it runs on the machine being collected, from removable media. The card
+    /// says so ([`ToolCard::role_key`]) and its Launch never opens it on the case.
+    pub collection: bool,
 }
 
 impl ToolCard {
     /// A GUI executable to launch exists.
     pub fn can_launch(&self) -> bool {
         self.installed && self.gui_exe.is_some()
+    }
+
+    /// i18n `ui` key of the role label shown on the card (None: no label).
+    pub fn role_key(&self) -> Option<&'static str> {
+        self.collection.then_some("role_collection")
+    }
+
+    /// i18n `ui` key of the Launch button's tooltip: a collection tool always opens without a case.
+    pub fn launch_tip_key(&self, case_open: bool) -> &'static str {
+        if self.collection {
+            "launch_tip_collection"
+        } else if case_open {
+            "launch_tip_case"
+        } else {
+            "launch_tip_no_case"
+        }
     }
 }
 
@@ -140,12 +159,15 @@ pub fn cards(tools: &[ToolInfo]) -> Vec<ToolCard> {
                 tool_index: Some(i),
                 builtin_describe: t.describe_source == DescribeSource::Builtin,
                 warnings: t.warnings.clone(),
+                collection: t.describe.role == ToolRole::Collection,
             }
         })
         .collect();
     for k in KNOWN_TOOLS {
         if !tools.iter().any(|t| t.tool == k) {
-            let title = builtin(k).map(|d| d.title).unwrap_or_else(|| k.to_string());
+            let d = builtin(k);
+            let collection = d.as_ref().is_some_and(|d| d.role == ToolRole::Collection);
+            let title = d.map(|d| d.title).unwrap_or_else(|| k.to_string());
             out.push(ToolCard {
                 tool: k.into(),
                 title,
@@ -161,6 +183,7 @@ pub fn cards(tools: &[ToolInfo]) -> Vec<ToolCard> {
                 tool_index: None,
                 builtin_describe: true,
                 warnings: vec![],
+                collection,
             });
         }
     }
@@ -236,6 +259,30 @@ mod tests {
         assert_eq!(c.iter().filter(|c| c.installed).count(), 6);
     }
 
+    /// rv-triage (collection, not released on the preview workstation): a dimmed card labelled as running on
+    /// the suspect machine, whose Launch tip never mentions the case. Installed, it is still labelled.
+    #[test]
+    fn triage_card_is_labelled_collection() {
+        let c = cards(&crate::state::testing::known_tools(r"C:\Programs\Rakvor"));
+        let t = c.iter().find(|c| c.tool == "rv-triage").unwrap();
+        assert_eq!(t.title, "RV Triage");
+        assert!(t.collection && !t.installed && !t.can_launch());
+        assert_eq!(t.role_key(), Some("role_collection"));
+        assert_eq!(t.launch_tip_key(true), "launch_tip_collection");
+        assert_eq!(t.launch_tip_key(false), "launch_tip_collection");
+        let p = c.iter().find(|c| c.tool == "rv-pdfauth").unwrap();
+        assert!(!p.collection && p.role_key().is_none());
+        assert_eq!(p.launch_tip_key(true), "launch_tip_case");
+        assert_eq!(p.launch_tip_key(false), "launch_tip_no_case");
+        let d = tempfile::tempdir().unwrap();
+        let installed = cards(&[fake_tool(
+            d.path(),
+            "rv-triage",
+            SignatureStatus::SignedRakvor,
+        )]);
+        assert!(installed[0].collection && installed[0].can_launch());
+    }
+
     #[test]
     fn tool_cards_from_a_fake_discovery() {
         let d = tempfile::tempdir().unwrap();
@@ -261,12 +308,13 @@ mod tests {
         assert_eq!(c[1].badge, Badge::Unsigned);
         let missing: Vec<&str> = c[2..].iter().map(|c| c.tool.as_str()).collect();
         assert!(
-            missing.starts_with(&["rv-imgauth", "rv-rsmf"]),
+            missing.starts_with(&["rv-triage", "rv-imgauth", "rv-rsmf"]),
             "{missing:?}"
         );
         assert!(c[2..].iter().all(|c| !c.installed && !c.can_launch()));
-        assert_eq!(c[2].title, "RV ImgAuth");
-        // Nothing found: four dimmed cards.
+        assert_eq!(c[2].title, "RV Triage");
+        assert_eq!(c[3].title, "RV ImgAuth");
+        // Nothing found: every card dimmed.
         assert!(cards(&[]).iter().all(|c| !c.installed));
     }
 }

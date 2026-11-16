@@ -10,15 +10,16 @@
 ![License](https://img.shields.io/badge/license-Rakvor%20source--auditable-6B00FF)
 ![Windows 10/11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6)
 
-RV Hub is the one window an examiner opens first. The seven Rakvor tools stay separate, separately signed
+RV Hub is the one window an examiner opens first. The eight Rakvor tools stay separate, separately signed
 programs; the hub sits beside them and does five things:
 
-1. **Finds** the installed tools (rv-hashinv, rv-pdfauth, rv-imgauth, rv-rsmf, rv-certcheck, rv-mailauth, rv-timeline), with their
+1. **Finds** the installed tools (rv-triage, rv-hashinv, rv-pdfauth, rv-imgauth, rv-rsmf, rv-certcheck, rv-mailauth, rv-timeline), with their
    version and the SHA-256 of each executable.
 2. **Checks** each tool's Authenticode signature, and that its certificate chain ends at the Rakvor root bundled in
    the hub (Windows).
 3. **Launches** a tool's desktop app on a case folder (`<tool>-gui.exe --case-dir CASE`), and records which
-   executable was started, on which case, by whom.
+   executable was started, on which case, by whom. RV Triage, which runs on the machine being collected, is never
+   opened on a case: it starts with no arguments.
 4. **Shows** a read-only case dashboard: evidence, runs, findings by severity, timestamp status, and suggested next
    steps (which tool has not yet examined which item, and when to build or rebuild the case timeline).
 5. **Verifies the whole case** (`rv-hub verify`): the case log, every run's audit log, review log and timestamps, the
@@ -38,6 +39,10 @@ flowchart LR
         T7[["rv-timeline"]]
     end
     CASE[("Case folder<br/>case.json · case-log.jsonl<br/>evidence/ · runs/")]
+    SUSPECT[["rv-triage<br/>suspect machine, removable media"]]
+    PKG[("Collected package<br/>hashed, audit-logged")]
+    SUSPECT -- "collect" --> PKG
+    PKG -. "registered by" .-> T1
     HUB -- "discover + signature check" --> T1 & T2 & T3 & T4 & T5 & T6 & T7
     HUB -- "launch --case-dir" --> T2
     T1 & T2 & T3 & T4 & T5 & T6 & T7 -- "each writes its own run" --> CASE
@@ -49,7 +54,7 @@ flowchart LR
 ## Contents
 
 - [What it does, and what it does not do](#what-it-does-and-what-it-does-not-do)
-- [The seven tools and how they are found](#the-seven-tools-and-how-they-are-found)
+- [The eight tools and how they are found](#the-eight-tools-and-how-they-are-found)
 - [Install](#install)
 - [Quick start: desktop app](#quick-start-desktop-app)
 - [Quick start: command line](#quick-start-command-line)
@@ -71,10 +76,11 @@ flowchart LR
 | Ask each run's own tool for its `verify-log` verdict and report any disagreement (high severity) | Prove that a tool's findings are correct, or that the evidence is authentic: verification shows integrity, not content |
 | Write its verification as a run of its own (`runs/rv-hub/<RUN-ID>/`), linked in the case log | Write anything else in the case: two case-log entries (`run_started`, `run_finished`) are its only change outside its own run folder |
 
-## The seven tools and how they are found
+## The eight tools and how they are found
 
 | Tool | Role | Accepts (built-in table) | Repository |
 | --- | --- | --- | --- |
+| **rv-triage** | collection: runs from removable media on the suspect Windows machine and collects volatile data, registry hives, event logs, prefetch, browser history and scheduled tasks into a hashed, audit-logged package, which rv-hashinv then registers in the lab (not released yet) | nothing: no case folder, no evidence file; never suggested, never opened on a case | Panacota96/rv-triage |
 | **rv-hashinv** | intake: registers evidence as `E0001`, `E0002`, …; creates the case | any file | [Panacota96/rv-hashinv](https://github.com/Panacota96/rv-hashinv) |
 | **rv-pdfauth** | analysis: PDF authenticity signals | `.pdf`, or content starting `%PDF-` | Panacota96/rv-pdfauth |
 | **rv-imgauth** | analysis: image authenticity (JPEG, PNG, HEIC, WebP) | image extensions, or JPEG / PNG / WebP / HEIC / HEIF magic bytes | [Panacota96/rv-imgauth](https://github.com/Panacota96/rv-imgauth) |
@@ -92,13 +98,19 @@ intake or analysis tools exist and no completed rv-timeline run started after th
 (`timeline_not_built`, or `timeline_outdated` with the runs the timeline does not cover). RV Hub's own
 verification runs do not count, and a case with runs of fewer than two such tools gets no timeline suggestion.
 
+rv-triage (role `collection`) is listed with the label "collection — runs on the suspect machine". It is never
+suggested and its runs never count for the timeline. Launched from the hub, it opens with no arguments, never with
+`--case-dir`, and the session log's `tool_launched` entry records the case folder that was not passed
+(`case_dir_not_passed`). An empty case says: "Collected with RV Triage? Register its package folder with RV
+HashInv."
+
 Discovery looks in four places, in this order, and lists an executable found by several sources once, with every
 source ([theory.md B1](docs/theory.md#b1-discovery)):
 
 1. the Windows uninstall registry, `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\{AppId}_is1`, for the
    tools' known installer AppIds;
 2. `%LOCALAPPDATA%\Programs\Rakvor\*\` (where every Rakvor installer puts its tool);
-3. the folders of `PATH` (the seven known tool names only);
+3. the folders of `PATH` (the eight known tool names only);
 4. folders you add (for example portable zips on a USB stick), and their direct subfolders.
 
 Each Rakvor-signed tool is asked `describe --json` (schema `rakvor.describe/1`, 10 s limit) for its version and what

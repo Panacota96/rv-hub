@@ -5,8 +5,9 @@
 //!
 //! The discovery is faked: the six Rakvor tools at their released versions (rv-hashinv 0.4.2, rv-pdfauth 0.4.2,
 //! rv-rsmf 0.3.2, rv-imgauth 0.3.2, rv-certcheck 0.2.3, rv-mailauth 0.2.1), all Rakvor-signed except one unsigned portable copy of
-//! rv-imgauth, to show the amber badge. rv-timeline has no release yet: it is not faked, so the Tools tab shows it
-//! dimmed as not installed (and the Case tab's timeline suggestion says so). The Case tab shows a copy of `examples/sample/case`. A few egui frames run, then egui's tessellated meshes are rasterised on the CPU
+//! rv-imgauth, to show the amber badge. rv-timeline and rv-triage have no release yet: they are not faked, so the
+//! Tools tab shows them dimmed as not installed (rv-triage labelled as a collection tool; the Case tab's timeline
+//! suggestion says rv-timeline is not installed). The Case tab shows a copy of `examples/sample/case`. A few egui frames run, then egui's tessellated meshes are rasterised on the CPU
 //! (textured triangles, premultiplied alpha), so the picture is what the window draws, minus the GPU.
 #![forbid(unsafe_code)]
 
@@ -41,7 +42,7 @@ fn copy_dir(from: &Path, to: &Path) {
     }
 }
 
-/// The six released tools as a workstation would list them (rv-timeline: not installed). AppIds: the real ones of
+/// The six released tools as a workstation would list them (rv-timeline, rv-triage: not installed). AppIds: the real ones of
 /// `rv_hub_core::tools::APP_IDS`. One unsigned portable copy (rv-imgauth) shows the amber "unsigned" badge.
 fn released_tools() -> Vec<ToolInfo> {
     let programs = r"C:\Users\examiner\AppData\Local\Programs\Rakvor";

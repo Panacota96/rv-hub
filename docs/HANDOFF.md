@@ -82,8 +82,8 @@ variables or prompts and never logged; no GPL/AGPL/LGPL components; tools report
 
 ## 6. Open work
 
-- Known tools (`tools::KNOWN_TOOLS`): rv-hashinv, rv-pdfauth, rv-imgauth, rv-rsmf, rv-certcheck, rv-mailauth,
-  rv-timeline. A new
+- Known tools (`tools::KNOWN_TOOLS`): rv-triage (collection), rv-hashinv, rv-pdfauth, rv-imgauth, rv-rsmf,
+  rv-certcheck, rv-mailauth, rv-timeline. A new
   tool needs its entry in `KNOWN_TOOLS`, `APP_IDS` and `builtin` (`src/core/src/tools.rs`), a reason key in
   `suggest.rs` and `i18n/*.json` (`suggest`), and the docs that list the tools.
 - `.msg` routing between rv-mailauth and rv-rsmf relies on PR_MESSAGE_CLASS (`suggest::MsgKind`); it was tested on

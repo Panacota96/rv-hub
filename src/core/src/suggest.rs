@@ -46,6 +46,11 @@
 //! timeline run covers a run that finished before it started (case-log order when a time is missing). A case with
 //! runs of fewer than two such tools gets no timeline suggestion. `timeline_outdated` lists the runs the newest
 //! timeline does not cover.
+//!
+//! **Collection (rv-triage).** A collection tool runs on the machine being collected, from removable media; the
+//! examiner registers its package with the intake tool. It is never suggested for registered evidence, and its
+//! runs (role `collection`, recorded or described) never count towards the timeline suggestion. A case with no
+//! evidence yet is still sent to the intake tool (`no_evidence`).
 
 use crate::case_view::{CaseView, EvidenceRow, RunStatus, TimestampStatus};
 use crate::tools::{Describe, SignatureSpec, ToolRole};
@@ -229,6 +234,7 @@ fn timeline(view: &CaseView, catalog: &[Describe]) -> Option<Suggestion> {
         r.tool != TIMELINE_TOOL
             && r.tool != crate::TOOL_NAME
             && match r.role.as_deref() {
+                // "collection", "conversion" and any other role do not count.
                 Some(role) => role == "intake" || role == "analysis",
                 None => matches!(
                     described(&r.tool),
@@ -565,7 +571,11 @@ pub fn suggest_with(
         .collect();
     let mut tools: Vec<&Describe> = catalog
         .iter()
-        .filter(|d| d.role != ToolRole::Intake && !d.accepts.any() && d.tool != TIMELINE_TOOL)
+        .filter(|d| {
+            !matches!(d.role, ToolRole::Intake | ToolRole::Collection)
+                && !d.accepts.any()
+                && d.tool != TIMELINE_TOOL
+        })
         .collect();
     let rank = |t: &str| {
         crate::tools::KNOWN_TOOLS
@@ -1262,5 +1272,75 @@ mod tests {
         };
         let s = suggest(&v, &catalog(&[]));
         assert!(s.iter().all(|x| x.tool != TIMELINE_TOOL), "{s:?}");
+    }
+
+    /// rv-triage (collection) is never suggested for registered evidence, even when a description lists
+    /// extensions or "any file"; an empty case still goes to the intake tool, not to the first known tool.
+    #[test]
+    fn collection_tool_is_never_suggested() {
+        let d = tempfile::tempdir().unwrap();
+        let pdf = d.path().join("a.pdf");
+        std::fs::write(
+            &pdf,
+            b"%PDF-1.7
+",
+        )
+        .unwrap();
+        let mut cat = catalog(&[]);
+        assert_eq!(cat[0].tool, "rv-triage");
+        let mut wide = cat[0].clone();
+        wide.tool = "rv-collector".into();
+        wide.accepts.extensions = vec!["pdf".into()];
+        cat.push(wide);
+        let mut any = cat[0].clone();
+        any.tool = "rv-collector-any".into();
+        any.accepts.extensions = vec!["*".into()];
+        cat.push(any);
+        let empty = CaseView {
+            case_id: Some("C".into()),
+            ..Default::default()
+        };
+        let s = suggest(&empty, &cat);
+        assert_eq!(s.len(), 1, "{s:?}");
+        assert_eq!(
+            (s[0].tool.as_str(), s[0].reason_key.as_str()),
+            ("rv-hashinv", "no_evidence")
+        );
+        assert_eq!(suggest(&CaseView::default(), &cat)[0].tool, "rv-hashinv");
+        let v = CaseView {
+            case_id: Some("C".into()),
+            evidence: vec![row("E0001", &pdf, &["rv-hashinv"])],
+            ..Default::default()
+        };
+        let s = suggest(&v, &cat);
+        assert!(s.iter().any(|x| x.tool == "rv-pdfauth"), "{s:?}");
+        assert!(
+            s.iter()
+                .all(|x| !x.tool.starts_with("rv-collector") && x.tool != "rv-triage"),
+            "{s:?}"
+        );
+    }
+
+    /// Runs of a collection tool never count towards the timeline suggestion: by the recorded role or, without
+    /// one, by the described role.
+    #[test]
+    fn collection_runs_do_not_count_for_the_timeline() {
+        let h = run(
+            "rv-hashinv",
+            "H1",
+            Some("intake"),
+            T0,
+            "2026-11-01T10:05:00.000Z",
+        );
+        let c = run(
+            "rv-triage",
+            "C1",
+            Some("collection"),
+            "2026-11-01T11:00:00.000Z",
+            "2026-11-01T11:05:00.000Z",
+        );
+        assert_eq!(timeline_of(&[h.clone(), c.clone()]), None);
+        let c_none = RunRow { role: None, ..c };
+        assert_eq!(timeline_of(&[h, c_none]), None);
     }
 }

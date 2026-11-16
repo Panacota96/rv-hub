@@ -39,11 +39,12 @@
       "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$"
     },
     "role": {
-      "description": "What the tool does in a case: intake registers evidence, analysis examines registered evidence, conversion turns evidence into another format.",
+      "description": "What the tool does in a case: intake registers evidence, analysis examines registered evidence, conversion turns evidence into another format, collection runs on the machine being collected (from removable media) and writes a package that the intake tool registers; a collection tool takes no case folder and accepts no evidence file (empty accepts lists).",
       "enum": [
         "intake",
         "analysis",
-        "conversion"
+        "conversion",
+        "collection"
       ]
     },
     "main_verb": {
@@ -61,9 +62,8 @@
       ],
       "properties": {
         "extensions": {
-          "description": "Lower-case extensions without the dot, or the single value \"*\".",
+          "description": "Lower-case extensions without the dot, or the single value \"*\". Empty for a collection tool, which accepts no evidence file.",
           "type": "array",
-          "minItems": 1,
           "uniqueItems": true,
           "items": {
             "type": "string",
@@ -121,9 +121,8 @@
       }
     },
     "case_formats": {
-      "description": "Case folder formats the tool reads and writes.",
+      "description": "Case folder formats the tool reads and writes. Empty for a collection tool, which takes no case folder.",
       "type": "array",
-      "minItems": 1,
       "uniqueItems": true,
       "items": {
         "enum": [

@@ -5,6 +5,11 @@
 //! replaced since discovery); anything other than `SignedRakvor` needs `confirm_untrusted = true`, and that
 //! confirmation is itself audited (`tool_untrusted_confirmed`) before the process starts.
 //!
+//! A collection tool ([`ToolRole::Collection`], rv-triage) runs on the machine being collected, from removable
+//! media, and takes no case folder: it is never given `--case-dir`. Launched with a case, it opens with no
+//! arguments, exactly like [`launch_without_case`]; its `tool_launched` entry has `case_dir: null` and records
+//! the case folder that was not passed (`case_dir_not_passed`) and `role: "collection"`.
+//!
 //! Swap between check and start (TOCTOU): on Windows the executable is opened before it is hashed with a share
 //! mode that denies write and delete to everyone else ([`lock_exe`]), and that handle is held until the process
 //! has started, so the file checked is the file started. Everywhere, the executable is hashed once more just
@@ -241,7 +246,12 @@ fn launch_impl(
             exe.display()
         )));
     }
-    let case_dir = case_dir.map(crate::case::normalize);
+    // A collection tool is never opened on a case: the folder is recorded, not passed.
+    let takes_case = tool.describe.role.takes_case();
+    let not_passed = case_dir
+        .filter(|_| !takes_case)
+        .map(|d| crate::case::normalize(d).display().to_string());
+    let case_dir = case_dir.filter(|_| takes_case).map(crate::case::normalize);
     if let Some(case_dir) = &case_dir {
         if case_dir.is_file() {
             return Err(LaunchError::NotACase(format!(
@@ -281,6 +291,10 @@ fn launch_impl(
                            "exe_locked": locked});
         if let (Some(o), Some(e)) = (v.as_object_mut(), extra.as_object()) {
             o.extend(e.clone());
+            if let Some(d) = &not_passed {
+                o.insert("case_dir_not_passed".into(), json!(d));
+                o.insert("role".into(), json!(tool.describe.role.key()));
+            }
         }
         v
     };
@@ -531,6 +545,45 @@ mod tests {
         assert_eq!(last["action"], "tool_launched");
         assert!(last["details"]["case_dir"].is_null());
         assert_eq!(last["details"]["args"], serde_json::json!([]));
+    }
+
+    /// A collection tool (rv-triage) is never given --case-dir: with a case (even a folder that is not one) it
+    /// opens with no arguments, and the audit records the folder that was not passed.
+    #[test]
+    fn a_collection_tool_is_never_opened_on_a_case() {
+        let d = tempfile::tempdir().unwrap();
+        let case = d.path().join("case");
+        std::fs::create_dir_all(&case).unwrap();
+        let mut s = Session::start(&d.path().join("hub"), "Ana", "test", &[]).unwrap();
+        let t = tool(d.path(), "rv-triage");
+        assert_eq!(t.describe.role, ToolRole::Collection);
+        let rec = Recorder::default();
+        let rakvor = StaticVerifier::always(SignatureStatus::SignedRakvor);
+        // No case.json: not refused (no case is opened).
+        let l = launch_with(&mut s, &t, &case, false, &rakvor, &rec).unwrap();
+        assert_eq!(l.case_dir, PathBuf::new());
+        assert!(rec.0.borrow()[0].1.is_empty(), "{:?}", rec.0.borrow());
+        let last = entries(&s).last().unwrap().clone();
+        assert_eq!(last["action"], "tool_launched");
+        assert!(last["details"]["case_dir"].is_null());
+        assert_eq!(last["details"]["args"], serde_json::json!([]));
+        assert_eq!(last["details"]["role"], "collection");
+        assert_eq!(
+            last["details"]["case_dir_not_passed"],
+            crate::case::normalize(&case).display().to_string()
+        );
+        // The same rules as every launch: unsigned needs confirmation.
+        let unsigned = StaticVerifier::always(SignatureStatus::Unsigned);
+        assert_eq!(
+            launch_with(&mut s, &t, &case, false, &unsigned, &rec),
+            Err(LaunchError::NeedsConfirmation(SignatureStatus::Unsigned))
+        );
+        // Without a case: no arguments, nothing recorded as not passed.
+        launch_without_case_with(&mut s, &t, false, &rakvor, &rec).unwrap();
+        let last = entries(&s).last().unwrap().clone();
+        assert!(last["details"].get("case_dir_not_passed").is_none());
+        assert!(rec.0.borrow()[1].1.is_empty());
+        assert_eq!(crate::audit::verify(&s.audit_path()), Ok(4));
     }
 
     #[cfg(unix)]

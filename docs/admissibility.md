@@ -82,7 +82,7 @@ annex of Implementing Regulation (EU) 2025/1929.
 
 ```mermaid
 flowchart LR
-    A["Acquisition<br/>(imaging, write-blocker:<br/>outside the toolkit)"] --> B["Intake<br/>rv-hashinv registers E0001…"]
+    A["Acquisition<br/>(imaging, write-blocker:<br/>outside the toolkit;<br/>rv-triage collects on the<br/>suspect machine)"] --> B["Intake<br/>rv-hashinv registers E0001…"]
     B --> C["Analysis / conversion<br/>rv-pdfauth · rv-imgauth<br/>rv-rsmf · rv-certcheck · rv-mailauth<br/>rv-timeline"]
     C --> D["Verification<br/>RV Hub verify (H6–H9)"]
     D --> E["Report and testimony<br/>(examiner)"]

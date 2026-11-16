@@ -93,7 +93,7 @@ front-end). `<hub data>` is `%LOCALAPPDATA%\Rakvor\RV Hub` on Windows, `$XDG_DAT
 | `session_started`, `environment_recorded` | every session | hub version, front-end; digest of `environment.json` |
 | `tools_listed` | `rv-hub tools` | added folders; per tool: version, folder, CLI and GUI SHA-256 and signature, `describe_source`; exit code |
 | `tool_untrusted_confirmed` | launch of a tool that is not `SignedRakvor`, after confirmation, **before** it starts | tool, version, exe, exe SHA-256, signature, case, actor |
-| `tool_launched` | every launch | tool, version, exe, **exe SHA-256**, signature, case folder (or null), arguments, **pid**, `confirmed_untrusted` |
+| `tool_launched` | every launch | tool, version, exe, **exe SHA-256**, signature, case folder (or null), arguments, **pid**, `confirmed_untrusted`; for a collection tool (rv-triage) launched with a case, `case_dir` is null and `case_dir_not_passed` (the folder) and `role: "collection"` are added |
 | `tool_launch_failed` | the process could not start | the same, with the error |
 | `tool_launch_refused` | CLI: refused (not Rakvor-signed without `--yes-untrusted`, or executable changed) | tool, version, exe, case, reason |
 | `ui_*` (GUI) | every window action | `at_utc` and the action's details: tab, language, tools refreshed / listed, folder added / removed, launch clicked / confirmed / cancelled / failed, case opened / refreshed / closed, create case, verify started, report / run folder opened, cancel ([usage-gui.md](usage-gui.md#what-the-app-records)) |

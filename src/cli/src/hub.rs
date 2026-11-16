@@ -501,6 +501,9 @@ pub fn case_cmd(a: &CaseArgs, catalog: &[tools::Describe], w: &mut Out) -> u8 {
         "evidence_count",
         &[("n", view.evidence.len().to_string())],
     ));
+    if view.case_id.is_some() && view.evidence.is_empty() {
+        w.line(&format!("  {}", t(lang, "evidence_none_collected")));
+    }
     w.line(&t(
         lang,
         match view.case_log_intact {
@@ -672,9 +675,15 @@ pub fn launch_cmd(
                     ],
                 ));
             }
+            // A collection tool (rv-triage) is never opened on the case (`launch`): it starts with no arguments.
+            let ok_key = if tool.describe.role.takes_case() {
+                "launch_ok"
+            } else {
+                "launch_ok_collection"
+            };
             w.line(&tr(
                 lang,
-                "launch_ok",
+                ok_key,
                 &[
                     ("tool", l.tool.clone()),
                     (
