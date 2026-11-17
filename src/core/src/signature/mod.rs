@@ -3,7 +3,9 @@
 //! On Windows ([`OsVerifier`]): `WinVerifyTrust` (Authenticode, `WINTRUST_ACTION_GENERIC_VERIFY_V2`, no UI, no
 //! network), then the signer's certificate chain built by the trust provider (`CertGetCertificateChain`); the SHA-256
 //! thumbprint of the chain's root must equal the Rakvor root bundled at build time
-//! (`packaging/signing/rakvor-code-signing-root.cer`). Elsewhere the result is [`SignatureStatus::NotChecked`].
+//! (`packaging/signing/rakvor-code-signing-root.cer`). When Windows cannot build the chain at all (the root is
+//! neither installed nor embedded in the signature, which is how the release signatures are made), the chain is
+//! built again against the bundled root only (`windows.rs`). Elsewhere the result is [`SignatureStatus::NotChecked`].
 //!
 //! The decision logic ([`trust_outcome`], [`classify`]) is plain Rust and unit-tested on every platform; only the
 //! FFI calls live in `windows.rs` (the one module allowed to use `unsafe`).
@@ -107,7 +109,7 @@ impl OsVerifier {
 
 impl SignatureVerifier for OsVerifier {
     fn verify(&self, exe: &Path) -> SignatureStatus {
-        verify_pinned(exe, &self.pinned_root_sha256())
+        verify_pinned(exe, RAKVOR_ROOT_DER)
     }
 }
 
@@ -115,14 +117,14 @@ impl SignatureVerifier for OsVerifier {
 #[cfg(test)]
 #[derive(Clone, Debug)]
 pub(crate) struct PinnedRootVerifier {
-    root_sha256: String,
+    root_der: Vec<u8>,
 }
 
 #[cfg(test)]
 impl PinnedRootVerifier {
     pub(crate) fn with_root_der(der: &[u8]) -> PinnedRootVerifier {
         PinnedRootVerifier {
-            root_sha256: hash_bytes(der, HashAlgo::Sha256),
+            root_der: der.to_vec(),
         }
     }
 }
@@ -130,29 +132,34 @@ impl PinnedRootVerifier {
 #[cfg(test)]
 impl SignatureVerifier for PinnedRootVerifier {
     fn verify(&self, exe: &Path) -> SignatureStatus {
-        verify_pinned(exe, &self.root_sha256)
+        verify_pinned(exe, &self.root_der)
     }
 }
 
-/// The OS check against `pinned_root_sha256` (shared by [`OsVerifier`] and the test-only pinned verifier).
-fn verify_pinned(exe: &Path, pinned_root_sha256: &str) -> SignatureStatus {
+/// The OS check against the pinned root `pinned_root_der` (shared by [`OsVerifier`] and the test-only pinned
+/// verifier).
+fn verify_pinned(exe: &Path, pinned_root_der: &[u8]) -> SignatureStatus {
     if !exe.is_file() {
         return SignatureStatus::NotChecked {
             reason: format!("{} is not a file", exe.display()),
         };
     }
-    verify_os(exe, pinned_root_sha256)
+    verify_os(exe, pinned_root_der)
 }
 
 #[cfg(windows)]
-fn verify_os(exe: &Path, pinned_root_sha256: &str) -> SignatureStatus {
-    let (hresult, root_der) = windows::verify_file(exe);
+fn verify_os(exe: &Path, pinned_root_der: &[u8]) -> SignatureStatus {
+    let (hresult, root_der) = windows::verify_file(exe, pinned_root_der);
     let root = root_der.map(|der| hash_bytes(&der, HashAlgo::Sha256));
-    classify(trust_outcome(hresult), root.as_deref(), pinned_root_sha256)
+    classify(
+        trust_outcome(hresult),
+        root.as_deref(),
+        &hash_bytes(pinned_root_der, HashAlgo::Sha256),
+    )
 }
 
 #[cfg(not(windows))]
-fn verify_os(_exe: &Path, _pinned_root_sha256: &str) -> SignatureStatus {
+fn verify_os(_exe: &Path, _pinned_root_der: &[u8]) -> SignatureStatus {
     SignatureStatus::NotChecked {
         reason: "not Windows: Authenticode signatures are checked on Windows only".into(),
     }
@@ -288,9 +295,12 @@ mod tests {
             hash_bytes(&on_disk, HashAlgo::Sha256)
         );
         assert_eq!(OsVerifier.pinned_root_sha256(), rakvor_root_sha256());
-        // The test-only verifier hashes the DER it is given, like the bundled pin.
+        // The test-only verifier keeps the DER it is given, like the bundled pin.
         assert_eq!(
-            PinnedRootVerifier::with_root_der(&on_disk).root_sha256,
+            hash_bytes(
+                &PinnedRootVerifier::with_root_der(&on_disk).root_der,
+                HashAlgo::Sha256
+            ),
             OsVerifier.pinned_root_sha256()
         );
     }

@@ -245,6 +245,7 @@ The decision (`trust_outcome` + `classify`) is plain Rust, unit-tested on every 
 | WinVerifyTrust result | Root thumbprint | Status | Inventory finding |
 | --- | --- | --- | --- |
 | `S_OK`, or `CERT_E_UNTRUSTEDROOT` / `CERT_E_UNTRUSTEDTESTROOT` | = Rakvor root | `SignedRakvor` | `TOOL_SIGNED_RAKVOR` (info) |
+| `CERT_E_CHAINING`, and the chain rebuilt against the bundled root alone has no error | = Rakvor root (the rebuilt chain's root) | `SignedRakvor` | `TOOL_SIGNED_RAKVOR` (info) |
 | same | another root | `SignedOtherRoot { root_sha256 }` | `TOOL_SIGNED_OTHER_ROOT` (high) |
 | same | no chain available | `Invalid` ("the signer's certificate chain is not available") | `TOOL_SIGNATURE_INVALID` (high) |
 | `TRUST_E_NOSIGNATURE`, `TRUST_E_SUBJECT_FORM_UNKNOWN`, `TRUST_E_PROVIDER_UNKNOWN` | — | `Unsigned` | `TOOL_UNSIGNED` (medium) |
@@ -256,6 +257,13 @@ Two consequences matter in court:
 - **The root is pinned, not taken from the Windows store.** A signature that Windows itself calls "untrusted root"
   (because the private Rakvor root is not installed) is still `SignedRakvor` when the chain ends at the bundled
   root; and a signature that Windows trusts (a public code-signing CA) is still `SignedOtherRoot` for the hub.
+  The release signatures carry only the leaf (signtool leaves a self-signed root out), so without the root installed
+  WinVerifyTrust cannot build the chain at all (`CERT_E_CHAINING` 0x800B010A). Only then the hub builds the chain
+  again with `CertGetCertificateChain` on a chain engine whose **only** trusted root is the bundled one
+  (`hExclusiveRoot`), at the signer's verification time (its timestamp), requiring the code-signing usage, without
+  revocation; no error and the last element equal to the bundled root → treated as `CERT_E_UNTRUSTEDROOT` with that
+  root, i.e. `SignedRakvor`. Anything else keeps `CERT_E_CHAINING` → `Invalid`. The digest and signature checks of
+  WinVerifyTrust come first: a modified file is `TRUST_E_BAD_DIGEST`, never rebuilt.
 - **Revocation is not checked** (`WTD_REVOKE_NONE`), so a revoked Rakvor signing certificate would still give
   `SignedRakvor`. The WinTrust call can only return `CERT_E_REVOKED` if revocation data is already cached; the code
   asks for none.

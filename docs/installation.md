@@ -88,10 +88,12 @@ Rakvor signs its releases with an **internal code-signing certificate** whose ro
 `packaging/signing/rakvor-code-signing-root.cer` (in the source tree and installed on Rakvor machines). The release
 workflow signs `rv-hub.exe`, `rv-hub-gui.exe` and the installer only when the signing secret is configured
 (`SIGN_PFX_BASE64`; SHA-256 with an RFC 3161 timestamp), and then proves on the runner that the signatures chain to
-that root (`signtool verify /pa`). Every signature embeds the root itself (`signtool sign /ac
-rakvor-code-signing-root.cer`), so the whole chain, leaf to Rakvor root, is in the file: RV Hub can read the root
-from the chain even on a machine where the Rakvor root is not installed (Windows then reports "untrusted root",
-which the hub accepts only when that root is the pinned one). Revocation is not checked
+that root (`signtool verify /pa`). The signature itself carries only the signing certificate (the leaf): the
+release workflow names the root with `signtool sign /ac`, but signtool leaves a self-signed root out of the signature block. On a machine where the
+Rakvor root is installed, Windows builds the chain from its store. On a machine without it, Windows cannot build
+the chain at all (`CERT_E_CHAINING`); RV Hub then builds it again itself with the root it pins as the only
+trusted root (same leaf, the signing time, code-signing usage required), so a Rakvor release is still
+`SignedRakvor` for the hub while Windows calls it untrusted. Revocation is not checked
 ([theory.md B2](theory.md#b2-the-signature-check)).
 
 The root's SHA-256 thumbprint, the value the hub compiles in and compares with:
@@ -126,10 +128,12 @@ Test-RakvorSignature .\rv-hub-0.1.0-windows-x64-setup.exe
 | `HashMismatch` | Modified after signing: do not use it |
 | `NotSigned` | Built without the signing secret: not for casework |
 
-The chain can only end at the Rakvor root if Windows can find that root: either installed in the user's or the
-machine's *Trusted Root Certification Authorities*, or included in the signature. On a machine without it, the chain
-may stop at the intermediate certificate and the check above (and the hub) will not see the Rakvor root. To install
-it for the current user only:
+For **Windows** (and the PowerShell check above) the chain can only end at the Rakvor root if that root is
+installed in the user's or the machine's *Trusted Root Certification Authorities*: the signature does not carry
+it. Without it, `Get-AuthenticodeSignature` reports `UnknownError` and the check above cannot show the root; check
+with the root file instead (`X509Chain` with `CustomRootTrust`, as the release verification does) or install the
+root. RV Hub does not need it installed (it pins the root and builds the chain itself). To install it for the current
+user only:
 
 ```powershell
 Import-Certificate -FilePath .\rakvor-code-signing-root.cer -CertStoreLocation Cert:\CurrentUser\Root
@@ -326,7 +330,7 @@ provenance attestation binds the released binary to the commit, and the sample r
 | Symptom | Cause and fix |
 | --- | --- |
 | SmartScreen "Windows protected your PC" | Private certificate, no reputation ([5c](#5c-smartscreen)). After steps 2–4: *More info → Run anyway*. |
-| Every tool shows *Invalid signature* or *Signed by another root* although it is a Rakvor release | The chain could not reach the Rakvor root on this machine (root not installed, not in the signature). Install the root (step 4) and refresh. A different root thumbprint means it is not a Rakvor build. |
+| Every tool shows *Invalid signature* although it is a Rakvor release | RV Hub before 0.6.1 needed the Rakvor root installed in Windows (the signatures carry only the leaf): update RV Hub, or install the root (step 4) and refresh. *Signed by another root* with a different thumbprint means it is not a Rakvor build. |
 | Every tool shows *Signature not checked* | Not Windows. Signatures are checked on Windows only. |
 | A tool is missing from the list | Not in the registry, `%LOCALAPPDATA%\Programs\Rakvor\*\`, `PATH` (known names only) or an added folder: add its folder. |
 | A tool shows version unknown, "+builtin" | That version has no `describe`, or it was not run (not Rakvor-signed). The built-in table is used. |
