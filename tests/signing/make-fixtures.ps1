@@ -91,7 +91,9 @@ try {
     Remove-Item -Path "Cert:\CurrentUser\My\$($roots.leafonly.Root.Thumbprint)" -DeleteKey
     # New-SelfSignedCertificate -Signer also copies the issuing root into the intermediate store (CurrentUser\CA),
     # where Windows would still find it: remove it there too, or the chain is built and leafonly tests nothing.
-    Get-ChildItem Cert:\CurrentUser\CA | Where-Object Thumbprint -eq $roots.leafonly.Root.Thumbprint | Remove-Item
+    foreach ($ca in 'Cert:\CurrentUser\CA', 'Cert:\LocalMachine\CA') {
+        Get-ChildItem $ca | Where-Object Thumbprint -eq $roots.leafonly.Root.Thumbprint | Remove-Item
+    }
 
     # Tampered: one byte in the middle of the signed file (section data, far before the signature at the end).
     $f.tampered = Join-Path $OutDir 'tampered.exe'
