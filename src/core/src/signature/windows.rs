@@ -20,13 +20,13 @@ use std::os::windows::ffi::OsStrExt;
 use std::path::Path;
 use windows::Win32::Foundation::HWND;
 use windows::Win32::Security::Cryptography::{
-    CERT_CHAIN_CONTEXT, CERT_CHAIN_ENGINE_CONFIG, CERT_CHAIN_PARA, CERT_CONTEXT,
-    CERT_OPEN_STORE_FLAGS, CERT_STORE_ADD_ALWAYS, CERT_STORE_PROV_MEMORY, CERT_TRUST_NO_ERROR,
-    CERT_USAGE_MATCH, CTL_USAGE, CertAddCertificateContextToStore, CertCloseStore,
-    CertCreateCertificateChainEngine, CertCreateCertificateContext, CertFreeCertificateChain,
-    CertFreeCertificateChainEngine, CertFreeCertificateContext, CertGetCertificateChain,
-    CertOpenStore, HCERTCHAINENGINE, PKCS_7_ASN_ENCODING, X509_ASN_ENCODING,
-    szOID_PKIX_KP_CODE_SIGNING,
+    CERT_CHAIN_CACHE_ONLY_URL_RETRIEVAL, CERT_CHAIN_CONTEXT, CERT_CHAIN_ENGINE_CONFIG,
+    CERT_CHAIN_PARA, CERT_CONTEXT, CERT_OPEN_STORE_FLAGS, CERT_STORE_ADD_ALWAYS,
+    CERT_STORE_PROV_MEMORY, CERT_TRUST_NO_ERROR, CERT_USAGE_MATCH, CTL_USAGE,
+    CertAddCertificateContextToStore, CertCloseStore, CertCreateCertificateChainEngine,
+    CertCreateCertificateContext, CertFreeCertificateChain, CertFreeCertificateChainEngine,
+    CertFreeCertificateContext, CertGetCertificateChain, CertOpenStore, HCERTCHAINENGINE,
+    PKCS_7_ASN_ENCODING, X509_ASN_ENCODING, szOID_PKIX_KP_CODE_SIGNING,
 };
 use windows::Win32::Security::WinTrust::{
     WINTRUST_ACTION_GENERIC_VERIFY_V2, WINTRUST_DATA, WINTRUST_DATA_0, WINTRUST_FILE_INFO,
@@ -103,7 +103,8 @@ pub(super) fn verify_file(path: &Path, pinned_root_der: &[u8]) -> (i32, Option<V
 }
 
 /// Builds the first signer's chain again with `pinned_root_der` as the only trusted root, at the time the
-/// provider verified the signature (its timestamp, else now), for code signing, without revocation checks.
+/// provider verified the signature (its timestamp, else now), for code signing, without revocation checks and
+/// without network retrieval (cache only).
 /// True only when the chain has no error and ends at exactly that certificate.
 unsafe fn chains_to_pinned_root(data: &WINTRUST_DATA, pinned_root_der: &[u8]) -> bool {
     unsafe {
@@ -165,7 +166,8 @@ unsafe fn chains_to_pinned_root(data: &WINTRUST_DATA, pinned_root_der: &[u8]) ->
                         Some(&sgnr.sftVerifyAsOf),
                         Some((*leaf).hCertStore),
                         &para,
-                        0,
+                        // Offline, like WinVerifyTrust above (WTD_CACHE_ONLY_URL_RETRIEVAL): no AIA download.
+                        CERT_CHAIN_CACHE_ONLY_URL_RETRIEVAL,
                         None,
                         &mut chain,
                     );
