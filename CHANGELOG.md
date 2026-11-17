@@ -26,6 +26,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
   covered). Never for an evidence file, never for a case with fewer than two tools' runs. `schemas/hub-case.schema.json`
   lists every reason key (`mail_not_analysed`, `msg_ambiguous` were missing).
 
+## [0.6.1](https://github.com/Panacota96/rv-hub/compare/v0.6.0...v0.6.1) (2026-11-17)
+
+
+### Bug Fixes
+
+* **signature:** verify release signatures without the Rakvor root installed ([#46](https://github.com/Panacota96/rv-hub/issues/46)) ([aca98b0](https://github.com/Panacota96/rv-hub/commit/aca98b08b961eafdc249fde000cc9d820742d6ac))
+
 ## [0.6.0](https://github.com/Panacota96/rv-hub/compare/v0.5.0...v0.6.0) (2026-11-16)
 
 
