@@ -7,12 +7,15 @@
     test      root trusted by Windows; the tests pin it in place of the Rakvor root
     other     an unrelated root, also trusted by Windows ("another root")
     embedded  a root NOT installed in Windows, embedded in the signature (a workstation without the Rakvor root)
+    leafonly  a root NOT installed in Windows and NOT embedded: only the leaf is in the signature (how the release
+              signatures are made: signtool leaves a self-signed root out of the signature block)
   and five copies of -Exe in -OutDir:
     signed.exe    signed with the test leaf (signtool /fd SHA256, no timestamp)
     unsigned.exe  as built
     tampered.exe  signed.exe with one byte of its body changed
     other.exe     signed with the other leaf
     embedded.exe  signed with the embedded leaf, its root added with /ac and then deleted from the stores
+    leafonly.exe  signed with the leafonly leaf (no /ac), its root deleted from the stores
   The paths go to $env:GITHUB_ENV as RV_SIGTEST_* (see src/core/src/signature/fixture_tests.rs).
   remove-test-roots.ps1 deletes every certificate made here.
 
@@ -64,25 +67,28 @@ try {
     }
 
     $roots = @{}
-    foreach ($name in 'test', 'other', 'embedded') {
+    foreach ($name in 'test', 'other', 'embedded', 'leafonly') {
         $root = New-TestRoot $name
         $leaf = New-TestLeaf $root $name
         $cer = Join-Path $OutDir "$name-root.cer"
         Export-Certificate -Cert $root -FilePath $cer -Type CERT | Out-Null
-        if ($name -ne 'embedded') { Import-Certificate -FilePath $cer -CertStoreLocation $trustStore | Out-Null }
+        if ($name -notin 'embedded', 'leafonly') { Import-Certificate -FilePath $cer -CertStoreLocation $trustStore | Out-Null }
         $roots[$name] = @{ Root = $root; Leaf = $leaf; Cer = $cer }
     }
 
     $f = @{}
-    foreach ($n in 'signed', 'unsigned', 'other', 'embedded') {
+    foreach ($n in 'signed', 'unsigned', 'other', 'embedded', 'leafonly') {
         $f[$n] = Join-Path $OutDir "$n.exe"
         Copy-Item $Exe $f[$n] -Force
     }
     Invoke-Sign $f.signed $roots.test.Leaf
     Invoke-Sign $f.other $roots.other.Leaf
     Invoke-Sign $f.embedded $roots.embedded.Leaf @('/ac', $roots.embedded.Cer)
-    # The embedded root now exists only inside embedded.exe's signature.
+    Invoke-Sign $f.leafonly $roots.leafonly.Leaf
+    # The embedded root now exists only inside embedded.exe's signature; the leafonly root exists nowhere on the
+    # machine (only its .cer file, read by the tests).
     Remove-Item -Path "Cert:\CurrentUser\My\$($roots.embedded.Root.Thumbprint)" -DeleteKey
+    Remove-Item -Path "Cert:\CurrentUser\My\$($roots.leafonly.Root.Thumbprint)" -DeleteKey
 
     # Tampered: one byte in the middle of the signed file (section data, far before the signature at the end).
     $f.tampered = Join-Path $OutDir 'tampered.exe'
@@ -93,8 +99,8 @@ try {
 
     # Sanity check with PowerShell's own Authenticode reader, so a broken fixture is not mistaken for a bug in
     # the hub. The embedded case is only reported (its root is deliberately untrusted).
-    $expect = @{ signed = 'Valid'; unsigned = 'NotSigned'; tampered = 'HashMismatch'; other = 'Valid'; embedded = $null }
-    foreach ($n in 'signed', 'unsigned', 'tampered', 'other', 'embedded') {
+    $expect = @{ signed = 'Valid'; unsigned = 'NotSigned'; tampered = 'HashMismatch'; other = 'Valid'; embedded = $null; leafonly = $null }
+    foreach ($n in 'signed', 'unsigned', 'tampered', 'other', 'embedded', 'leafonly') {
         $sig = Get-AuthenticodeSignature -FilePath $f[$n]
         $signer = if ($sig.SignerCertificate) { $sig.SignerCertificate.Subject } else { 'none' }
         Write-Note "$n.exe: $($sig.Status) ($($sig.StatusMessage)) signer=$signer"
@@ -109,9 +115,11 @@ try {
         RV_SIGTEST_TAMPERED          = $f.tampered
         RV_SIGTEST_OTHER             = $f.other
         RV_SIGTEST_EMBEDDED          = $f.embedded
+        RV_SIGTEST_LEAFONLY          = $f.leafonly
         RV_SIGTEST_ROOT_DER          = $roots.test.Cer
         RV_SIGTEST_OTHER_ROOT_DER    = $roots.other.Cer
         RV_SIGTEST_EMBEDDED_ROOT_DER = $roots.embedded.Cer
+        RV_SIGTEST_LEAFONLY_ROOT_DER = $roots.leafonly.Cer
     }
     foreach ($k in $vars.Keys) {
         if ($env:GITHUB_ENV) { "$k=$($vars[$k])" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8 }

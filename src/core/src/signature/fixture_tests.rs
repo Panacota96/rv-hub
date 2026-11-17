@@ -10,7 +10,8 @@
 //! | `RV_SIGTEST_TAMPERED` | the signed exe with one byte of its body changed |
 //! | `RV_SIGTEST_OTHER` | exe signed by an unrelated root's leaf (also trusted in Windows) |
 //! | `RV_SIGTEST_EMBEDDED` | exe signed by a third root that is *not* installed in Windows; the root is embedded in the signature |
-//! | `RV_SIGTEST_ROOT_DER`, `RV_SIGTEST_OTHER_ROOT_DER`, `RV_SIGTEST_EMBEDDED_ROOT_DER` | the three roots (DER files) |
+//! | `RV_SIGTEST_LEAFONLY` | exe signed by a fourth root's leaf, like the releases: the root is neither installed nor embedded (only the leaf is in the signature) |
+//! | `RV_SIGTEST_ROOT_DER`, `RV_SIGTEST_OTHER_ROOT_DER`, `RV_SIGTEST_EMBEDDED_ROOT_DER`, `RV_SIGTEST_LEAFONLY_ROOT_DER` | the four roots (DER files) |
 //!
 //! Without the variables the tests are skipped, unless `RV_SIGTEST_REQUIRED=1` (set in CI), where a missing
 //! fixture is a failure: the job cannot go green without running them.
@@ -25,9 +26,11 @@ struct Fixtures {
     tampered: PathBuf,
     other: PathBuf,
     embedded: PathBuf,
+    leafonly: PathBuf,
     root_der: Vec<u8>,
     other_root_der: Vec<u8>,
     embedded_root_der: Vec<u8>,
+    leafonly_root_der: Vec<u8>,
 }
 
 fn var(name: &str) -> Option<PathBuf> {
@@ -41,9 +44,11 @@ fn fixtures() -> Option<Fixtures> {
         "RV_SIGTEST_TAMPERED",
         "RV_SIGTEST_OTHER",
         "RV_SIGTEST_EMBEDDED",
+        "RV_SIGTEST_LEAFONLY",
         "RV_SIGTEST_ROOT_DER",
         "RV_SIGTEST_OTHER_ROOT_DER",
         "RV_SIGTEST_EMBEDDED_ROOT_DER",
+        "RV_SIGTEST_LEAFONLY_ROOT_DER",
     ];
     let missing: Vec<&str> = names
         .iter()
@@ -68,9 +73,11 @@ fn fixtures() -> Option<Fixtures> {
         tampered: p("RV_SIGTEST_TAMPERED"),
         other: p("RV_SIGTEST_OTHER"),
         embedded: p("RV_SIGTEST_EMBEDDED"),
+        leafonly: p("RV_SIGTEST_LEAFONLY"),
         root_der: der("RV_SIGTEST_ROOT_DER"),
         other_root_der: der("RV_SIGTEST_OTHER_ROOT_DER"),
         embedded_root_der: der("RV_SIGTEST_EMBEDDED_ROOT_DER"),
+        leafonly_root_der: der("RV_SIGTEST_LEAFONLY_ROOT_DER"),
     })
 }
 
@@ -80,7 +87,7 @@ fn sha(der: &[u8]) -> String {
 
 /// The raw WinVerifyTrust result, for assertion messages.
 fn raw(exe: &Path) -> String {
-    let (hr, root) = verify_file(exe);
+    let (hr, root) = verify_file(exe, RAKVOR_ROOT_DER);
     format!(
         "WinVerifyTrust 0x{:08X}, chain root {}",
         hr as u32,
@@ -103,7 +110,7 @@ fn test_root_signed_is_rakvor_when_its_root_is_pinned() {
         Some("TOOL_SIGNED_RAKVOR")
     );
     // Root trusted by Windows: WinVerifyTrust itself succeeds and the chain ends at the test root.
-    let (hr, root) = verify_file(&f.signed);
+    let (hr, root) = verify_file(&f.signed, RAKVOR_ROOT_DER);
     assert_eq!(hr, 0, "{}", raw(&f.signed));
     assert_eq!(root.map(|d| sha(&d)), Some(sha(&f.root_der)));
 }
@@ -185,7 +192,7 @@ fn default_pin_rejects_the_test_root() {
 #[test]
 fn root_not_installed_but_embedded_is_decided_by_the_pin() {
     let Some(f) = fixtures() else { return };
-    let (hr, root) = verify_file(&f.embedded);
+    let (hr, root) = verify_file(&f.embedded, RAKVOR_ROOT_DER);
     assert_eq!(hr as u32, 0x800B_0109, "{}", raw(&f.embedded));
     assert_eq!(root.map(|d| sha(&d)), Some(sha(&f.embedded_root_der)));
     assert_eq!(
@@ -198,4 +205,35 @@ fn root_not_installed_but_embedded_is_decided_by_the_pin() {
             root_sha256: sha(&f.embedded_root_der)
         }
     );
+}
+
+/// The release case (QA report 2026-11-17, D1): only the leaf is in the signature and the root is not installed, so
+/// WinVerifyTrust cannot build the chain (CERT_E_CHAINING). The chain built again against the pinned root alone
+/// ends there: Rakvor when that root is pinned; with any other pin the answer stays "invalid".
+#[test]
+fn root_neither_installed_nor_embedded_is_decided_by_the_pinned_chain() {
+    let Some(f) = fixtures() else { return };
+    // Against the production pin, the chain cannot be built: invalid, with Windows' own reason.
+    let (hr, root) = verify_file(&f.leafonly, RAKVOR_ROOT_DER);
+    assert_eq!(hr as u32, 0x800B_010A, "{}", raw(&f.leafonly));
+    assert_ne!(root.map(|d| sha(&d)), Some(sha(&f.leafonly_root_der)));
+    match OsVerifier.verify(&f.leafonly) {
+        SignatureStatus::Invalid { reason } => assert!(reason.contains("0x800B010A"), "{reason}"),
+        other => panic!("{other:?} / {}", raw(&f.leafonly)),
+    }
+    // Pinned to the fixture's own root: the rebuilt chain ends there, as for a root installed but untrusted.
+    let (hr, root) = verify_file(&f.leafonly, &f.leafonly_root_der);
+    assert_eq!(hr as u32, 0x800B_0109);
+    assert_eq!(root.map(|d| sha(&d)), Some(sha(&f.leafonly_root_der)));
+    let s = PinnedRootVerifier::with_root_der(&f.leafonly_root_der).verify(&f.leafonly);
+    assert_eq!(s, SignatureStatus::SignedRakvor);
+    assert_eq!(
+        finding_code(&s, &f.leafonly).as_deref(),
+        Some("TOOL_SIGNED_RAKVOR")
+    );
+    // Pinned to another root (installed in Windows, but not this signer's issuer): still invalid.
+    assert!(matches!(
+        PinnedRootVerifier::with_root_der(&f.root_der).verify(&f.leafonly),
+        SignatureStatus::Invalid { .. }
+    ));
 }
