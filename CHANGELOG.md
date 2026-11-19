@@ -26,6 +26,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
   covered). Never for an evidence file, never for a case with fewer than two tools' runs. `schemas/hub-case.schema.json`
   lists every reason key (`mail_not_analysed`, `msg_ambiguous` were missing).
 
+## [0.6.2](https://github.com/Panacota96/rv-hub/compare/v0.6.1...v0.6.2) (2026-11-19)
+
+
+### Bug Fixes
+
+* **deps:** drop the unmaintained chrono dependency (RUSTSEC-2026-0543); every date written or read is golden-tested byte-identical ([adc321f](https://github.com/Panacota96/rv-hub/commit/adc321fa149e564ab91bb324ab8c44b7f19b825a))
+
 ## [0.6.1](https://github.com/Panacota96/rv-hub/compare/v0.6.0...v0.6.1) (2026-11-17)
 
 
