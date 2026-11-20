@@ -10,7 +10,7 @@
 ![License](https://img.shields.io/badge/license-Rakvor%20source--auditable-6B00FF)
 ![Windows 10/11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6)
 
-RV Hub is the one window an examiner opens first. The eight Rakvor tools stay separate, separately signed
+RV Hub is the one window an examiner opens first. The ten Rakvor tools stay separate, separately signed
 programs; the hub sits beside them and does five things:
 
 1. **Finds** the installed tools (rv-triage, rv-hashinv, rv-pdfauth, rv-imgauth, rv-rsmf, rv-certcheck, rv-mailauth, rv-timeline), with their
@@ -54,7 +54,7 @@ flowchart LR
 ## Contents
 
 - [What it does, and what it does not do](#what-it-does-and-what-it-does-not-do)
-- [The eight tools and how they are found](#the-eight-tools-and-how-they-are-found)
+- [The ten tools and how they are found](#the-ten-tools-and-how-they-are-found)
 - [Install](#install)
 - [Quick start: desktop app](#quick-start-desktop-app)
 - [Quick start: command line](#quick-start-command-line)
@@ -76,7 +76,7 @@ flowchart LR
 | Ask each run's own tool for its `verify-log` verdict and report any disagreement (high severity) | Prove that a tool's findings are correct, or that the evidence is authentic: verification shows integrity, not content |
 | Write its verification as a run of its own (`runs/rv-hub/<RUN-ID>/`), linked in the case log | Write anything else in the case: two case-log entries (`run_started`, `run_finished`) are its only change outside its own run folder |
 
-## The eight tools and how they are found
+## The ten tools and how they are found
 
 | Tool | Role | Accepts (built-in table) | Repository |
 | --- | --- | --- | --- |
@@ -87,7 +87,9 @@ flowchart LR
 | **rv-rsmf** | conversion: chat exports to RSMF 2.0 | `.txt` (only when it looks like a chat export), `.json`, `.html`, `.htm`, `.msg` (Teams), `.csv` | [Panacota96/rv-rsmf](https://github.com/Panacota96/rv-rsmf) |
 | **rv-certcheck** | analysis: certificates, CRLs, timestamp tokens, keys, CSRs | `.crt .cer .der .pem .p7b .p7c .p12 .pfx .crl .tsr .tst .key .csr`, or DER / PEM content | [Panacota96/rv-certcheck](https://github.com/Panacota96/rv-certcheck) |
 | **rv-mailauth** | analysis: email authenticity signals (.eml, Outlook .msg, .mbox) | `.eml .mbox .msg`, or a compound file (`.msg`) / a first line `From ` (mbox) | [Panacota96/rv-mailauth](https://github.com/Panacota96/rv-mailauth) |
+| **rv-avauth** | analysis: audio and video authenticity signals (MP4/MOV/M4A/3GP, WAV/BWF/RF64, Ogg/Opus, MP3) | those extensions, or ISO-BMFF `ftyp` / RIFF or RF64 `WAVE` / `OggS` / `ID3` magic bytes | [Panacota96/rv-avauth](https://github.com/Panacota96/rv-avauth) |
 | **rv-timeline** | analysis: one timeline of the case from the case log and every other tool's runs (`build --case-dir`; not released yet) | the case folder only (its `.json`/`.jsonl` files), never an evidence file | [Panacota96/rv-timeline](https://github.com/Panacota96/rv-timeline) |
+| **rv-report** | analysis: the expert report assembled from the case's verified runs (`assemble --case-dir`) | the case folder only, never an evidence file; never suggested for evidence, and its runs do not count toward the timeline suggestion | [Panacota96/rv-report](https://github.com/Panacota96/rv-report) |
 
 An Outlook `.msg` is accepted by both rv-mailauth and rv-rsmf: the case view reads its message class and suggests
 rv-mailauth for an email (`IPM.Note…`), rv-rsmf for a Teams message (`IPM.SkypeTeams.…`), and both when the class
@@ -110,7 +112,7 @@ source ([theory.md B1](docs/theory.md#b1-discovery)):
 1. the Windows uninstall registry, `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\{AppId}_is1`, for the
    tools' known installer AppIds;
 2. `%LOCALAPPDATA%\Programs\Rakvor\*\` (where every Rakvor installer puts its tool);
-3. the folders of `PATH` (the eight known tool names only);
+3. the folders of `PATH` (the ten known tool names only);
 4. folders you add (for example portable zips on a USB stick), and their direct subfolders.
 
 Each Rakvor-signed tool is asked `describe --json` (schema `rakvor.describe/1`, 10 s limit) for its version and what

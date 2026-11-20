@@ -161,14 +161,14 @@ Source map (all under `src/core/src/`): discovery `tools.rs`; signature `signatu
 
 | # | Source (`Source`) | What is read | Restriction |
 | --- | --- | --- | --- |
-| 1 | `registry {app_id}` | `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\{AppId}_is1` → `InstallLocation`, `DisplayVersion`, for the eight AppIds in `APP_IDS` (Windows only) | the eight known tools; another `rv-*` only when Rakvor-signed |
-| 2 | `local_programs` | every direct subfolder of `%LOCALAPPDATA%\Programs\Rakvor` | the eight known tools; another `rv-*` only when Rakvor-signed |
-| 3 | `path` | every folder of `PATH` | **the eight known tools only** (`KNOWN_TOOLS`) |
+| 1 | `registry {app_id}` | `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\{AppId}_is1` → `InstallLocation`, `DisplayVersion`, for the AppIds in `APP_IDS` (Windows only) | the ten known tools; another `rv-*` only when Rakvor-signed |
+| 2 | `local_programs` | every direct subfolder of `%LOCALAPPDATA%\Programs\Rakvor` | the ten known tools; another `rv-*` only when Rakvor-signed |
+| 3 | `path` | every folder of `PATH` | **the ten known tools only** (`KNOWN_TOOLS`) |
 | 4 | `user_folder` | each folder the user added, and its direct subfolders | any `rv-*` |
 
 `rv-hub` itself is excluded. A name outside `KNOWN_TOOLS` is run (`describe --json`) only from a folder the user
 added, or when its executable is Rakvor-signed; otherwise it is neither run nor listed. On Linux and macOS, where
-signatures are *not checked*, only the eight known tools are run from sources 1–3. When several sources find the same folder, the entry is listed once with every source
+signatures are *not checked*, only the ten known tools are run from sources 1–3. When several sources find the same folder, the entry is listed once with every source
 (the sample test finds one rv-pdfauth folder through the registry, the install folder and `PATH`). The same tool in
 two different folders gives two entries; `launch` then prefers a Rakvor-signed GUI, then the lowest source, then the
 folder name (`src/cli/src/hub.rs` `pick`).
@@ -618,7 +618,7 @@ anything either.
 | --- | --- | --- |
 | `case.json` missing or without `case_id` | the intake tool | `no_case` |
 | a case with no registered evidence | the intake tool | `no_evidence` |
-| for each tool that is neither intake nor collection and does not accept "any file" (rv-timeline excepted: it reads the case folder, never an evidence file), in the order rv-pdfauth, rv-imgauth, rv-rsmf, rv-certcheck, rv-mailauth, then others: registered items that are not superseded, not yet examined by that tool, and that it accepts | that tool, with the evidence ids | `pdf_not_analysed`, `images_not_analysed`, `chats_not_converted`, `certs_not_analysed`, `mail_not_analysed`, `not_examined` |
+| for each tool that is neither intake nor collection and does not accept "any file" (rv-timeline and rv-report excepted: they read the case folder, never an evidence file), in the order rv-pdfauth, rv-imgauth, rv-rsmf, rv-certcheck, rv-mailauth, rv-avauth, then others: registered items that are not superseded, not yet examined by that tool, and that it accepts | that tool, with the evidence ids | `pdf_not_analysed`, `images_not_analysed`, `chats_not_converted`, `certs_not_analysed`, `mail_not_analysed`, `media_not_analysed`, `not_examined` |
 | Outlook `.msg` files whose message class cannot be read or is neither an email nor a Teams message, examined by neither rv-rsmf nor rv-mailauth | rv-rsmf and rv-mailauth (after each tool's own suggestion) | `msg_ambiguous` |
 | completed runs of two or more tools whose role is intake or analysis (RV Hub's and rv-timeline's own runs excluded; collection and conversion runs do not count), and no completed rv-timeline run newer than the newest of them | rv-timeline | `timeline_not_built` (no completed timeline run), `timeline_outdated` (with the runs the newest timeline does not cover) |
 | runs whose timestamp status is pending | `<tool> timestamp`, with the run folders | `timestamp_pending` |
