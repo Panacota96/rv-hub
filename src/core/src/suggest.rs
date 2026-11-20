@@ -10,8 +10,9 @@
 //! | Certificates, CRLs or timestamp tokens (.crt .cer .der .pem .p7b .p12 .crl .tsr .tst …, or DER / PEM content) not yet analysed | rv-certcheck | `certs_not_analysed` |
 //! | Emails (.eml, or a header block with `From:` and `Date:`/`Message-ID:`; .mbox, or a first line `From <sender> <date>`; email .msg) not yet analysed | rv-mailauth | `mail_not_analysed` |
 //! | .msg whose message class cannot be read, or is neither an email nor a Teams message | rv-rsmf and rv-mailauth | `msg_ambiguous` |
+//! | Audio and video (MP4/MOV/M4A/3GP, WAV/BWF/RF64, Ogg/Opus, MP3; by extension or signature) not yet analysed | rv-avauth | `media_not_analysed` |
 //! | Any other described tool with matching, unexamined evidence      | that tool   | `not_examined`                |
-//! | Completed runs of two or more intake/analysis tools, no completed rv-timeline run | rv-timeline | `timeline_not_built` |
+//! | Completed runs of two or more intake/analysis tools (rv-timeline and rv-report runs excepted), no completed rv-timeline run | rv-timeline | `timeline_not_built` |
 //! | The same, and every completed rv-timeline run is older than one of those runs | rv-timeline | `timeline_outdated` (runs listed) |
 //! | Runs whose trusted timestamp is pending                          | `timestamp` | `timestamp_pending`           |
 //!
@@ -216,12 +217,16 @@ fn reason_for(tool: &str) -> &'static str {
         "rv-rsmf" => "chats_not_converted",
         "rv-certcheck" => "certs_not_analysed",
         MAIL_TOOL => "mail_not_analysed",
+        "rv-avauth" => "media_not_analysed",
         _ => "not_examined",
     }
 }
 
 /// The case-folder tool: suggested from the case's runs, never for an evidence file.
 pub const TIMELINE_TOOL: &str = "rv-timeline";
+/// The tools that read the case folder, never an evidence file: their `json`/`jsonl` extensions are never matched
+/// against registered evidence, and their runs are not sources of the timeline (rv-timeline skips rv-report runs).
+pub const CASE_FOLDER_TOOLS: [&str; 2] = [TIMELINE_TOOL, "rv-report"];
 /// Reason keys of the timeline suggestion.
 pub const TIMELINE_NOT_BUILT: &str = "timeline_not_built";
 pub const TIMELINE_OUTDATED: &str = "timeline_outdated";
@@ -231,7 +236,7 @@ fn timeline(view: &CaseView, catalog: &[Describe]) -> Option<Suggestion> {
     let described = |tool: &str| catalog.iter().find(|d| d.tool == tool).map(|d| d.role);
     let completed = |r: &&crate::case_view::RunRow| r.status == RunStatus::Completed;
     let counts = |r: &crate::case_view::RunRow| {
-        r.tool != TIMELINE_TOOL
+        !CASE_FOLDER_TOOLS.contains(&r.tool.as_str())
             && r.tool != crate::TOOL_NAME
             && match r.role.as_deref() {
                 // "collection", "conversion" and any other role do not count.
@@ -301,6 +306,17 @@ fn timeline(view: &CaseView, catalog: &[Describe]) -> Option<Suggestion> {
 /// The email tool and the chat converter: both accept Outlook `.msg` files; the message class decides.
 const MAIL_TOOL: &str = "rv-mailauth";
 const CHAT_TOOL: &str = "rv-rsmf";
+const AV_TOOL: &str = "rv-avauth";
+/// Major brands of ISO-BMFF files that are still images (HEIF / HEIC / AVIF): rv-avauth's `ftyp` signature matches
+/// them too, but they go to rv-imgauth.
+const IMAGE_BRANDS: [&[u8; 4]; 10] = [
+    b"heic", b"heix", b"heim", b"heis", b"hevc", b"hevx", b"mif1", b"msf1", b"avif", b"avis",
+];
+
+/// True for the first bytes of an ISO-BMFF file whose major brand is an image brand ([`IMAGE_BRANDS`]).
+fn is_image_bmff(h: &[u8]) -> bool {
+    h.len() >= 12 && &h[4..8] == b"ftyp" && IMAGE_BRANDS.iter().any(|b| &h[8..12] == *b)
+}
 /// Reason key of a `.msg` whose class is unreadable or neither an email nor a Teams message (both tools).
 pub const MSG_AMBIGUOUS: &str = "msg_ambiguous";
 /// First bytes of every OLE compound file (CFB), hence of every Outlook `.msg`.
@@ -464,6 +480,14 @@ fn route(
         return (by_content || d.accepts.matches_extension(&e.file_name))
             .then(|| reason_for(&d.tool));
     }
+    // A HEIC/AVIF photo is ISO-BMFF too: by content it goes to rv-imgauth, not to rv-avauth (unless its name has one
+    // of rv-avauth's extensions).
+    if d.tool == AV_TOOL
+        && head_bytes.is_some_and(is_image_bmff)
+        && !d.accepts.matches_extension(&e.file_name)
+    {
+        return None;
+    }
     accepts(d, e, head_bytes).then(|| reason_for(&d.tool))
 }
 
@@ -574,7 +598,7 @@ pub fn suggest_with(
         .filter(|d| {
             !matches!(d.role, ToolRole::Intake | ToolRole::Collection)
                 && !d.accepts.any()
-                && d.tool != TIMELINE_TOOL
+                && !CASE_FOLDER_TOOLS.contains(&d.tool.as_str())
         })
         .collect();
     let rank = |t: &str| {
@@ -664,6 +688,45 @@ mod tests {
             examined_by: examined.iter().map(|s| s.to_string()).collect(),
             superseded_by: None,
         }
+    }
+
+    /// QA 2026-11-20, D5: audio and video go to rv-avauth by extension or signature; a HEIC/AVIF photo (ISO-BMFF
+    /// with an image brand) goes to rv-imgauth only.
+    #[test]
+    fn media_routes_to_avauth_and_heic_stays_with_imgauth() {
+        let cat = catalog(&[]);
+        let av = cat.iter().find(|d| d.tool == AV_TOOL).unwrap();
+        let img = cat.iter().find(|d| d.tool == "rv-imgauth").unwrap();
+        let mov = b"   ftypqt      ";
+        let isom = b"   ftypisom   ";
+        let heic = b"   ftypheic    ";
+        let avif = b"   ftypavif    ";
+        let r = |name: &str| row("E1", Path::new(name), &[]);
+        let media = Some("media_not_analysed");
+        assert_eq!(route(av, &r("clip.mov"), Some(mov), None), media);
+        assert_eq!(route(av, &r("recording"), Some(isom), None), media);
+        assert_eq!(route(av, &r("memo.wav"), None, None), media);
+        assert_eq!(route(av, &r("photo.heic"), Some(heic), None), None);
+        assert_eq!(route(av, &r("photo"), Some(avif), None), None);
+        assert_eq!(
+            route(img, &r("photo.heic"), Some(heic), None),
+            Some("images_not_analysed")
+        );
+        assert!(is_image_bmff(heic) && !is_image_bmff(mov) && !is_image_bmff(b"ftyp"));
+        // The case-folder tools are never routed evidence, whatever its extension (.json here).
+        let d = tempfile::tempdir().unwrap();
+        let json = d.path().join("export.json");
+        std::fs::write(&json, b"{\"messages\": []}").unwrap();
+        let v = CaseView {
+            evidence: vec![row("E1", &json, &["rv-hashinv"])],
+            ..Default::default()
+        };
+        let s = suggest(&v, &cat);
+        assert!(
+            s.iter()
+                .all(|x| !CASE_FOLDER_TOOLS.contains(&x.tool.as_str())),
+            "{s:?}"
+        );
     }
 
     #[test]

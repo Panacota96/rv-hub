@@ -304,7 +304,7 @@ DESCRIPTION:
   signature status and folder. Tools are found, in this order, in:
     - the Windows uninstall registry (the tools' installer AppIds; source "registry");
     - %LOCALAPPDATA%\Programs\Rakvor\<tool>\ (source "install folder");
-    - the folders of PATH (the eight known tools only; source "PATH");
+    - the folders of PATH (the ten known tools only; source "PATH");
     - the folders given with --add-folder, and their subfolders (source "folder").
   Another program named rv-* is run only from an --add-folder folder, or when it is
   Rakvor-signed (so never from the registry, install folder or PATH where signatures cannot be

@@ -29,10 +29,11 @@ pub const SCHEMA_DESCRIBE: &str = "rakvor.describe/1";
 /// Log chains a tool may declare in `log_formats`.
 pub const LOG_AUDIT: &str = "rakvor.audit/1";
 pub const LOG_REVIEW: &str = "rakvor.review/1";
-/// The eight tools RV Hub coordinates (CLI names without extension), in the order of a case's life: the order of
+/// The ten tools RV Hub coordinates (CLI names without extension), in the order of a case's life: the order of
 /// the tool lists and of the suggestions. rv-triage (collection, on the suspect machine) comes before the intake
-/// tool; it is never suggested ([`ToolRole::Collection`]), so its place does not change the suggestions.
-pub const KNOWN_TOOLS: [&str; 8] = [
+/// tool; it is never suggested ([`ToolRole::Collection`]), so its place does not change the suggestions. The two
+/// case-folder tools close the list: rv-timeline, then rv-report (the expert report quotes every other run).
+pub const KNOWN_TOOLS: [&str; 10] = [
     "rv-triage",
     "rv-hashinv",
     "rv-pdfauth",
@@ -40,7 +41,9 @@ pub const KNOWN_TOOLS: [&str; 8] = [
     "rv-rsmf",
     "rv-certcheck",
     "rv-mailauth",
+    "rv-avauth",
     "rv-timeline",
+    "rv-report",
 ];
 pub const DEFAULT_DESCRIBE_TIMEOUT: Duration = Duration::from_secs(10);
 
@@ -94,7 +97,7 @@ pub struct KnownAppId {
 /// key names whichever of the two was installed last: the tool is identified by the executables in its
 /// InstallLocation, and a warning is attached. `{04A0C3C3-…}` is rv-imgauth's corrected AppId (plan §0.3, from
 /// 0.2.1). Tools installed under any other key are still found in `%LOCALAPPDATA%\Programs\Rakvor`.
-pub const APP_IDS: [KnownAppId; 8] = [
+pub const APP_IDS: [KnownAppId; 10] = [
     KnownAppId {
         app_id: "{6D3F3B0E-5B7A-4B2C-9E61-2A1C7D4E9F10}",
         tool: Some("rv-hashinv"),
@@ -137,6 +140,16 @@ pub const APP_IDS: [KnownAppId; 8] = [
     KnownAppId {
         app_id: "{EED6D788-369E-4217-B0D7-83E4D8A93196}",
         tool: Some("rv-triage"),
+        warning: None,
+    },
+    KnownAppId {
+        app_id: "{D943D333-1B25-4E70-B3FC-2256DADA9F4B}",
+        tool: Some("rv-report"),
+        warning: None,
+    },
+    KnownAppId {
+        app_id: "{60B92A10-F369-4876-88D0-728ADD924167}",
+        tool: Some("rv-avauth"),
         warning: None,
     },
 ];
@@ -445,6 +458,25 @@ pub fn builtin(tool: &str) -> Option<Describe> {
             ],
             &[LOG_AUDIT, LOG_REVIEW],
         ),
+        // Audio and video (as rv-avauth 0.2.0 describes itself). An MP3 without an ID3 tag has no fixed
+        // signature: it is matched by its extension.
+        "rv-avauth" => (
+            "RV AvAuth",
+            ToolRole::Analysis,
+            "analyze",
+            &[
+                "mp4", "m4v", "m4a", "m4b", "mov", "qt", "3gp", "3g2", "wav", "wave", "bwf",
+                "rf64", "ogg", "oga", "opus", "mp3",
+            ],
+            vec![
+                sig("iso-bmff", &[(4, "66747970")]),
+                sig("wave", &[(0, "52494646"), (8, "57415645")]),
+                sig("wave", &[(0, "52463634"), (8, "57415645")]),
+                sig("ogg", &[(0, "4f676753")]),
+                sig("mp3", &[(0, "494433")]),
+            ],
+            &[LOG_AUDIT],
+        ),
         // A case-folder tool: it reads the case's JSON documents and logs and the other tools' runs, never an
         // evidence file (no signature). The suggestions treat it apart (`suggest::TIMELINE_TOOL`): its
         // extensions are never matched against registered evidence. Its review log is `logs/review.jsonl`.
@@ -455,6 +487,16 @@ pub fn builtin(tool: &str) -> Option<Describe> {
             &["json", "jsonl"],
             vec![],
             &[LOG_AUDIT, LOG_REVIEW],
+        ),
+        // The other case-folder tool: it assembles the expert report from the case's verified runs, never from an
+        // evidence file (`suggest::CASE_FOLDER_TOOLS`).
+        "rv-report" => (
+            "RV Report",
+            ToolRole::Analysis,
+            "assemble",
+            &["json", "jsonl"],
+            vec![],
+            &[LOG_AUDIT],
         ),
         _ => return None,
     };
@@ -974,7 +1016,7 @@ mod tests {
         assert!(!builtin("rv-rsmf").unwrap().accepts.any());
         assert!(builtin("rv-other").is_none());
         assert_eq!(catalog(&[]).len(), KNOWN_TOOLS.len());
-        assert_eq!(catalog(&[]).len(), 8);
+        assert_eq!(catalog(&[]).len(), 10);
         assert_eq!(img.version, None);
         let cert = builtin("rv-certcheck").unwrap();
         assert_eq!(
@@ -1088,7 +1130,50 @@ mod tests {
         assert!(!verify_log_lacks_truncation_check("rv-timeline", None));
         assert!(APP_IDS.iter().any(|k| k.tool == Some("rv-timeline")
             && k.app_id == "{BE690C03-DA5F-42F0-9284-A86D5FF89D0E}"));
-        assert_eq!(KNOWN_TOOLS.last(), Some(&"rv-timeline"));
+        // The two case-folder tools close the list: the timeline, then the expert report.
+        assert_eq!(
+            &KNOWN_TOOLS[KNOWN_TOOLS.len() - 2..],
+            ["rv-timeline", "rv-report"]
+        );
+    }
+
+    /// QA 2026-11-20, D5: RV AvAuth and RV Report are known tools (cards, `not_installed`, PATH discovery), described
+    /// as their 0.2.0 releases describe themselves.
+    #[test]
+    fn avauth_and_report_are_known_tools() {
+        for t in ["rv-avauth", "rv-report"] {
+            assert!(KNOWN_TOOLS.contains(&t), "{t}");
+            assert!(catalog(&[]).iter().any(|d| d.tool == t), "{t}");
+            assert!(APP_IDS.iter().any(|k| k.tool == Some(t)), "{t}");
+        }
+        let av = builtin("rv-avauth").unwrap();
+        assert_eq!(
+            (av.title.as_str(), av.role, av.main_verb.as_str()),
+            ("RV AvAuth", ToolRole::Analysis, "analyze")
+        );
+        assert_eq!(av.log_formats, [LOG_AUDIT]);
+        assert!(!av.accepts.any());
+        for f in ["clip.MOV", "memo.wav", "note.opus", "song.mp3", "voice.m4a"] {
+            assert!(av.accepts.matches_extension(f), "{f}");
+        }
+        assert!(!av.accepts.matches_extension("photo.jpg"));
+        assert!(av.accepts.matches_content(b"\0\0\0\x20ftypqt  "));
+        assert!(av.accepts.matches_content(b"RIFF\x24\0\0\0WAVEfmt "));
+        assert!(av.accepts.matches_content(b"OggS\0\x02"));
+        assert!(av.accepts.matches_content(b"ID3\x04\0"));
+        assert!(!av.accepts.matches_content(b"RIFF\x24\0\0\0WEBPVP8 "));
+        assert!(!av.accepts.matches_content(b"%PDF-1.7"));
+        let r = builtin("rv-report").unwrap();
+        assert_eq!(
+            (r.title.as_str(), r.role, r.main_verb.as_str()),
+            ("RV Report", ToolRole::Analysis, "assemble")
+        );
+        assert_eq!(
+            (r.cli_exe.as_str(), r.gui_exe.as_str()),
+            ("rv-report.exe", "rv-report-gui.exe")
+        );
+        assert!(r.accepts.signatures.is_empty() && !r.accepts.any());
+        assert_eq!(r.case_formats, [crate::case::SCHEMA_CASE]);
     }
 
     #[test]
