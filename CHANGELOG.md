@@ -26,6 +26,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
   covered). Never for an evidence file, never for a case with fewer than two tools' runs. `schemas/hub-case.schema.json`
   lists every reason key (`mail_not_analysed`, `msg_ambiguous` were missing).
 
+## [0.6.3](https://github.com/Panacota96/rv-hub/compare/v0.6.2...v0.6.3) (2026-11-20)
+
+
+### Bug Fixes
+
+* **tools:** know RV AvAuth and RV Report (cards, PATH, installed AppIds, suggestions) ([#51](https://github.com/Panacota96/rv-hub/issues/51)) ([195fafd](https://github.com/Panacota96/rv-hub/commit/195fafd591df7cf6b2cdf01ed41c71a7a4114f43))
+
 ## [0.6.2](https://github.com/Panacota96/rv-hub/compare/v0.6.1...v0.6.2) (2026-11-19)
 
 
