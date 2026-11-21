@@ -73,7 +73,8 @@
     "update_available": "Update available: %{tool} %{latest} (installed %{installed}): %{url}",
     "updates_none": "Release check: every installed tool is the latest release.",
     "updates_failed": "Release check: %{n} tool(s) could not be checked (%{tool}: %{reason}).",
-    "updates_off": "Release check turned off (RV_NO_UPDATE_CHECK or the update-check-off file): nothing was contacted."
+    "updates_off": "Release check turned off (RV_NO_UPDATE_CHECK or the update-check-off file): nothing was contacted.",
+    "updates_unknown": "Release check: installed version unknown, not compared: %{tools}."
   },
   "labels": {
     "title_statistics": "Case verification report",

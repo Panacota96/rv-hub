@@ -268,6 +268,7 @@ impl HubState {
         self.audit("ui_release_check_changed", json!({"enabled": on}));
         if on {
             rv_hub_core::releases::start_all();
+            rv_hub_core::update::restart_gui_check();
         }
         Ok(())
     }

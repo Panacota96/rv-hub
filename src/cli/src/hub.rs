@@ -226,6 +226,7 @@ fn update_lines(lang: &str, u: &Value) -> Vec<String> {
     }
     let mut out = Vec::new();
     let mut failed: Vec<(String, String)> = Vec::new();
+    let mut unknown: Vec<String> = Vec::new();
     if let Some(tools) = u["tools"].as_object() {
         for (tool, v) in tools {
             let s = |k: &str| v[k].as_str().unwrap_or_default().to_string();
@@ -240,13 +241,21 @@ fn update_lines(lang: &str, u: &Value) -> Vec<String> {
                         ("url", s("url")),
                     ],
                 )),
+                Some("unknown_version") => unknown.push(tool.clone()),
                 _ if v["reason"].is_string() => failed.push((tool.clone(), s("reason"))),
                 _ => {}
             }
         }
     }
-    if out.is_empty() && failed.is_empty() {
+    if out.is_empty() && failed.is_empty() && unknown.is_empty() {
         out.push(t(lang, "updates_none"));
+    }
+    if !unknown.is_empty() {
+        out.push(tr(
+            lang,
+            "updates_unknown",
+            &[("tools", unknown.join(", "))],
+        ));
     }
     if let Some((first, reason)) = failed.first() {
         out.push(tr(
@@ -861,4 +870,41 @@ pub fn tree_sha256(dir: &Path) -> BTreeMap<String, String> {
     let mut out = BTreeMap::new();
     walk(dir, dir, &mut out);
     out
+}
+
+#[cfg(test)]
+mod update_lines_tests {
+    use super::update_lines;
+    use serde_json::json;
+
+    /// A tool whose installed version is unknown is reported, never counted as up to date (rv-hub#53 review).
+    #[test]
+    fn unknown_versions_are_not_up_to_date() {
+        let u = json!({"checked": true, "disabled": false, "tools": {
+            "rv-hashinv": {"status": "unknown_version", "installed": null, "latest": "0.5.1"},
+            "rv-hub": {"status": "up_to_date", "installed": "0.6.3", "latest": "0.6.3"},
+        }});
+        let l = update_lines("en", &u);
+        assert!(
+            l.iter().all(|x| !x.contains("every installed tool")),
+            "{l:?}"
+        );
+        assert!(
+            l.iter()
+                .any(|x| x.contains("unknown") && x.contains("rv-hashinv")),
+            "{l:?}"
+        );
+        let ok = json!({"checked": true, "disabled": false, "tools": {
+            "rv-hub": {"status": "up_to_date", "installed": "0.6.3", "latest": "0.6.3"},
+            "rv-pdfauth": {"status": "not_installed", "installed": null, "latest": "0.4.3"},
+        }});
+        assert_eq!(update_lines("en", &ok).len(), 1);
+        assert!(update_lines("en", &ok)[0].contains("every installed tool"));
+        let av = json!({"checked": true, "disabled": false, "tools": {
+            "rv-timeline": {"status": "available", "installed": "0.2.3", "latest": "0.3.0",
+                            "url": "https://github.com/Panacota96/rv-timeline/releases/tag/v0.3.0"},
+        }});
+        assert!(update_lines("fr", &av)[0].contains("0.3.0"));
+        assert!(update_lines("en", &json!({"disabled": true}))[0].contains("turned off"));
+    }
 }

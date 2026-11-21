@@ -73,7 +73,8 @@
     "update_available": "Mise à jour disponible : %{tool} %{latest} (installée %{installed}) : %{url}",
     "updates_none": "Vérification des versions : chaque outil installé est la dernière version.",
     "updates_failed": "Vérification des versions : %{n} outil(s) non vérifié(s) (%{tool} : %{reason}).",
-    "updates_off": "Vérification des versions désactivée (RV_NO_UPDATE_CHECK ou le fichier update-check-off) : rien n'a été contacté."
+    "updates_off": "Vérification des versions désactivée (RV_NO_UPDATE_CHECK ou le fichier update-check-off) : rien n'a été contacté.",
+    "updates_unknown": "Vérification des versions : version installée inconnue, non comparée : %{tools}."
   },
   "labels": {
     "title_statistics": "Rapport de vérification de l'affaire",

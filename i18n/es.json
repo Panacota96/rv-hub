@@ -73,7 +73,8 @@
     "update_available": "Actualización disponible: %{tool} %{latest} (instalada %{installed}): %{url}",
     "updates_none": "Comprobación de versiones: cada herramienta instalada es la última versión.",
     "updates_failed": "Comprobación de versiones: no se pudo comprobar %{n} herramienta(s) (%{tool}: %{reason}).",
-    "updates_off": "Comprobación de versiones desactivada (RV_NO_UPDATE_CHECK o el archivo update-check-off): no se contactó nada."
+    "updates_off": "Comprobación de versiones desactivada (RV_NO_UPDATE_CHECK o el archivo update-check-off): no se contactó nada.",
+    "updates_unknown": "Comprobación de versiones: versión instalada desconocida, no comparada: %{tools}."
   },
   "labels": {
     "title_statistics": "Informe de verificación del caso",
