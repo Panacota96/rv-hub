@@ -42,17 +42,19 @@ and `launch` write only the hub's session log; `case` writes nothing.
 Usage: rv-hub <COMMAND>
 
 Commands:
-  verify       Verify a whole case folder (case log, every run, optionally the evidence) and
-               cross-check each run with its own tool
-  tools        List the installed Rakvor tools with their version, source and signature status
-  case         Read-only summary of a case folder: evidence, runs, findings, problems, next steps
-  launch       Open a tool's desktop app on a case folder (refused for a tool not signed by Rakvor)
-  verify-log   Verify an audit log (audit.jsonl): edited, deleted or re-ordered entries, and
-               truncation
-  self-test    Check every hash algorithm against known-answer test vectors
-  timestamp    Add an RFC 3161 timestamp to a finished run (e.g. after working offline)
-  verify-case  Verify a whole case folder: case log, evidence registry and every run's audit log
-  help         Print this message or the help of the given subcommand(s)
+  verify        Verify a whole case folder (case log, every run, optionally the evidence) and
+                cross-check each run with its own tool
+  tools         List the installed Rakvor tools with their version, source and signature status
+  case          Read-only summary of a case folder: evidence, runs, findings, problems, next steps
+  launch        Open a tool's desktop app on a case folder (refused for a tool not signed by Rakvor)
+  verify-log    Verify an audit log (audit.jsonl): edited, deleted or re-ordered entries, and
+                truncation
+  self-test     Check every hash algorithm against known-answer test vectors
+  timestamp     Add an RFC 3161 timestamp to a finished run (e.g. after working offline)
+  verify-case   Verify a whole case folder: case log, evidence registry and every run's audit log
+  update-check  Check whether a newer release of this tool is published (notify only: nothing is
+                downloaded)
+  help          Print this message or the help of the given subcommand(s)
 
 Options:
   -h, --help
@@ -332,6 +334,14 @@ Options:
           details.
           
           Default: off (one status per tool in the table). Example: --check-signatures
+
+      --check-updates
+          Also check github.com for the latest release of every Rakvor tool and of the hub (one
+          HTTPS GET of each public latest-release page, User-Agent rv-hub/<version>, nothing else;
+          notify only: nothing is downloaded). Off with RV_NO_UPDATE_CHECK=1. The exit code does
+          not change.
+          
+          Default: off (no network). Example: --check-updates
 
   -a, --actor <NAME>
           Name written in the hub's session log.
@@ -742,6 +752,42 @@ EXIT CODES:
   3  At least one check failed: the case was edited, truncated or re-ordered, a run's
      recorded output (report, register) was edited, deleted or replaced, or (--rehash) an
      evidence file differs from the registry.
+```
+
+## rv-hub update-check
+
+```text
+Check whether a newer release of this tool is published (notify only: nothing is downloaded)
+
+Usage: rv-hub update-check [OPTIONS]
+
+Options:
+      --json
+          Print one JSON object (schema rakvor.update-check/1) instead of one line.
+          Default: off
+          Example: --json
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+SENDS:
+  One HTTPS GET of https://github.com/Panacota96/rv-hub/releases/latest (the redirect to the
+  latest release is read, not followed), with the header User-Agent: rv-hub/<version>, and
+  nothing else: no case, evidence, examiner or machine data. Nothing is downloaded or installed.
+  No other command contacts the network for this; the desktop app checks once at start-up.
+
+OFF SWITCH:
+  RV_NO_UPDATE_CHECK=1 (any value but empty or 0), or the file update-check-off in
+  %APPDATA%\Rakvor (RV Hub's setting), turns the check off for every Rakvor tool.
+
+EXAMPLES:
+  rv-hub update-check
+  rv-hub update-check --json
+
+EXIT CODES:
+  0  This is the latest release, or the check is turned off.
+  1  The check could not be made (offline, timeout, no published release): nothing changed.
+  3  A newer release is published: the output names it and its release page.
 ```
 
 ## rv-hub describe

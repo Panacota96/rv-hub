@@ -477,6 +477,8 @@ fn run_tools(found: &[ToolInfo], data: &Path, json: bool) -> (u8, String, String
         &hub::ToolsArgs {
             json,
             check_signatures: true,
+            // Never the network in tests: --check-updates is covered by releases.rs and the live check.
+            check_updates: false,
             lang: "en".into(),
         },
         found,

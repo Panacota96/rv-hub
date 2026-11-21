@@ -140,6 +140,8 @@ fn table(rows: &[Vec<String>]) -> Vec<String> {
 pub struct ToolsArgs {
     pub json: bool,
     pub check_signatures: bool,
+    /// `--check-updates`: the latest release of every tool (rv_hub_core::releases).
+    pub check_updates: bool,
     pub lang: String,
 }
 
@@ -216,6 +218,50 @@ pub fn tools_json(found: &[ToolInfo], session: Option<&Session>, exit_code: u8) 
     })
 }
 
+/// The text lines of `--check-updates`: one line per tool with a newer release, then the tools that could not be
+/// checked (or the off switch).
+fn update_lines(lang: &str, u: &Value) -> Vec<String> {
+    if u["disabled"].as_bool() == Some(true) {
+        return vec![t(lang, "updates_off")];
+    }
+    let mut out = Vec::new();
+    let mut failed: Vec<(String, String)> = Vec::new();
+    if let Some(tools) = u["tools"].as_object() {
+        for (tool, v) in tools {
+            let s = |k: &str| v[k].as_str().unwrap_or_default().to_string();
+            match v["status"].as_str() {
+                Some("available") => out.push(tr(
+                    lang,
+                    "update_available",
+                    &[
+                        ("tool", tool.clone()),
+                        ("latest", s("latest")),
+                        ("installed", s("installed")),
+                        ("url", s("url")),
+                    ],
+                )),
+                _ if v["reason"].is_string() => failed.push((tool.clone(), s("reason"))),
+                _ => {}
+            }
+        }
+    }
+    if out.is_empty() && failed.is_empty() {
+        out.push(t(lang, "updates_none"));
+    }
+    if let Some((first, reason)) = failed.first() {
+        out.push(tr(
+            lang,
+            "updates_failed",
+            &[
+                ("n", failed.len().to_string()),
+                ("tool", first.clone()),
+                ("reason", reason.clone()),
+            ],
+        ));
+    }
+    out
+}
+
 /// `rv-hub tools`: the inventory table (or JSON), warnings for unsigned executables, exit 3 for a bad signature.
 /// The call is recorded in the hub session log (`tools_listed`).
 pub fn tools_cmd(
@@ -240,16 +286,33 @@ pub fn tools_cmd(
             "describe_source": t.describe_source,
         })).collect::<Vec<_>>(),
         "exit_code": code,
+        "update_check": a.check_updates,
     });
     if let Err(e) = session.record("tools_listed", record) {
         w.eline(&format!("error: {e}"));
         return EXIT_ERROR;
     }
 
+    let updates = a.check_updates.then(|| {
+        let installed: BTreeMap<String, Option<String>> = found
+            .iter()
+            .map(|t| (t.tool.clone(), t.version.clone()))
+            .chain(std::iter::once((
+                TOOL_NAME.to_string(),
+                Some(TOOL_VERSION.to_string()),
+            )))
+            .collect();
+        rv_hub_core::releases::json(&installed, rv_hub_core::releases::latest_all().as_ref())
+    });
     if a.json {
-        let doc = tools_json(found, Some(session), code);
+        let mut doc = tools_json(found, Some(session), code);
+        if let Some(u) = &updates {
+            doc["updates"] = u.clone();
+        }
         w.line(&serde_json::to_string_pretty(&doc).unwrap_or_default());
-    } else {
+        return code;
+    }
+    {
         let mut rows = vec![
             [
                 "col_tool",
@@ -375,6 +438,12 @@ pub fn tools_cmd(
                 "describe_builtin",
                 &[("tool", tool.tool.clone()), ("problem", p.to_string())],
             ));
+        }
+    }
+    if let Some(u) = &updates {
+        w.line("");
+        for l in update_lines(lang, u) {
+            w.line(&l);
         }
     }
     code

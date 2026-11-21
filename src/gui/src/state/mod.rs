@@ -261,6 +261,17 @@ impl HubState {
         t
     }
 
+    /// RV Hub's release-check setting, for every Rakvor tool on this PC (the shared off switch file,
+    /// `update::off_file`). Audited; turning it on starts a check of every tool.
+    pub fn set_release_check(&mut self, on: bool) -> Result<(), String> {
+        rv_hub_core::update::set_off(!on)?;
+        self.audit("ui_release_check_changed", json!({"enabled": on}));
+        if on {
+            rv_hub_core::releases::start_all();
+        }
+        Ok(())
+    }
+
     pub fn set_ui_lang(&mut self, l: &str) {
         if self.ui_lang == l || !i18n::LANGS.contains(&l) {
             return;
