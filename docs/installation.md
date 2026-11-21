@@ -1,7 +1,7 @@
 # Installation and verification (Windows 10/11)
 
 RV Hub runs **locally** on the examiner's Windows 10 or 11 PC (x64). It needs no administrator rights and no
-runtime (static C runtime). Its only network access is the optional RFC 3161 timestamp of a verification run. This
+runtime (static C runtime). Its network access is the optional RFC 3161 timestamp of a verification run and the optional release check. This
 page covers: getting a release, **proving it is the genuine build**, the SmartScreen warning, checking signatures
 against the Rakvor root, installing (portable zip or per-user installer), the first-run self-test, where the hub keeps
 its session log and settings, the tools themselves, the planned Rakvor Suite installer, building from source and
@@ -37,6 +37,7 @@ flowchart TB
 | Disk | The two executables and the docs (a few MB). A verification run writes about 11 report files per item for one language. |
 | Graphics | None required: the GUI also runs on VMs without a GPU driver (software rendering). |
 | Network | None, except the optional timestamp request of `verify` (see [step 8](#8-offline-and-air-gapped-use)). |
+| Release check | Optional, notify only: the desktop app at start-up and `rv-hub update-check` read the public latest-release page on github.com ([Release check](#release-check)); `RV_NO_UPDATE_CHECK=1` turns it off. |
 | The Rakvor tools | Installed separately (their own installers or portable zips), or later by the Rakvor Suite installer ([step 10](#10-the-planned-rakvor-suite-installer)). The hub works without them; it then has nothing to launch and the cross-check is not available. |
 
 ## 1. Download
@@ -230,7 +231,7 @@ the hub shows this warning on a tool found under that key. rv-imgauth uses its o
 
 ## 8. Offline and air-gapped use
 
-The hub has no telemetry, update check or licence check, and does not download tools. Its only outbound access is the
+The hub has no telemetry or licence check, and does not download tools. Its only outbound access is the
 RFC 3161 request of `rv-hub verify` (one HTTP POST of a 32-byte hash, default `http://timestamp.digicert.com`).
 
 | To disable the timestamp | How |
@@ -337,3 +338,16 @@ provenance attestation binds the released binary to the commit, and the sample r
 | RV PDFAuth disappeared after installing RV ImgAuth | Shared AppId of rv-imgauth 0.2.0: reinstall RV PDFAuth ([step 7](#7-the-rakvor-tools)). |
 | The window says no session log could be created, and launches are refused | No session log could be created (data folder and temp folder not writable). Fix the permissions or set `RV_HUB_DATA_DIR`. |
 | `self-test` prints `FAIL` | Do not use this build; re-download and repeat steps 2–4. |
+
+## Release check
+
+Is a newer release published? The tool can tell you; it never updates itself.
+
+| | |
+| --- | --- |
+| When | The desktop app checks once at start-up, in the background (a banner with the release page appears only when a newer release exists). The CLI checks only with `rv-hub update-check` (`--json` for scripts; exit 0 = latest, 3 = newer release, 1 = could not check). No other command contacts the network for it. RV Hub checks every tool it lists. |
+| What is sent | One HTTPS GET of `https://github.com/Panacota96/rv-hub/releases/latest` (the redirect is read, not followed) with `User-Agent: rv-hub/<version>` and no other header, cookie or parameter: nothing about the case, the evidence, the examiner or the machine. |
+| What it does | It names the newer version and its release page. It never downloads or installs anything: download the release and verify it (`SHA256SUMS`, Authenticode chain to the Rakvor root) as in [Verify the download](#2-verify-the-download) before use. |
+| Audit | The check is not part of a run and is not written to any audit log; a failed or slow check (offline, 5 s timeout) never blocks the tool. |
+| Turn it off | `RV_NO_UPDATE_CHECK=1` (any value but empty or `0`), or the file `update-check-off` in `%APPDATA%\Rakvor` (RV Hub's setting writes it): off for every Rakvor tool on this PC. |
+| Code | [src/core/src/update.rs](../src/core/src/update.rs) (shared, byte-identical, by every Rakvor tool) |

@@ -69,7 +69,12 @@
     "launch_not_found": "error: %{tool} is not installed (no GUI executable found). Run `rv-hub tools`, or add its folder with --add-folder.",
     "launch_unknown_tool": "error: unknown tool '%{tool}': use one of %{known}",
     "launch_error": "error: %{reason}",
-    "not_a_dir": "error: %{path} is not a folder"
+    "not_a_dir": "error: %{path} is not a folder",
+    "update_available": "Update available: %{tool} %{latest} (installed %{installed}): %{url}",
+    "updates_none": "Release check: every installed tool is the latest release.",
+    "updates_failed": "Release check: %{n} tool(s) could not be checked (%{tool}: %{reason}).",
+    "updates_off": "Release check turned off (RV_NO_UPDATE_CHECK or the update-check-off file): nothing was contacted.",
+    "updates_unknown": "Release check: installed version unknown, not compared: %{tools}."
   },
   "labels": {
     "title_statistics": "Case verification report",
@@ -516,7 +521,13 @@
     "verdict_attention": "attention",
     "verdict_problem": "problem",
     "verdict_running": "checking…",
-    "open_run_folder": "Open run folder"
+    "open_run_folder": "Open run folder",
+    "update_available_card": "Update available: %{latest} (installed %{installed})",
+    "latest_release": "Latest release: %{latest}",
+    "release_page": "Release page",
+    "check_releases": "Check for new releases (every Rakvor tool)",
+    "check_releases_help": "One request per tool to its public release page on github.com; nothing is downloaded. Applies to every Rakvor tool on this PC.",
+    "checking_releases": "Checking for new releases…"
   },
   "suggest": {
     "title": "Suggested next steps",

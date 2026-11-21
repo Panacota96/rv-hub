@@ -459,6 +459,33 @@ EXIT CODES:
         #[arg(long, verbatim_doc_comment)]
         rehash: bool,
     },
+    /// Check whether a newer release of this tool is published (notify only: nothing is downloaded).
+    #[command(after_long_help = "\
+SENDS:
+  One HTTPS GET of https://github.com/Panacota96/rv-hub/releases/latest (the redirect to the
+  latest release is read, not followed), with the header User-Agent: rv-hub/<version>, and
+  nothing else: no case, evidence, examiner or machine data. Nothing is downloaded or installed.
+  No other command contacts the network for this; the desktop app checks once at start-up.
+
+OFF SWITCH:
+  RV_NO_UPDATE_CHECK=1 (any value but empty or 0), or the file update-check-off in
+  %APPDATA%\\Rakvor (RV Hub's setting), turns the check off for every Rakvor tool.
+
+EXAMPLES:
+  rv-hub update-check
+  rv-hub update-check --json
+
+EXIT CODES:
+  0  This is the latest release, or the check is turned off.
+  1  The check could not be made (offline, timeout, no published release): nothing changed.
+  3  A newer release is published: the output names it and its release page.")]
+    UpdateCheck {
+        /// Print one JSON object (schema rakvor.update-check/1) instead of one line.
+        /// Default: off
+        /// Example: --json
+        #[arg(long, verbatim_doc_comment)]
+        json: bool,
+    },
     /// Print the full help of every command as Markdown (used to generate docs/usage-cli.md).
     #[command(hide = true)]
     DocsCli,
@@ -505,6 +532,15 @@ struct ToolsCli {
     /// Default: off (one status per tool in the table). Example: --check-signatures
     #[arg(long, verbatim_doc_comment)]
     check_signatures: bool,
+
+    /// Also check github.com for the latest release of every Rakvor tool and of the hub (one
+    /// HTTPS GET of each public latest-release page, User-Agent rv-hub/<version>, nothing else;
+    /// notify only: nothing is downloaded). Off with RV_NO_UPDATE_CHECK=1. The exit code does
+    /// not change.
+    ///
+    /// Default: off (no network). Example: --check-updates
+    #[arg(long, verbatim_doc_comment)]
+    check_updates: bool,
 
     /// Name written in the hub's session log.
     ///
@@ -781,6 +817,7 @@ fn main() -> ExitCode {
             tsa_url,
             actor,
         } => timestamp(log, tsa_url, actor),
+        Command::UpdateCheck { json } => update_check(json),
         Command::DocsCli => {
             print!("{}", docs_cli());
             EXIT_OK
@@ -836,6 +873,7 @@ fn tools_main(a: ToolsCli) -> u8 {
     let args = hub::ToolsArgs {
         json: a.json,
         check_signatures: a.check_signatures,
+        check_updates: a.check_updates,
         lang: a.common.lang,
     };
     with_out(|w| hub::tools_cmd(&args, &found, &a.common.add_folders, &mut s, w))
@@ -1309,4 +1347,24 @@ fn docs_cli() -> String {
         ));
     }
     out
+}
+
+/// `update-check`: the shared release check (rv_hub_core::update), one line or JSON; exit 0 / 1 / 3.
+fn update_check(json: bool) -> u8 {
+    use rv_hub_core::update;
+    let c = update::check();
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&update::report(rv_hub_core::TOOL_NAME, &c))
+                .expect("the update check is valid JSON")
+        );
+    } else {
+        println!("{}", c.line(rv_hub_core::TOOL_NAME));
+    }
+    match c {
+        update::Check::Available { .. } => 3,
+        update::Check::Failed { .. } => 1,
+        update::Check::UpToDate { .. } | update::Check::Disabled { .. } => 0,
+    }
 }

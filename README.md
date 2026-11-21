@@ -100,6 +100,12 @@ intake or analysis tools exist and no completed rv-timeline run started after th
 (`timeline_not_built`, or `timeline_outdated` with the runs the timeline does not cover). RV Hub's own
 verification runs do not count, and a case with runs of fewer than two such tools gets no timeline suggestion.
 
+**New releases.** At start-up (and on **Refresh**) the hub checks the public release page of every Rakvor tool on
+github.com and shows on each card whether a newer release is published, with its release page;
+`rv-hub tools --check-updates` does the same from the command line (JSON `updates`). Notify only: nothing is
+downloaded, and the exit code does not change. The **Check for new releases** setting (or `RV_NO_UPDATE_CHECK=1`)
+turns the check off for every Rakvor tool on the PC ([installation.md](docs/installation.md#release-check)).
+
 rv-triage (role `collection`) is listed with the label "collection — runs on the suspect machine". It is never
 suggested and its runs never count for the timeline. Launched from the hub, it opens with no arguments, never with
 `--case-dir`, and the session log's `tool_launched` entry records the case folder that was not passed

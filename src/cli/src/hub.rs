@@ -140,6 +140,8 @@ fn table(rows: &[Vec<String>]) -> Vec<String> {
 pub struct ToolsArgs {
     pub json: bool,
     pub check_signatures: bool,
+    /// `--check-updates`: the latest release of every tool (rv_hub_core::releases).
+    pub check_updates: bool,
     pub lang: String,
 }
 
@@ -216,6 +218,59 @@ pub fn tools_json(found: &[ToolInfo], session: Option<&Session>, exit_code: u8) 
     })
 }
 
+/// The text lines of `--check-updates`: one line per tool with a newer release, then the tools that could not be
+/// checked (or the off switch).
+fn update_lines(lang: &str, u: &Value) -> Vec<String> {
+    if u["disabled"].as_bool() == Some(true) {
+        return vec![t(lang, "updates_off")];
+    }
+    let mut out = Vec::new();
+    let mut failed: Vec<(String, String)> = Vec::new();
+    let mut unknown: Vec<String> = Vec::new();
+    if let Some(tools) = u["tools"].as_object() {
+        for (tool, v) in tools {
+            let s = |k: &str| v[k].as_str().unwrap_or_default().to_string();
+            match v["status"].as_str() {
+                Some("available") => out.push(tr(
+                    lang,
+                    "update_available",
+                    &[
+                        ("tool", tool.clone()),
+                        ("latest", s("latest")),
+                        ("installed", s("installed")),
+                        ("url", s("url")),
+                    ],
+                )),
+                Some("unknown_version") => unknown.push(tool.clone()),
+                _ if v["reason"].is_string() => failed.push((tool.clone(), s("reason"))),
+                _ => {}
+            }
+        }
+    }
+    if out.is_empty() && failed.is_empty() && unknown.is_empty() {
+        out.push(t(lang, "updates_none"));
+    }
+    if !unknown.is_empty() {
+        out.push(tr(
+            lang,
+            "updates_unknown",
+            &[("tools", unknown.join(", "))],
+        ));
+    }
+    if let Some((first, reason)) = failed.first() {
+        out.push(tr(
+            lang,
+            "updates_failed",
+            &[
+                ("n", failed.len().to_string()),
+                ("tool", first.clone()),
+                ("reason", reason.clone()),
+            ],
+        ));
+    }
+    out
+}
+
 /// `rv-hub tools`: the inventory table (or JSON), warnings for unsigned executables, exit 3 for a bad signature.
 /// The call is recorded in the hub session log (`tools_listed`).
 pub fn tools_cmd(
@@ -240,16 +295,33 @@ pub fn tools_cmd(
             "describe_source": t.describe_source,
         })).collect::<Vec<_>>(),
         "exit_code": code,
+        "update_check": a.check_updates,
     });
     if let Err(e) = session.record("tools_listed", record) {
         w.eline(&format!("error: {e}"));
         return EXIT_ERROR;
     }
 
+    let updates = a.check_updates.then(|| {
+        let installed: BTreeMap<String, Option<String>> = found
+            .iter()
+            .map(|t| (t.tool.clone(), t.version.clone()))
+            .chain(std::iter::once((
+                TOOL_NAME.to_string(),
+                Some(TOOL_VERSION.to_string()),
+            )))
+            .collect();
+        rv_hub_core::releases::json(&installed, rv_hub_core::releases::latest_all().as_ref())
+    });
     if a.json {
-        let doc = tools_json(found, Some(session), code);
+        let mut doc = tools_json(found, Some(session), code);
+        if let Some(u) = &updates {
+            doc["updates"] = u.clone();
+        }
         w.line(&serde_json::to_string_pretty(&doc).unwrap_or_default());
-    } else {
+        return code;
+    }
+    {
         let mut rows = vec![
             [
                 "col_tool",
@@ -375,6 +447,12 @@ pub fn tools_cmd(
                 "describe_builtin",
                 &[("tool", tool.tool.clone()), ("problem", p.to_string())],
             ));
+        }
+    }
+    if let Some(u) = &updates {
+        w.line("");
+        for l in update_lines(lang, u) {
+            w.line(&l);
         }
     }
     code
@@ -792,4 +870,41 @@ pub fn tree_sha256(dir: &Path) -> BTreeMap<String, String> {
     let mut out = BTreeMap::new();
     walk(dir, dir, &mut out);
     out
+}
+
+#[cfg(test)]
+mod update_lines_tests {
+    use super::update_lines;
+    use serde_json::json;
+
+    /// A tool whose installed version is unknown is reported, never counted as up to date (rv-hub#53 review).
+    #[test]
+    fn unknown_versions_are_not_up_to_date() {
+        let u = json!({"checked": true, "disabled": false, "tools": {
+            "rv-hashinv": {"status": "unknown_version", "installed": null, "latest": "0.5.1"},
+            "rv-hub": {"status": "up_to_date", "installed": "0.6.3", "latest": "0.6.3"},
+        }});
+        let l = update_lines("en", &u);
+        assert!(
+            l.iter().all(|x| !x.contains("every installed tool")),
+            "{l:?}"
+        );
+        assert!(
+            l.iter()
+                .any(|x| x.contains("unknown") && x.contains("rv-hashinv")),
+            "{l:?}"
+        );
+        let ok = json!({"checked": true, "disabled": false, "tools": {
+            "rv-hub": {"status": "up_to_date", "installed": "0.6.3", "latest": "0.6.3"},
+            "rv-pdfauth": {"status": "not_installed", "installed": null, "latest": "0.4.3"},
+        }});
+        assert_eq!(update_lines("en", &ok).len(), 1);
+        assert!(update_lines("en", &ok)[0].contains("every installed tool"));
+        let av = json!({"checked": true, "disabled": false, "tools": {
+            "rv-timeline": {"status": "available", "installed": "0.2.3", "latest": "0.3.0",
+                            "url": "https://github.com/Panacota96/rv-timeline/releases/tag/v0.3.0"},
+        }});
+        assert!(update_lines("fr", &av)[0].contains("0.3.0"));
+        assert!(update_lines("en", &json!({"disabled": true}))[0].contains("turned off"));
+    }
 }
