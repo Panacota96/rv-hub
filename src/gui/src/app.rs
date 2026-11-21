@@ -65,6 +65,10 @@ pub struct HubApp {
     case_evidence_entry: String,
     verify_evidence_entry: String,
     tsa_ca_entry: String,
+    /// The latest release of every tool, once the start-up (or Refresh) check finished (rv_hub_core::releases).
+    latest: Option<rv_hub_core::releases::Latest>,
+    /// The release-check setting could not be saved.
+    release_error: Option<String>,
 }
 
 /// Applies the Rakvor dark theme.
@@ -129,6 +133,8 @@ impl HubApp {
             case_evidence_entry,
             verify_evidence_entry,
             tsa_ca_entry,
+            latest: None,
+            release_error: None,
         };
         if !app.state.discovered {
             app.state.discovering = true;
@@ -304,6 +310,34 @@ impl HubApp {
     // ---- common chrome ------------------------------------------------------------------------------------
 
     fn header(&mut self, ui: &mut egui::Ui) {
+        self.brand_header(ui);
+        Self::update_banner(ui, &self.state.ui_lang);
+    }
+
+    /// The start-up release check (rv_hub_core::update): a line with the release page when a newer release is
+    /// published; nothing while it runs, when it is turned off or when it could not be made.
+    fn update_banner(ui: &mut egui::Ui, lang: &str) {
+        use rv_hub_core::update;
+        match update::gui_check() {
+            Some(None) => ui
+                .ctx()
+                .request_repaint_after(std::time::Duration::from_millis(500)),
+            Some(Some(c)) => {
+                if let (Some(text), update::Check::Available { url, .. }) =
+                    (update::banner(&c, "RV Hub", lang), &c)
+                {
+                    ui.add_space(4.0);
+                    ui.horizontal_wrapped(|ui| {
+                        ui.colored_label(egui::Color32::from_rgb(0xF5, 0xB0, 0x41), text);
+                        ui.hyperlink_to(url.as_str(), url.as_str());
+                    });
+                }
+            }
+            None => {}
+        }
+    }
+
+    fn brand_header(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
             let (rect, _) = ui.allocate_exact_size(egui::vec2(38.0, 38.0), egui::Sense::hover());
             ui.painter().rect(
@@ -439,8 +473,24 @@ impl HubApp {
                 ui.add_enabled_ui(!self.state.discovering, |ui| {
                     if ui.button(self.state.tr("refresh")).clicked() {
                         self.state.request_refresh_tools();
+                        rv_hub_core::releases::start_all();
                     }
                 });
+                let mut on = !rv_hub_core::update::disabled();
+                if ui
+                    .checkbox(&mut on, self.state.tr("check_releases"))
+                    .on_hover_text(self.state.tr("check_releases_help"))
+                    .changed()
+                    && let Err(e) = self.state.set_release_check(on)
+                {
+                    self.release_error = Some(e);
+                }
+                if matches!(rv_hub_core::releases::all_result(), Some(None)) {
+                    ui.spinner();
+                    ui.weak(self.state.tr("checking_releases"));
+                    ui.ctx()
+                        .request_repaint_after(std::time::Duration::from_millis(500));
+                }
                 if self.state.discovering {
                     ui.spinner();
                     ui.weak(self.state.tr("discovering"));
@@ -448,6 +498,9 @@ impl HubApp {
             });
         });
         ui.weak(self.state.tr("tools_help"));
+        if let Some(e) = &self.release_error {
+            ui.colored_label(AMBER, e);
+        }
         match &self.state.case {
             Some(c) => ui.label(format!(
                 "{}: {}",
@@ -458,6 +511,10 @@ impl HubApp {
         };
         ui.add_space(6.0);
         let cards = self.state.cards.clone();
+        self.latest = match rv_hub_core::releases::all_result() {
+            Some(Some(Some(l))) => Some(l),
+            _ => None,
+        };
         let per_row = if ui.available_width() > 900.0 { 2 } else { 1 };
         for row in cards.chunks(per_row) {
             ui.columns(per_row, |cols| {
@@ -468,6 +525,40 @@ impl HubApp {
             ui.add_space(8.0);
         }
         self.folders_section(ui);
+    }
+
+    /// The card's release line: a newer release (with its page) for an installed tool, the latest release for a
+    /// tool not installed; nothing before the check finished, when it is off or when it failed.
+    fn release_line(&self, ui: &mut egui::Ui, c: &ToolCard) {
+        let Some(latest) = &self.latest else {
+            return;
+        };
+        let Some(Ok(l)) = latest.get(&c.tool) else {
+            return;
+        };
+        let page = if c.installed {
+            match rv_hub_core::releases::status(&c.tool, c.version.as_deref(), latest) {
+                Some(rv_hub_core::update::Check::Available {
+                    latest,
+                    current,
+                    url,
+                }) => {
+                    ui.colored_label(
+                        AMBER,
+                        self.state.trf(
+                            "update_available_card",
+                            &[("latest", latest.as_str()), ("installed", current.as_str())],
+                        ),
+                    );
+                    url
+                }
+                _ => return,
+            }
+        } else {
+            ui.weak(self.state.trf("latest_release", &[("latest", l.as_str())]));
+            rv_hub_core::update::release_page(&c.tool, l)
+        };
+        ui.hyperlink_to(self.state.tr("release_page"), page);
     }
 
     fn tool_card(&mut self, ui: &mut egui::Ui, c: &ToolCard) {
@@ -526,11 +617,13 @@ impl HubApp {
                     if c.builtin_describe {
                         ui.weak(tr("builtin_describe"));
                     }
+                    self.release_line(ui, c);
                     for w in &c.warnings {
                         ui.colored_label(AMBER, w);
                     }
                 } else {
                     ui.label(tr("not_installed"));
+                    self.release_line(ui, c);
                     ui.add_space(14.0);
                 }
                 ui.add_space(4.0);

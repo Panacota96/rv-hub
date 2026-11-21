@@ -4,6 +4,9 @@
 use eframe::egui;
 
 fn main() -> eframe::Result {
+    // The start-up release check (notify only; RV_NO_UPDATE_CHECK=1 turns it off).
+    rv_hub_core::update::start_gui_check();
+    rv_hub_core::releases::start_all();
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             // Title-bar and taskbar icon (the .exe file icon comes from build.rs).

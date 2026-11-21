@@ -69,7 +69,12 @@
     "launch_not_found": "erreur : %{tool} n'est pas installé (aucun exécutable graphique trouvé). Lancez `rv-hub tools` ou ajoutez son dossier avec --add-folder.",
     "launch_unknown_tool": "erreur : outil inconnu « %{tool} » : utilisez l'un de %{known}",
     "launch_error": "erreur : %{reason}",
-    "not_a_dir": "erreur : %{path} n'est pas un dossier"
+    "not_a_dir": "erreur : %{path} n'est pas un dossier",
+    "update_available": "Mise à jour disponible : %{tool} %{latest} (installée %{installed}) : %{url}",
+    "updates_none": "Vérification des versions : chaque outil installé est la dernière version.",
+    "updates_failed": "Vérification des versions : %{n} outil(s) non vérifié(s) (%{tool} : %{reason}).",
+    "updates_off": "Vérification des versions désactivée (RV_NO_UPDATE_CHECK ou le fichier update-check-off) : rien n'a été contacté.",
+    "updates_unknown": "Vérification des versions : version installée inconnue, non comparée : %{tools}."
   },
   "labels": {
     "title_statistics": "Rapport de vérification de l'affaire",
@@ -516,7 +521,13 @@
     "verdict_attention": "attention",
     "verdict_problem": "problème",
     "verdict_running": "vérification…",
-    "open_run_folder": "Ouvrir le dossier de l'exécution"
+    "open_run_folder": "Ouvrir le dossier de l'exécution",
+    "update_available_card": "Mise à jour disponible : %{latest} (installée %{installed})",
+    "latest_release": "Dernière version : %{latest}",
+    "release_page": "Page de la version",
+    "check_releases": "Rechercher les nouvelles versions (tous les outils Rakvor)",
+    "check_releases_help": "Une requête par outil vers sa page publique de versions sur github.com ; rien n'est téléchargé. S'applique à tous les outils Rakvor de ce PC.",
+    "checking_releases": "Recherche de nouvelles versions…"
   },
   "suggest": {
     "title": "Prochaines étapes suggérées",

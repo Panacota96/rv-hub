@@ -368,3 +368,11 @@ From Rakvor's research note of 2026-10-21 (pass 2), which lists the full URLs:
 - US/UK: FRE 702, 901, 902 (Cornell LII); SWGDE 18-Q-001-2.1 v2.1, 12-f-002 v1.0, Error Mitigation Analysis v2.0;
   NIST CFTT programme page; UK FSR Code of Practice v2.
 - RV Hub: the source code at this commit, the GitHub issues rv-hub#2 and rv-hub#21.
+
+### Release check (network)
+
+The optional release check ([installation.md](installation.md#release-check)) is the only network access besides the
+trusted timestamp. It sends one HTTPS GET of the public release page with `User-Agent: rv-hub/<version>`: no case
+data, no evidence, no hash and no personal data. Where this page says that only a hash leaves the machine, that
+statement is about case data and still holds. In an air-gapped lab the check fails silently, and `RV_NO_UPDATE_CHECK=1`
+turns it off (to be verified with the data-protection officer for each deployment).

@@ -30,6 +30,7 @@ pub mod i18n;
 pub mod launch;
 pub mod outputs;
 pub mod proc;
+pub mod releases;
 pub mod report;
 pub mod review;
 pub mod run;
@@ -39,6 +40,7 @@ pub mod suggest;
 pub mod time;
 pub mod tools;
 pub mod trust;
+pub mod update;
 pub mod verify;
 
 pub use case::CaseRole;
