@@ -223,7 +223,11 @@ pub fn check_run(
         return;
     }
 
-    let entries = read_entries(&audit_path);
+    // One streaming pass: entry heads plus the few entries read below, never every parsed entry (QA F2).
+    let crate::outputs::AuditScan { heads, kept, .. } = crate::outputs::scan_audit(
+        &audit_path,
+        &["case_linked", "timestamp_obtained", "timestamp_pending"],
+    );
     match audit::verify(&audit_path) {
         Ok(n) => item.fact("fact_entries", n.to_string()),
         Err(p) => {
@@ -233,7 +237,7 @@ pub fn check_run(
         }
     }
     if let Some(started) = &run.started {
-        match entries.iter().find(|e| e["action"] == "case_linked") {
+        match kept.iter().find(|e| e["action"] == "case_linked") {
             Some(l) => {
                 if l["details"]["case_id"].as_str() != Some(case_id) {
                     item.findings
@@ -254,23 +258,17 @@ pub fn check_run(
         if let Some(fin) = &run.finished
             && recorded_entries > 0
         {
-            let at = entries
-                .iter()
-                .find(|e| e["seq"].as_u64() == Some(recorded_entries));
-            if at.and_then(|e| e["entry_hash"].as_str()) != fin["details"]["audit_head"].as_str() {
+            let at = heads.iter().find(|e| e.seq == recorded_entries);
+            if at.map(|e| e.entry_hash.as_str()) != fin["details"]["audit_head"].as_str() {
                 item.findings.push(broken(format!(
                         "the audit head recorded in the case log is not entry #{recorded_entries} of the run's audit.jsonl"
                     )));
             }
-            for later in entries
-                .iter()
-                .filter(|e| e["seq"].as_u64().unwrap_or(0) > recorded_entries)
-            {
-                if later["action"] != "timestamp_obtained" {
+            for later in heads.iter().filter(|e| e.seq > recorded_entries) {
+                if later.action != "timestamp_obtained" {
                     item.findings.push(broken(format!(
                         "audit entry #{} ({}) was appended after run_finished",
-                        later["seq"],
-                        later["action"].as_str().unwrap_or("?")
+                        later.seq, later.action
                     )));
                 }
             }
@@ -284,7 +282,7 @@ pub fn check_run(
         item.fact("fact_timestamp_token", t);
     }
     let mut ts = "off";
-    for e in &entries {
+    for e in &kept {
         match e["action"].as_str() {
             Some("timestamp_obtained") => ts = "obtained",
             Some("timestamp_pending") if ts != "obtained" => ts = "pending",
