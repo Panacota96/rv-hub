@@ -90,7 +90,7 @@ variables or prompts and never logged; no GPL/AGPL/LGPL components; tools report
   synthetic compound files only. Confirm the classes on real Purview Teams exports and real Outlook emails.
 - Suite installer (rv-hub#2): needs the `RAKVOR_SUITE_TOKEN` secret (a token that can read the other tools' releases).
 - The GUI has the TSA CA bundle and evidence-folder fields since 0.3.0; tool overrides (`--tool-exe`) and evidence ids (`--evidence`) remain CLI-only.
-- The licence (`LICENSE`) and the admissibility analysis (`docs/admissibility.md`) are drafts pending a lawyer's review (Colombia and France).
+- Licence: PolyForm Noncommercial 1.0.0 (`LICENSE`, owner decision 2026-11-24; commercial use needs a licence from Rakvor, `COMMERCIAL.md`). Rakvor's licensing texts (`COMMERCIAL.md`, `NOTICE`) and the admissibility analysis (`docs/admissibility.md`) are drafts pending a lawyer's review (Colombia and France).
 - Revocation of the TSA certificate is never checked by the tools (gap G18): it is established separately from CRL/OCSP evidence covering genTime ([ADR 0002](adr/0002-tsa-token-verification.md)).
 - Recorded outputs (gap G19): `rv-hub verify` re-hashes every run's recorded outputs with `outputs.rs`
   (`RUN_OUTPUT_CHANGED`, high, one per file; tally `runs_outputs_changed`). Tool releases made before their

@@ -47,7 +47,7 @@ From the GitHub Releases page of `Panacota96/rv-hub`:
 | Asset | What it is |
 | --- | --- |
 | `rv-hub-X.Y.Z-windows-x64-setup.exe` | Inno Setup installer, per-user |
-| `rv-hub-X.Y.Z-windows-x64.zip` | Portable: `rv-hub.exe`, `rv-hub-gui.exe`, README, LICENSE, NOTICE, CHANGELOG, `docs/`, `examples/` |
+| `rv-hub-X.Y.Z-windows-x64.zip` | Portable: `rv-hub.exe`, `rv-hub-gui.exe`, README, LICENSE, COMMERCIAL.md, NOTICE, CHANGELOG, `docs/`, `examples/` |
 | `SHA256SUMS` | SHA-256 of the zip, the installer and the SBOM (`sha256sum` format) |
 | `sbom.cdx.json` | CycloneDX software bill of materials |
 
@@ -173,7 +173,7 @@ Unattended:
 .\rv-hub-0.1.0-windows-x64-setup.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /TASKS="addtopath"
 ```
 
-The installer copies the executables, README, LICENSE, NOTICE, CHANGELOG, `docs\` and the sample evidence; the
+The installer copies the executables, README, LICENSE, COMMERCIAL.md, NOTICE, CHANGELOG, `docs\` and the sample evidence; the
 sample case folder and scripts are in the zip and the source tree.
 
 ### 5c. SmartScreen

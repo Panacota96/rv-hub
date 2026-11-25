@@ -22,9 +22,11 @@
 
 ## 1. Purpose and how to read this page
 
-RV Hub is used **locally** by Rakvor; it is not distributed. Clients, courts and opposing experts may audit it and
-rebuild it from source under the Rakvor Source-Auditable Licence ([LICENSE](../LICENSE), draft pending legal
-review).
+RV Hub is source-available under the PolyForm Noncommercial License 1.0.0 ([LICENSE](../LICENSE)): anyone,
+including a court, an opposing party or its expert, may inspect, build and run the exact version named in a
+report for non-commercial purposes. Commercial use needs a licence from Rakvor ([COMMERCIAL.md](../COMMERCIAL.md)).
+Rakvor's licensing texts are drafts pending legal review; whether a given use (for example a paid expert's
+review) counts as non-commercial is to be verified by counsel.
 
 RV Hub produces no analysis of evidence. Its contribution to a case is **procedural**: it identifies which tool
 builds were used (version, executable SHA-256, Authenticode signature pinned to the Rakvor root), it records which
@@ -76,7 +78,7 @@ annex of Implementing Regulation (EU) 2025/1929.
 | H11 | Every finding states what it shows and what it does not prove; four limitations are printed in every report | `i18n/*.json` |
 | H12 | Independent verifier in standard-library Python (chain, hash register and recorded outputs); a real sample case made by the tools, with eight variants (one clean; an edited report among the tampered ones) and their expected findings | `tests/verify_chain.py`, `tests/samples/`, `examples/sample/` |
 | H13 | RFC 3161 timestamp of the verification's own audit head (non-qualified TSA by default) and optional PDF signature with the examiner's certificate | `trust.rs` |
-| H14 | Source auditable by customers and opposing experts; release with SHA256SUMS, SBOM and build-provenance attestation | `LICENSE`, `release.yml` |
+| H14 | Source available to anyone for non-commercial review (PolyForm Noncommercial 1.0.0); release with SHA256SUMS, SBOM and build-provenance attestation | `LICENSE`, `COMMERCIAL.md` (draft, to be verified by counsel), `release.yml` |
 
 ## 2. Where the hub sits in the evidence lifecycle
 
@@ -130,7 +132,7 @@ meet at least one reliability criterion (art. 422).
 | CO-P14 | The perito is examined on instruments, methods and "corroboración … por otros expertos" | Art. 417 [V] | H8 (second implementation), H12 (independent verifier), H14; no validation dossier (HG5) | partial |
 | CO-P15 | The court weighs acceptance of the principles and the instruments used | Art. 420 [V] | Hash chains and SHA-256 comparisons are widely used; H12 lets another expert re-run them | partial (HG5) |
 | CO-P16 | A novel technique meets at least one criterion: verifiable; published; measured reliability; academic acceptance | Art. 422 [V] | Criterion 1 (verifiable): H12. Measured reliability: not done (HG5) | partial (criterion 1 met) |
-| CO-P17 | Peritos have access to the material referred to in reports | Art. 416 [V] | H14 (auditable source, exact release); the verification report names every file it read (`hashes.csv`) | met |
+| CO-P17 | Peritos have access to the material referred to in reports | Art. 416 [V] | H14 (source available for review, exact release); the verification report names every file it read (`hashes.csv`) | met |
 
 ### 4.2 Ley 1564 de 2012 (Código General del Proceso)
 
