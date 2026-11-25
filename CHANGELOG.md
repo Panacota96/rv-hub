@@ -26,6 +26,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
   covered). Never for an evidence file, never for a case with fewer than two tools' runs. `schemas/hub-case.schema.json`
   lists every reason key (`mail_not_analysed`, `msg_ambiguous` were missing).
 
+## [0.7.2](https://github.com/Panacota96/rv-hub/compare/v0.7.1...v0.7.2) (2026-11-25)
+
+
+### Bug Fixes
+
+* **trust:** accept leap seconds only at 23:59:60; test imprint and nonce bounds ([#61](https://github.com/Panacota96/rv-hub/issues/61)) ([3c42e77](https://github.com/Panacota96/rv-hub/commit/3c42e7725a1efa507fe38431d147cb785aac8c7f))
+* **trust:** reject malformed timestamp times instead of panicking; require the nonce ([#59](https://github.com/Panacota96/rv-hub/issues/59)) ([a5281b3](https://github.com/Panacota96/rv-hub/commit/a5281b30066f395a42b03ee900db9f735ba07986))
+
 ## [0.7.1](https://github.com/Panacota96/rv-hub/compare/v0.7.0...v0.7.1) (2026-11-24)
 
 
